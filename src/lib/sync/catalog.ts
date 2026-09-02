@@ -79,7 +79,7 @@ export const syncOperations: SyncOperationDefinition[] = [
   },
   {
     key: "history-backfill",
-    label: "2024~2026 이력 재적재",
+    label: "통합 시즌 데이터",
     description: "준비되지 않은 과거 시즌을 순서대로 적재하고 득점 이벤트를 보강합니다.",
     functionName: "sync-football-data",
     target: "none",

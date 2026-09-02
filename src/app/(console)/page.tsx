@@ -243,7 +243,7 @@ export default async function AdminDashboardPage({
               <div className={canReadInquiries && canReadReports ? "grid gap-px md:grid-cols-2" : "grid gap-px"}>
                 {canReadInquiries ? (
                   <DashboardAttentionLink
-                    href="/inquiries?status=open"
+                    href="/inquiries?tab=inquiries&status=new"
                     title="1:1 문의"
                     item={attention.inquiries}
                     icon={Headphones}
@@ -251,7 +251,7 @@ export default async function AdminDashboardPage({
                 ) : null}
                 {canReadReports ? (
                   <DashboardAttentionLink
-                    href="/moderation?status=open"
+                    href="/inquiries?tab=reports&status=new"
                     title="신고 내역"
                     item={attention.reports}
                     icon={ShieldAlert}

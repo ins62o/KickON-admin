@@ -14,6 +14,7 @@ export type DataStateProps = {
   kind: DataStateKind;
   title?: ReactNode;
   description?: ReactNode;
+  hideDescription?: boolean;
   action?: ReactNode;
   actionLabel?: string;
   icon?: LucideIcon;
@@ -58,6 +59,7 @@ export function DataState({
   kind,
   title,
   description,
+  hideDescription = false,
   action,
   actionLabel = "데이터 상태 작업",
   icon,
@@ -92,9 +94,11 @@ export function DataState({
         <Icon className={cn("size-4", isLoading && "motion-safe:animate-spin")} />
       </span>
       <p className="mt-3 text-sm font-semibold text-foreground">{title ?? config.title}</p>
-      <p className="mt-1 max-w-lg text-xs leading-5 text-muted-foreground">
-        {description ?? config.description}
-      </p>
+      {!hideDescription ? (
+        <p className="mt-1 max-w-lg text-xs leading-5 text-muted-foreground">
+          {description ?? config.description}
+        </p>
+      ) : null}
       {action ? (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2" role="group" aria-label={actionLabel}>
           {action}

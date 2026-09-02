@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, ClipboardClock, FileCheck2, FileQuestion, History, UserRound } from "lucide-react";
+import { DataManagementHeader } from "@/components/admin/data-management-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,10 +18,10 @@ import { formatKoreaDateTime, formatNumber, formatRelativeTime } from "@/lib/for
 import { cn } from "@/lib/utils";
 import { requireAdminPermission } from "@/lib/auth/server";
 
-export const metadata: Metadata = { title: "관리자 감사 로그" };
+export const metadata: Metadata = { title: "데이터 관리 · 관리자 로그" };
 
 export default async function AuditPage() {
-  await requireAdminPermission("audit.read");
+  const admin = await requireAdminPermission("audit.read");
   const data = await getAuditLogList();
   const manualChanges = data.logs.filter((log) => log.entityType === "manual_overrides").length;
   const missingReasons = data.logs.filter((log) => !log.reason?.trim()).length;
@@ -29,9 +30,11 @@ export default async function AuditPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <DataManagementHeader role={admin.role} activeSection="audit" />
+
+      <header className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">관리자 감사 로그</h1>
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">관리자 로그</h2>
           <p className="mt-1.5 text-sm text-muted-foreground">누가 어떤 데이터를 왜 바꿨는지 확인하고 직접 수정한 값을 추적합니다.</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const theme = (await cookies()).get("kickon-theme")?.value === "light" ? "light" : "dark";
   return (
-    <html lang="ko" className={`${tmoneyRoundWind.variable} ${geistMono.variable} ${theme === "dark" ? "dark" : ""}`} suppressHydrationWarning>
+    <html lang="ko" className={`${tmoneyRoundWind.variable} ${tmoneyRoundWind.className} ${geistMono.variable} ${theme === "dark" ? "dark" : ""}`} suppressHydrationWarning>
       <body><TooltipProvider delayDuration={250}>{children}</TooltipProvider></body>
     </html>
   );

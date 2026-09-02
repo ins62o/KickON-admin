@@ -1,9 +1,9 @@
 export function inquiryStatusLabel(status: string) {
-  return ({ RECEIVED: "접수", IN_PROGRESS: "처리 중", ANSWERED: "답변 완료", CLOSED: "종료" } as Record<string, string>)[status] ?? status;
+  return ({ RECEIVED: "새 문의", IN_PROGRESS: "새 문의", ANSWERED: "답변 완료", CLOSED: "답변 완료" } as Record<string, string>)[status] ?? status;
 }
 
 export function reportStatusLabel(status: string) {
-  return ({ OPEN: "접수", REVIEWED: "검토 중", RESOLVED: "조치 완료", DISMISSED: "기각" } as Record<string, string>)[status] ?? status;
+  return ({ OPEN: "새 문의", REVIEWED: "새 문의", RESOLVED: "답변 완료", DISMISSED: "답변 완료" } as Record<string, string>)[status] ?? status;
 }
 
 export function reportTargetLabel(target: string) {
@@ -15,7 +15,7 @@ export function accountStatusLabel(status: string | null) {
 }
 
 export function statusTone(status: string | null): "neutral" | "info" | "success" | "warning" | "danger" {
-  if (["ACTIVE", "ANSWERED", "RESOLVED", "VISIBLE", "succeeded"].includes(status ?? "")) return "success";
+  if (["ACTIVE", "ANSWERED", "CLOSED", "RESOLVED", "DISMISSED", "VISIBLE", "succeeded"].includes(status ?? "")) return "success";
   if (["IN_PROGRESS", "REVIEWED", "running", "partial"].includes(status ?? "")) return "warning";
   if (["SUSPENDED", "HIDDEN", "failed"].includes(status ?? "")) return "danger";
   if (["RECEIVED", "OPEN"].includes(status ?? "")) return "info";

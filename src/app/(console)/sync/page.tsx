@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AlertTriangle, CheckCircle2, CircleDotDashed, RefreshCcw } from "lucide-react";
+import { DataManagementHeader } from "@/components/admin/data-management-header";
 import { SyncTable } from "@/components/dashboard/sync-table";
 import { SyncControl } from "@/components/sync/sync-control";
 import { requireAdminPermission } from "@/lib/auth/server";
@@ -13,7 +14,7 @@ import { getSyncOperation, syncCoverage } from "@/lib/sync/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export const metadata: Metadata = { title: "데이터 동기화" };
+export const metadata: Metadata = { title: "데이터 관리 · 데이터 동기화" };
 
 function positiveNumber(value: string | undefined) {
   const parsed = Number(value);
@@ -47,9 +48,11 @@ export default async function SyncPage({ searchParams }: { searchParams: Promise
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <DataManagementHeader role={admin.role} activeSection="sync" />
+
+      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">데이터 동기화</h1>
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">데이터 동기화</h2>
           <p className="mt-1.5 text-sm text-muted-foreground">필요한 구단이나 경기만 선택해 외부 축구 데이터를 다시 가져옵니다.</p>
         </div>
         <span className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium">{environment === "production" ? "운영 환경" : "개발 환경"}</span>

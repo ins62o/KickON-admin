@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { DataState } from "@/components/admin/data-state";
+import { DataManagementHeader } from "@/components/admin/data-management-header";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { SupabaseUsageCard } from "@/components/dashboard/supabase-usage-card";
 import { UsageGaugeCard } from "@/components/dashboard/usage-gauge-card";
@@ -23,7 +24,7 @@ import { requireAdminPermission } from "@/lib/auth/server";
 import { getUsageSnapshots } from "@/lib/data/usage-snapshots";
 import { formatBytes, formatKoreaDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
 
-export const metadata: Metadata = { title: "사용량 및 시스템 상태" };
+export const metadata: Metadata = { title: "데이터 관리 · 사용량 및 시스템 상태" };
 
 function changeLabel(value: number | null) {
   if (value === null) return "비교 기준 없음";
@@ -32,7 +33,7 @@ function changeLabel(value: number | null) {
 }
 
 export default async function UsagePage() {
-  await requireAdminPermission("system.read");
+  const admin = await requireAdminPermission("system.read");
   const data = await getUsageSnapshots();
   const provider = data.sportsMonks;
   const hasProviderRows = provider.connected && (provider.recordCount ?? 0) > 0;
@@ -47,10 +48,12 @@ export default async function UsagePage() {
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <DataManagementHeader role={admin.role} activeSection="usage" />
+
+      <header className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold text-primary">SYSTEM</p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">사용량 및 시스템 상태</h1>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">사용량 및 시스템 상태</h2>
           <p className="mt-1.5 text-sm text-muted-foreground">DB와 파일 스토리지를 분리해 보고, SportsMonks 호출량과 서비스 상태를 함께 확인합니다.</p>
         </div>
         <p className="text-xs text-muted-foreground">{data.checkedAt ? `마지막 확인 ${formatRelativeTime(data.checkedAt)}` : "확인 기록 없음"}</p>
