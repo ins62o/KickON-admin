@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowUpRight, CheckCircle2, Headphones, Search, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Headphones, Search, ShieldAlert } from "lucide-react";
 
 import { DataState } from "@/components/admin/data-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { PageHeader } from "@/components/admin/page-header";
-import { AdminStatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,17 +17,18 @@ import {
   type AdminModerationData,
   type AdminSupportInquiryData,
 } from "@/lib/admin/console-data";
-import { reportTargetLabel, statusTone } from "@/lib/admin/labels";
+import { reportTargetLabel } from "@/lib/admin/labels";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { requireAdmin } from "@/lib/auth/server";
-import { formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatKoreaDateTime, formatNumber } from "@/lib/format";
 
-export const metadata: Metadata = { title: "문의 내역" };
+export const metadata: Metadata = { title: "문의 신고" };
 
 type InquiryHistorySearchParams = {
   tab?: string;
   q?: string;
   status?: string;
+  category?: string;
   target?: string;
 };
 
@@ -36,6 +36,17 @@ type HistoryStatus = "all" | "new" | "answered";
 
 const inquiryAnsweredStatuses = new Set(["ANSWERED", "CLOSED"]);
 const reportAnsweredStatuses = new Set(["RESOLVED", "DISMISSED"]);
+const inquiryCategoryLabels = {
+  APP_ERROR: "앱 오류",
+  DATA_ERROR: "데이터 오류",
+  ACCOUNT: "계정",
+  NOTIFICATION: "알림",
+  ATTENDANCE: "직관 인증",
+  COMMUNITY: "커뮤니티",
+  SUGGESTION: "기능 제안",
+  OTHER: "기타",
+} as const;
+const inquiryCategories = Object.entries(inquiryCategoryLabels);
 
 function normalizedHistoryStatus(status: string | undefined): HistoryStatus {
   if (["new", "open", "RECEIVED", "IN_PROGRESS", "OPEN", "REVIEWED"].includes(status ?? "")) {
@@ -47,16 +58,6 @@ function normalizedHistoryStatus(status: string | undefined): HistoryStatus {
   return "all";
 }
 
-function HistoryStatusBadge({ answered }: { answered: boolean }) {
-  return (
-    <AdminStatusBadge
-      label={answered ? "답변 완료" : "새 문의"}
-      tone={answered ? "success" : "info"}
-      size="compact"
-    />
-  );
-}
-
 function InquiryHistoryPanel({
   data,
   query,
@@ -66,10 +67,14 @@ function InquiryHistoryPanel({
 }) {
   const keyword = query.q?.trim().toLocaleLowerCase("ko-KR") ?? "";
   const statusFilter = normalizedHistoryStatus(query.status);
+  const categoryFilter = query.category && query.category in inquiryCategoryLabels
+    ? query.category
+    : "all";
   const rows = data.inquiries.filter((inquiry) => {
     const answered = inquiryAnsweredStatuses.has(inquiry.status);
     if (statusFilter === "new" && answered) return false;
     if (statusFilter === "answered" && !answered) return false;
+    if (categoryFilter !== "all" && inquiry.category !== categoryFilter) return false;
     if (
       keyword &&
       ![inquiry.subject, inquiry.content, inquiry.requester?.nickname, inquiry.userId]
@@ -89,74 +94,97 @@ function InquiryHistoryPanel({
 
       <MetricStrip
         ariaLabel="1:1 문의 상태"
+        layout="inline"
         items={[
-          { id: "new", label: "새 문의", value: `${formatNumber(newCount)}건`, icon: Headphones, tone: newCount > 0 ? "warning" : "success" },
+          { id: "new", label: "새 문의", value: `${formatNumber(newCount)}건`, icon: Headphones, tone: "accent" },
           { id: "answered", label: "답변 완료", value: `${formatNumber(answeredCount)}건`, icon: CheckCircle2, tone: "success" },
         ]}
       />
 
       <section className="overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="inquiry-list-title">
-        <div className="border-b border-border/70 px-4 py-3.5">
-          <h2 id="inquiry-list-title" className="text-sm font-semibold">1:1 문의 내역</h2>
+        <div className="border-b border-border/70 px-5 py-4">
+          <h2 id="inquiry-list-title" className="text-base font-semibold">문의 내역</h2>
         </div>
-        <form className="grid gap-2 border-b border-border/70 p-3 sm:grid-cols-[minmax(240px,1fr)_180px_auto]" role="search">
+        <form className="grid gap-3 border-b border-border/70 p-4 lg:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" role="search">
           <input type="hidden" name="tab" value="inquiries" />
-          <Input name="q" defaultValue={query.q} placeholder="제목, 원문, 사용자 검색" aria-label="1:1 문의 검색" />
+          <Input
+            name="q"
+            defaultValue={query.q}
+            placeholder="제목, 원문, 사용자 검색"
+            aria-label="1:1 문의 검색"
+            className="h-11 rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
+          />
           <Select name="status" defaultValue={statusFilter}>
-            <SelectTrigger className="h-9! w-full" aria-label="1:1 문의 상태">
+            <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="1:1 문의 상태">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">모든 상태</SelectItem>
-              <SelectItem value="new">새 문의</SelectItem>
-              <SelectItem value="answered">답변 완료</SelectItem>
+            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+              <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden="true" />
+                모든 상태
+              </SelectItem>
+              <SelectItem value="new" className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+                새 문의
+              </SelectItem>
+              <SelectItem value="answered" className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                <span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                답변 완료
+              </SelectItem>
             </SelectContent>
           </Select>
-          <Button type="submit" size="sm">
-            <Search className="size-3.5" aria-hidden="true" />
+          <Select name="category" defaultValue={categoryFilter}>
+            <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="문의 분류">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+              <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">분류</SelectItem>
+              {inquiryCategories.map(([value, label]) => (
+                <SelectItem key={value} value={value} className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
+            <Search className="size-4" aria-hidden="true" />
             검색
           </Button>
         </form>
         <div className="overflow-x-auto">
-          <Table className="min-w-[980px]">
+          <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
-                <TableHead>문의</TableHead>
-                <TableHead>사용자</TableHead>
-                <TableHead>분류</TableHead>
-                <TableHead>상태</TableHead>
-                <TableHead>접수</TableHead>
-                <TableHead>최근 변경</TableHead>
-                <TableHead className="text-right">처리</TableHead>
+                <TableHead className="px-4">분류</TableHead>
+                <TableHead className="px-4">제목</TableHead>
+                <TableHead className="px-4">사용자</TableHead>
+                <TableHead className="px-4">접수 날짜</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length > 0 ? rows.map((inquiry) => (
                 <TableRow key={inquiry.id}>
-                  <TableCell className="max-w-md">
-                    <p className="truncate text-xs font-medium">{inquiry.subject}</p>
-                    <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">{inquiry.content}</p>
+                  <TableCell className="w-44 px-4 py-4 text-sm text-muted-foreground">
+                    {inquiryCategoryLabels[inquiry.category as keyof typeof inquiryCategoryLabels] ?? inquiry.category}
                   </TableCell>
-                  <TableCell>
-                    <p className="text-xs">{inquiry.requester?.nickname ?? "알 수 없음"}</p>
-                    <p className="mt-0.5 max-w-40 truncate font-mono text-[10px] text-muted-foreground">{inquiry.userId}</p>
+                  <TableCell className="max-w-xl px-4 py-4">
+                    <Link
+                      href={`/inquiries/${inquiry.id}`}
+                      className="block cursor-pointer truncate text-sm font-semibold text-foreground hover:text-primary hover:underline"
+                    >
+                      {inquiry.subject}
+                    </Link>
                   </TableCell>
-                  <TableCell className="text-xs">{inquiry.category}</TableCell>
-                  <TableCell><HistoryStatusBadge answered={inquiryAnsweredStatuses.has(inquiry.status)} /></TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatRelativeTime(inquiry.createdAt)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatRelativeTime(inquiry.updatedAt)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="ghost" size="sm">
-                      <Link href={`/inquiries/${inquiry.id}`}>
-                        열기
-                        <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                      </Link>
-                    </Button>
+                  <TableCell className="w-52 px-4 py-4 text-sm">
+                    {inquiry.requester?.nickname ?? "알 수 없음"}
+                  </TableCell>
+                  <TableCell className="w-52 px-4 py-4 text-sm text-muted-foreground">
+                    {formatKoreaDateTime(inquiry.createdAt)}
                   </TableCell>
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={7}><DataState kind="empty" title="조건에 맞는 문의가 없습니다" compact /></TableCell>
+                  <TableCell colSpan={4}><DataState kind="empty" title="조건에 맞는 문의가 없습니다" hideDescription compact /></TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -210,95 +238,96 @@ function ReportHistoryPanel({
       ) : null}
 
       <MetricStrip
-        ariaLabel="신고 문의 상태"
+        ariaLabel="신고 처리 상태"
+        layout="inline"
         items={[
-          { id: "new", label: "새 문의", value: `${formatNumber(newCount)}건`, icon: ShieldAlert, tone: newCount > 0 ? "warning" : "success" },
-          { id: "answered", label: "답변 완료", value: `${formatNumber(answeredCount)}건`, icon: CheckCircle2, tone: "success" },
+          { id: "new", label: "새 신고", value: `${formatNumber(newCount)}건`, icon: ShieldAlert, tone: "accent" },
+          { id: "answered", label: "처리 완료", value: `${formatNumber(answeredCount)}건`, icon: CheckCircle2, tone: "success" },
         ]}
       />
 
       <section className="overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="report-list-title">
-        <div className="border-b border-border/70 px-4 py-3.5">
-          <h2 id="report-list-title" className="text-sm font-semibold">신고 내역</h2>
+        <div className="border-b border-border/70 px-5 py-4">
+          <h2 id="report-list-title" className="text-base font-semibold">신고 내역</h2>
         </div>
-        <form className="grid gap-2 border-b border-border/70 p-3 lg:grid-cols-[minmax(260px,1fr)_170px_170px_auto]" role="search">
+        <form className="grid gap-3 border-b border-border/70 p-4 lg:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" role="search">
           <input type="hidden" name="tab" value="reports" />
-          <Input name="q" defaultValue={query.q} placeholder="원문, 작성자, 신고 사유 검색" aria-label="신고 검색" />
+          <Input
+            name="q"
+            defaultValue={query.q}
+            placeholder="원문, 작성자, 신고 사유 검색"
+            aria-label="신고 검색"
+            className="h-11 rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
+          />
           <Select name="status" defaultValue={statusFilter}>
-            <SelectTrigger className="h-9! w-full" aria-label="신고 상태">
+            <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="신고 상태">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">모든 상태</SelectItem>
-              <SelectItem value="new">새 문의</SelectItem>
-              <SelectItem value="answered">답변 완료</SelectItem>
+            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+              <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden="true" />
+                모든 상태
+              </SelectItem>
+              <SelectItem value="new" className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+                새 문의
+              </SelectItem>
+              <SelectItem value="answered" className="cursor-pointer py-2.5 pr-8 pl-2.5">
+                <span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                답변 완료
+              </SelectItem>
             </SelectContent>
           </Select>
           <Select name="target" defaultValue={targetFilter}>
-            <SelectTrigger className="h-9! w-full" aria-label="신고 콘텐츠 유형">
+            <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="신고 분류">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">모든 콘텐츠</SelectItem>
-              <SelectItem value="POST">게시글</SelectItem>
-              <SelectItem value="COMMENT">댓글</SelectItem>
-              <SelectItem value="FIXTURE_CHEER">경기 응원</SelectItem>
+            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+              <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">분류</SelectItem>
+              <SelectItem value="POST" className="cursor-pointer py-2.5 pr-8 pl-2.5">게시글</SelectItem>
+              <SelectItem value="COMMENT" className="cursor-pointer py-2.5 pr-8 pl-2.5">댓글</SelectItem>
+              <SelectItem value="FIXTURE_CHEER" className="cursor-pointer py-2.5 pr-8 pl-2.5">경기 응원</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="submit" size="sm">
-            <Search className="size-3.5" aria-hidden="true" />
+          <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
+            <Search className="size-4" aria-hidden="true" />
             검색
           </Button>
         </form>
         <div className="overflow-x-auto">
-          <Table className="min-w-[1180px]">
+          <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
-                <TableHead>대상 원문</TableHead>
-                <TableHead>작성자</TableHead>
-                <TableHead>신고자</TableHead>
-                <TableHead>사유</TableHead>
-                <TableHead className="text-right">누적</TableHead>
-                <TableHead>콘텐츠 상태</TableHead>
-                <TableHead>처리 상태</TableHead>
-                <TableHead>접수</TableHead>
-                <TableHead className="text-right">검토</TableHead>
+                <TableHead className="px-4">분류</TableHead>
+                <TableHead className="px-4">제목</TableHead>
+                <TableHead className="px-4">사용자</TableHead>
+                <TableHead className="px-4">접수 날짜</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length > 0 ? rows.map((report) => (
                 <TableRow key={report.id}>
-                  <TableCell className="max-w-md">
-                    <p className="text-[10px] font-semibold text-primary">{reportTargetLabel(report.targetType)}</p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5">
+                  <TableCell className="w-44 px-4 py-4 text-sm text-muted-foreground">
+                    {reportTargetLabel(report.targetType)}
+                  </TableCell>
+                  <TableCell className="max-w-xl px-4 py-4">
+                    <Link
+                      href={`/moderation/${report.id}`}
+                      className="block cursor-pointer truncate text-sm font-semibold text-foreground hover:text-primary hover:underline"
+                    >
                       {report.target?.title || report.target?.content || report.target?.emoticonKey || "원문을 찾을 수 없음"}
-                    </p>
+                    </Link>
                   </TableCell>
-                  <TableCell className="text-xs">{report.target?.author?.nickname ?? "확인 불가"}</TableCell>
-                  <TableCell className="text-xs">{report.reporter?.nickname ?? "확인 불가"}</TableCell>
-                  <TableCell className="max-w-52"><p className="line-clamp-2 text-xs">{report.reason}</p></TableCell>
-                  <TableCell className="text-right font-mono text-xs">{formatNumber(report.cumulativeReportCount)}</TableCell>
-                  <TableCell>
-                    <AdminStatusBadge
-                      label={report.target?.moderationStatus === "HIDDEN" ? "숨김" : report.target?.moderationStatus === "VISIBLE" ? "노출" : "미적용"}
-                      tone={statusTone(report.target?.moderationStatus ?? null)}
-                      size="compact"
-                    />
+                  <TableCell className="w-52 px-4 py-4 text-sm">
+                    {report.reporter?.nickname ?? "확인 불가"}
                   </TableCell>
-                  <TableCell><HistoryStatusBadge answered={reportAnsweredStatuses.has(report.status)} /></TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatRelativeTime(report.createdAt)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="ghost" size="sm">
-                      <Link href={`/moderation/${report.id}`}>
-                        열기
-                        <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                      </Link>
-                    </Button>
+                  <TableCell className="w-52 px-4 py-4 text-sm text-muted-foreground">
+                    {formatKoreaDateTime(report.createdAt)}
                   </TableCell>
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={9}><DataState kind="empty" title="조건에 맞는 신고가 없습니다" compact /></TableCell>
+                  <TableCell colSpan={4}><DataState kind="empty" title="조건에 맞는 신고가 없습니다" hideDescription compact /></TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -333,19 +362,20 @@ export default async function InquiriesPage({
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-      <PageHeader title="문의 내역" />
+      <PageHeader title="문의 신고" />
 
       <Tabs key={activeTab} defaultValue={activeTab} className="mt-6 gap-5">
-        <TabsList variant="line" className="h-11 w-full justify-start gap-2 border-b border-border/70 p-0" aria-label="문의 내역 유형">
+        <TabsList
+          className={`grid! h-16! w-full ${canReadInquiries && canReadReports ? "grid-cols-2" : "grid-cols-1"} gap-1.5 rounded-xl border border-border/80 bg-card/45 p-1.5`}
+          aria-label="문의 내역 유형"
+        >
           {canReadInquiries ? (
-            <TabsTrigger value="inquiries" className="h-11 flex-none px-4 sm:px-6">
-              <Headphones className="size-4" aria-hidden="true" />
-              1:1 문의 내역
+            <TabsTrigger value="inquiries" className="h-full! w-full cursor-pointer rounded-lg border-transparent text-base font-semibold data-active:border-transparent data-active:bg-primary/10 data-active:text-primary data-active:shadow-none data-active:ring-1 data-active:ring-inset data-active:ring-primary/20 dark:data-active:border-transparent">
+              문의 내역
             </TabsTrigger>
           ) : null}
           {canReadReports ? (
-            <TabsTrigger value="reports" className="h-11 flex-none px-4 sm:px-6">
-              <ShieldAlert className="size-4" aria-hidden="true" />
+            <TabsTrigger value="reports" className="h-full! w-full cursor-pointer rounded-lg border-transparent text-base font-semibold data-active:border-transparent data-active:bg-primary/10 data-active:text-primary data-active:shadow-none data-active:ring-1 data-active:ring-inset data-active:ring-primary/20 dark:data-active:border-transparent">
               신고 내역
             </TabsTrigger>
           ) : null}

@@ -2,6 +2,15 @@
 
 import { useActionState } from "react";
 import { ActionSubmit } from "@/components/admin/action-submit";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createManualPlayerAction, initialAdminActionState } from "@/lib/admin/actions";
@@ -16,6 +25,25 @@ export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: s
     <label className="block text-xs font-medium">포지션<Input name="position" maxLength={80} className="mt-1.5 text-xs" placeholder="예: Midfielder" /></label>
     <label className="block text-xs font-medium">세부 포지션<Input name="detailedPosition" maxLength={80} className="mt-1.5 text-xs" /></label>
     <label className="block text-xs font-medium sm:col-span-2">등록 사유<Textarea name="reason" required minLength={3} maxLength={1000} rows={3} className="mt-1.5 text-xs" placeholder="수동 등록 근거와 확인 내용을 입력하세요." /></label>
-    <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}<div className="mt-3 flex justify-end"><ActionSubmit>수동 선수 등록</ActionSubmit></div></div>
+    <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}<div className="mt-3 flex justify-end"><ActionSubmit>선수 등록</ActionSubmit></div></div>
   </form>;
+}
+
+export function ManualPlayerDialog({ teams }: { teams: Array<{ id: string; name: string }> }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button className="h-10 min-w-28 px-5 text-base font-semibold">선수 등록</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>선수 등록</DialogTitle>
+          <DialogDescription>
+            SportsMonks에 없는 선수를 직접 등록합니다.
+          </DialogDescription>
+        </DialogHeader>
+        <ManualPlayerForm teams={teams} />
+      </DialogContent>
+    </Dialog>
+  );
 }

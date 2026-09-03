@@ -225,7 +225,7 @@ export const getStandingsData = cache(async (): Promise<DataQueryResult<Standing
   if (!client) return noConnection([]);
   const result = await client
     .from("league_standings")
-    .select("team_id,rank,played,won,drawn,lost,goals_for,goals_against,goal_difference,points,clean_sheets,average_possession,updated_at")
+    .select("team_id,rank,played,won,drawn,lost,goals_for,goals_against,points,clean_sheets,average_possession,updated_at")
     .eq("season", 2026)
     .eq("league_id", "kleague")
     .order("rank");
@@ -241,7 +241,7 @@ export const getStandingsData = cache(async (): Promise<DataQueryResult<Standing
       lost: row.lost,
       goalsFor: row.goals_for,
       goalsAgainst: row.goals_against,
-      goalDifference: row.goal_difference,
+      goalDifference: row.goals_for - row.goals_against,
       points: row.points,
       cleanSheets: row.clean_sheets,
       averagePossession: row.average_possession == null ? null : Number(row.average_possession),

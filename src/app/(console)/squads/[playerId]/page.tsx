@@ -31,7 +31,7 @@ export default async function PlayerDetailPage({ params, searchParams }: { param
 
   return (
     <div className="mx-auto w-full max-w-[1480px] px-4 py-6 lg:px-6 lg:py-7">
-      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 text-xs text-muted-foreground"><Link href="/squads"><ArrowLeft className="size-3.5" /> 선수단 관리</Link></Button>
+      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 text-xs text-muted-foreground"><Link href="/squads"><ArrowLeft className="size-3.5" /> 선수 관리</Link></Button>
       <header className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1><StatusBadge status={player.inSquad ? "normal" : "unknown"} label={player.inSquad ? "활동" : "확인 필요"} />{activeOverrides.length > 0 ? <Badge variant="outline" className="border-primary/25 bg-primary/[0.06] text-primary"><LockKeyhole className="size-3" /> 직접 수정 보호 {activeOverrides.length}</Badge> : null}</div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   type ColumnFiltersState,
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 export type DataTableFilter = {
   columnId: string;
@@ -37,6 +39,12 @@ type DataTableProps<TData extends RowData> = {
   emptyState?: ReactNode;
   pageSize?: number;
   hiddenColumns?: string[];
+  getRowHref?: (row: TData) => string;
+  comfortableToolbar?: boolean;
+  alignFiltersEnd?: boolean;
+  showResultCount?: boolean;
+  comfortableRows?: boolean;
+  columnWidths?: Record<string, string>;
 };
 
 export function DataTable<TData extends RowData>({
@@ -48,7 +56,14 @@ export function DataTable<TData extends RowData>({
   emptyState,
   pageSize = 25,
   hiddenColumns = [],
+  getRowHref,
+  comfortableToolbar = false,
+  alignFiltersEnd = false,
+  showResultCount = true,
+  comfortableRows = false,
+  columnWidths,
 }: DataTableProps<TData>) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility] = useState<ColumnVisibilityState>(() => Object.fromEntries(hiddenColumns.map((columnId) => [columnId, false])));
@@ -76,39 +91,68 @@ export function DataTable<TData extends RowData>({
             onChange={(event) => table.getColumn(searchColumnId)?.setFilterValue(event.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            className="h-9 bg-background/60 pl-9"
+            className={comfortableToolbar
+              ? "h-11 rounded-xl border-border/80 bg-muted/35 pl-9 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
+              : "h-9 bg-background/60 pl-9"}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={alignFiltersEnd ? "flex flex-wrap items-center gap-2 lg:ml-auto" : "flex flex-wrap items-center gap-2"}>
           {filters.map((filter) => (
             <Select
               key={filter.columnId}
               value={(table.getColumn(filter.columnId)?.getFilterValue() as string) ?? "all"}
               onValueChange={(value) => table.getColumn(filter.columnId)?.setFilterValue(value === "all" ? undefined : value)}
             >
-              <SelectTrigger size="sm" className="h-9 min-w-32 bg-background/60"><SelectValue placeholder={filter.label} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{filter.label}: 전체</SelectItem>
-                {filter.options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+              <SelectTrigger
+                size="sm"
+                className={comfortableToolbar
+                  ? "h-11! w-44 cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"
+                  : "h-9 min-w-32 bg-background/60"}
+              >
+                <SelectValue placeholder={filter.label} />
+              </SelectTrigger>
+              <SelectContent
+                position={comfortableToolbar ? "popper" : "item-aligned"}
+                align={comfortableToolbar ? "start" : "center"}
+                className={comfortableToolbar ? "w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl" : undefined}
+              >
+                <SelectItem value="all" className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>{filter.label}: 전체</SelectItem>
+                {filter.options.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           ))}
           {hasFilters ? (
-            <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => table.resetColumnFilters()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={comfortableToolbar ? "h-11 rounded-xl px-3 text-sm text-muted-foreground" : "h-9 text-xs text-muted-foreground"}
+              onClick={() => table.resetColumnFilters()}
+            >
               <X className="size-3.5" /> 필터 초기화
             </Button>
           ) : null}
         </div>
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground">{table.getFilteredRowModel().rows.length.toLocaleString("ko-KR")}건</span>
+        {showResultCount ? (
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{table.getFilteredRowModel().rows.length.toLocaleString("ko-KR")}건</span>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto">
-        <Table className="min-w-[980px]">
+        <Table className={cn("min-w-[980px]", columnWidths && "table-fixed")}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="h-10 whitespace-nowrap text-[11px] font-medium">
+                  <TableHead
+                    key={header.id}
+                    className={comfortableRows
+                      ? cn("h-12 whitespace-nowrap text-sm font-semibold", columnWidths?.[header.column.id])
+                      : cn("h-10 whitespace-nowrap text-[11px] font-medium", columnWidths?.[header.column.id])}
+                  >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -117,9 +161,24 @@ export function DataTable<TData extends RowData>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length > 0 ? table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() ? "selected" : undefined}
+                className={getRowHref ? "cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" : undefined}
+                onClick={getRowHref ? (event) => {
+                  if ((event.target as HTMLElement).closest("a, button, input, select, [role='button']")) return;
+                  router.push(getRowHref(row.original));
+                } : undefined}
+              >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-2.5 text-xs">{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                  <TableCell
+                    key={cell.id}
+                    className={comfortableRows
+                      ? cn("py-4 text-sm", columnWidths?.[cell.column.id])
+                      : cn("py-2.5 text-xs", columnWidths?.[cell.column.id])}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
                 ))}
               </TableRow>
             )) : (

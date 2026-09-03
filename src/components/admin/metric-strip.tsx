@@ -19,6 +19,7 @@ export type MetricStripProps = {
   ariaLabel?: string;
   className?: string;
   itemClassName?: string;
+  layout?: "stacked" | "inline";
 };
 
 const iconToneClass: Record<MetricTone, string> = {
@@ -36,6 +37,7 @@ export function MetricStrip({
   ariaLabel = "핵심 지표",
   className,
   itemClassName,
+  layout = "stacked",
 }: MetricStripProps) {
   return (
     <dl
@@ -52,36 +54,69 @@ export function MetricStrip({
         return (
           <div
             key={item.id}
-            className={cn("min-w-0 bg-card/45 p-4", itemClassName)}
+            className={cn(
+              "min-w-0 bg-card/45 p-4",
+              layout === "inline" && "flex min-h-18 flex-wrap items-center justify-between gap-x-4 gap-y-2",
+              itemClassName,
+            )}
             data-tone={tone}
           >
-            <dt className="text-sm font-medium text-muted-foreground">
-              {(Icon || item.status) ? (
-                <span className="mb-4 flex min-h-8 items-start justify-between gap-3">
+            {layout === "inline" ? (
+              <>
+                <dt className="flex min-w-0 items-center gap-3 text-base font-semibold text-foreground">
                   {Icon ? (
                     <span
                       className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-md border",
+                        "flex size-10 shrink-0 items-center justify-center rounded-lg border",
                         iconToneClass[tone],
                       )}
                       aria-hidden="true"
                     >
-                      <Icon className="size-4" />
+                      <Icon className="size-5" />
                     </span>
-                  ) : <span />}
-                  {item.status}
-                </span>
-              ) : null}
-              <span className="block truncate">{item.label}</span>
-            </dt>
-            <dd className="tabular mt-1 truncate text-2xl font-semibold tracking-tight text-foreground">
-              {item.value}
-            </dd>
-            {item.detail ? (
-              <dd className="mt-1.5 line-clamp-2 min-h-10 text-xs leading-5 text-muted-foreground">
-                {item.detail}
-              </dd>
-            ) : null}
+                  ) : null}
+                  <span className="truncate">{item.label}</span>
+                </dt>
+                <dd className="tabular shrink-0 text-2xl font-semibold tracking-tight text-foreground">
+                  {item.value}
+                </dd>
+                {item.detail ? (
+                  <dd className="line-clamp-2 w-full text-xs leading-5 text-muted-foreground">
+                    {item.detail}
+                  </dd>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <dt className="text-sm font-medium text-muted-foreground">
+                  {(Icon || item.status) ? (
+                    <span className="mb-4 flex min-h-8 items-start justify-between gap-3">
+                      {Icon ? (
+                        <span
+                          className={cn(
+                            "flex size-8 shrink-0 items-center justify-center rounded-md border",
+                            iconToneClass[tone],
+                          )}
+                          aria-hidden="true"
+                        >
+                          <Icon className="size-4" />
+                        </span>
+                      ) : <span />}
+                      {item.status}
+                    </span>
+                  ) : null}
+                  <span className="block truncate">{item.label}</span>
+                </dt>
+                <dd className="tabular mt-1 truncate text-2xl font-semibold tracking-tight text-foreground">
+                  {item.value}
+                </dd>
+                {item.detail ? (
+                  <dd className="mt-1.5 line-clamp-2 min-h-10 text-xs leading-5 text-muted-foreground">
+                    {item.detail}
+                  </dd>
+                ) : null}
+              </>
+            )}
           </div>
         );
       })}

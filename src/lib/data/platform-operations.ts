@@ -14,6 +14,7 @@ import { getPushDeliveryData, type PushDeliveryData } from "./push-delivery";
 import { assessPushDeliveryHealth, type PushDeliveryHealthAssessment } from "./push-health";
 import { getSupabaseConnection } from "./supabase";
 import { buildProviderUsageTrends, type ProviderUsageTrendSeries } from "./provider-usage-trends";
+import { resolveProviderQuota } from "./provider-quota";
 import type { HealthStatus } from "./types";
 
 type CronRpcRow = {
@@ -399,11 +400,12 @@ function koreaMonthKey(value: number) {
   return new Date(value + KOREA_OFFSET_MS).toISOString().slice(0, 7);
 }
 
-function providerResetAt(row: ProviderUsageRow | null) {
-  if (!row || row.resets_in_seconds === null) return null;
-  const observedAt = new Date(row.observed_at).getTime();
-  if (!Number.isFinite(observedAt)) return null;
-  return new Date(observedAt + row.resets_in_seconds * 1_000).toISOString();
+function providerQuota(row: ProviderUsageRow | null, allowance: number | null, nowMs: number) {
+  return resolveProviderQuota(row ? {
+    observedAt: row.observed_at,
+    remaining: row.remaining,
+    resetsInSeconds: row.resets_in_seconds,
+  } : null, allowance, nowMs);
 }
 
 function safeProviderEndpoint(value: string) {
@@ -438,6 +440,10 @@ export const getProviderUsageData = cache(async (): Promise<ProviderUsageData> =
 
   const now = new Date();
   const nowMs = now.getTime();
+  const configuredAllowanceValue = Number(process.env.SPORTSMONKS_API_ALLOWANCE);
+  const configuredAllowance = Number.isFinite(configuredAllowanceValue) && configuredAllowanceValue > 0
+    ? configuredAllowanceValue
+    : null;
   const since = new Date(nowMs - 60 * DAY_MS).toISOString();
   const result = await client.rpc("get_admin_provider_usage", { since_at: since });
   if (result.error) {
@@ -530,6 +536,7 @@ export const getProviderUsageData = cache(async (): Promise<ProviderUsageData> =
   const requestChangePercent = previous24Count === 0
     ? last24Count === 0 ? 0 : null
     : Math.round(((last24Count - previous24Count) / previous24Count) * 1_000) / 10;
+  const currentQuota = providerQuota(latestWithQuota, configuredAllowance, nowMs);
 
   return {
     connected: true,
@@ -538,9 +545,9 @@ export const getProviderUsageData = cache(async (): Promise<ProviderUsageData> =
     latestStatusCode: latestRow?.status_code ?? null,
     latestEndpoint: latestRow?.requested_entity || (latestRow ? safeProviderEndpoint(latestRow.endpoint) : null),
     currentPlan: null,
-    allowance: null,
-    remaining: latestWithQuota?.remaining ?? null,
-    resetAt: providerResetAt(latestWithQuota),
+    allowance: currentQuota.allowance,
+    remaining: currentQuota.remaining,
+    resetAt: currentQuota.resetAt,
     recordCount: rows.length,
     todayCount,
     monthCount,
@@ -556,12 +563,13 @@ export const getProviderUsageData = cache(async (): Promise<ProviderUsageData> =
     entities: [...entityMap.entries()]
       .map(([entity, state]) => {
         const observation = state.quota ?? state.latest;
+        const quota = providerQuota(observation, configuredAllowance, nowMs);
         return {
           entity,
           source: observation.source,
           endpoint: safeProviderEndpoint(observation.endpoint),
-          remaining: observation.remaining,
-          resetAt: providerResetAt(observation),
+          remaining: quota.remaining,
+          resetAt: quota.resetAt,
           statusCode: observation.status_code,
           observedAt: observation.observed_at,
         };

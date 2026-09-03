@@ -57,7 +57,7 @@ const iconByOperation: Record<SyncOperation, typeof RefreshCcw> = {
 const initialState: SyncActionState = { status: "idle", message: null, operation: null, completedAt: null };
 
 const syncSelectTriggerClassName = "h-11 w-full rounded-xl border-border/90 bg-background/45 px-3.5 text-sm shadow-inner shadow-black/10 transition-colors hover:border-primary/35 hover:bg-background/65 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-ring/20";
-const syncSelectContentClassName = "max-h-72 rounded-xl border border-border/90 bg-popover p-1.5 shadow-2xl shadow-black/25";
+const syncSelectContentClassName = "max-h-72 w-(--radix-select-trigger-width) rounded-xl border border-border/90 bg-popover p-1.5 shadow-2xl shadow-black/25";
 const syncSelectItemClassName = "my-1 min-h-11 cursor-pointer rounded-lg py-2.5 pr-10 pl-3 text-sm transition-colors first:mt-0 last:mb-0 focus:bg-primary/10 focus:text-foreground data-[state=checked]:bg-primary/12 data-[state=checked]:font-semibold data-[state=checked]:text-primary dark:focus:bg-primary/15 dark:data-[state=checked]:bg-primary/15";
 
 export function SyncControl(props: SyncControlProps) {

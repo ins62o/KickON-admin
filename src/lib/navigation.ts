@@ -28,7 +28,7 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { key: "dashboard", label: "대시보드", href: "/", icon: LayoutDashboard, description: "서비스 운영 현황", requiredPermission: "dashboard.read" },
       { key: "users", label: "사용자", href: "/users", icon: UsersRound, description: "가입자와 계정 상태", requiredPermission: "users.read" },
-      { key: "inquiries", label: "문의 내역", href: "/inquiries", icon: Headphones, description: "1:1 문의와 신고 내역", requiredPermission: "support.read", alternativePermissions: ["moderation.read"] },
+      { key: "inquiries", label: "문의 신고", href: "/inquiries", icon: Headphones, description: "1:1 문의와 신고 내역", requiredPermission: "support.read", alternativePermissions: ["moderation.read"] },
     ],
   },
   {

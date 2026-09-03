@@ -7,6 +7,7 @@ import {
   getOperationsClient,
   isOperationsSchemaMissing,
 } from "@/lib/data/operations-client";
+import { getSupabaseConnection } from "@/lib/data/supabase";
 
 export type AdminDashboardRange = "today" | "7d" | "month";
 
@@ -82,6 +83,7 @@ export type AdminUserRecord = {
   nickname: string;
   teamId: string | null;
   teamName: string | null;
+  authProvider: string | null;
   createdAt: string;
   updatedAt: string | null;
   postCount: number | null;
@@ -223,6 +225,15 @@ type AdminUsersRpcRow = {
   account_status: string;
   suspended_until: string | null;
   warning_count: number;
+};
+
+type AdminUserAuthProviderRpcRow = {
+  user_id: string;
+  auth_provider: string | null;
+};
+
+type AdminUserIdRow = {
+  user_id: string;
 };
 
 type PostActivityRow = {
@@ -1042,6 +1053,70 @@ async function loadAdminUsersRpc(client: SupabaseClient) {
   }
 }
 
+async function loadAdminUserAuthProviders(client: SupabaseClient) {
+  const serviceConnection = getSupabaseConnection();
+  if (serviceConnection.client && serviceConnection.hasServiceRole) {
+    const providers = new Map<string, string>();
+    const perPage = 1_000;
+
+    for (let page = 1; page <= 100; page += 1) {
+      const result = await serviceConnection.client.auth.admin.listUsers({ page, perPage });
+      if (result.error) break;
+
+      for (const user of result.data.users) {
+        const identityProviders = (user.identities ?? [])
+          .map((identity) => identity.provider.toLowerCase());
+        const metadataProvider = typeof user.app_metadata.provider === "string"
+          ? user.app_metadata.provider.toLowerCase()
+          : null;
+        const provider = identityProviders.find((value) => value === "kakao")
+          ?? identityProviders.find((value) => value === "apple")
+          ?? identityProviders[0]
+          ?? metadataProvider;
+        if (provider) providers.set(user.id, provider);
+      }
+
+      if (result.data.users.length < perPage) return providers;
+    }
+  }
+
+  const result = await client.rpc("admin_get_user_auth_providers");
+  if (result.error) return new Map<string, string>();
+
+  return new Map(
+    ((result.data ?? []) as AdminUserAuthProviderRpcRow[])
+      .filter((row) => typeof row.user_id === "string" && typeof row.auth_provider === "string")
+      .map((row) => [row.user_id, row.auth_provider as string]),
+  );
+}
+
+async function loadAdminUserIds(client: SupabaseClient) {
+  const serviceConnection = getSupabaseConnection();
+  if (serviceConnection.client && serviceConnection.hasServiceRole) {
+    const result = await serviceConnection.client
+      .from("admin_users")
+      .select("user_id");
+    if (!result.error) {
+      return new Set(
+        ((result.data ?? []) as AdminUserIdRow[]).map((row) => row.user_id),
+      );
+    }
+  }
+
+  const rpcResult = await client.rpc("admin_get_admin_user_ids");
+  if (!rpcResult.error) {
+    return new Set(
+      ((rpcResult.data ?? []) as AdminUserIdRow[]).map((row) => row.user_id),
+    );
+  }
+
+  const directResult = await client.from("admin_users").select("user_id");
+  if (directResult.error) return new Set<string>();
+  return new Set(
+    ((directResult.data ?? []) as AdminUserIdRow[]).map((row) => row.user_id),
+  );
+}
+
 export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
   const client = await getOperationsClient();
   if (!client) {
@@ -1065,23 +1140,30 @@ export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
         warnings: [],
       };
     }
+    const [authProviders, adminUserIds] = await Promise.all([
+      loadAdminUserAuthProviders(client),
+      loadAdminUserIds(client),
+    ]);
     return {
-      users: rpcResult.rows.map((row) => ({
-        id: row.user_id,
-        nickname: row.nickname,
-        teamId: row.team_id,
-        teamName: row.team_name,
-        createdAt: row.joined_at,
-        updatedAt: null,
-        postCount: row.post_count,
-        commentCount: row.comment_count,
-        attendanceCount: row.attendance_count,
-        reportCount: row.received_report_count,
-        warningCount: row.warning_count,
-        recentActivityAt: row.recent_activity_at,
-        accountStatus: row.account_status,
-        suspendedUntil: row.suspended_until,
-      })),
+      users: rpcResult.rows
+        .filter((row) => !adminUserIds.has(row.user_id))
+        .map((row) => ({
+          id: row.user_id,
+          nickname: row.nickname,
+          teamId: row.team_id,
+          teamName: row.team_name,
+          authProvider: authProviders.get(row.user_id) ?? null,
+          createdAt: row.joined_at,
+          updatedAt: null,
+          postCount: row.post_count,
+          commentCount: row.comment_count,
+          attendanceCount: row.attendance_count,
+          reportCount: row.received_report_count,
+          warningCount: row.warning_count,
+          recentActivityAt: row.recent_activity_at,
+          accountStatus: row.account_status,
+          suspendedUntil: row.suspended_until,
+        })),
       schemaReady: true,
       enhancementsReady: true,
       error: null,
@@ -1089,7 +1171,11 @@ export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
     };
   }
 
-  const profilesResult = await loadProfilesWithAccountState(client);
+  const [authProviders, adminUserIds, profilesResult] = await Promise.all([
+    loadAdminUserAuthProviders(client),
+    loadAdminUserIds(client),
+    loadProfilesWithAccountState(client),
+  ]);
   const [teamsResult, postsResult, commentsResult, attendancesResult, reportsResult, cheersResult] = await Promise.all([
     loadTeams(client),
     collectRows<PostActivityRow>(async (from, to) => {
@@ -1195,22 +1281,25 @@ export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
   const activityReady = !postsResult.error && !commentsResult.error && !attendancesResult.error;
   const meta = resultMeta(issues);
   return {
-    users: profilesResult.error ? [] : profilesResult.rows.map((profile) => ({
-      id: profile.id,
-      nickname: profile.nickname,
-      teamId: profile.team_id,
-      teamName: profile.team_id ? teamNames.get(profile.team_id) ?? null : null,
-      createdAt: profile.created_at,
-      updatedAt: profile.updated_at,
-      postCount: postsResult.error ? null : postCounts.get(profile.id) ?? 0,
-      commentCount: commentsResult.error ? null : commentCounts.get(profile.id) ?? 0,
-      attendanceCount: attendancesResult.error ? null : attendanceCounts.get(profile.id) ?? 0,
-      reportCount: reportCountsReady ? reportCounts.get(profile.id) ?? 0 : null,
-      warningCount: null,
-      recentActivityAt: activityReady ? latestActivity.get(profile.id) ?? null : null,
-      accountStatus: profile.account_status,
-      suspendedUntil: profile.suspended_until,
-    })),
+    users: profilesResult.error ? [] : profilesResult.rows
+      .filter((profile) => !adminUserIds.has(profile.id))
+      .map((profile) => ({
+        id: profile.id,
+        nickname: profile.nickname,
+        teamId: profile.team_id,
+        teamName: profile.team_id ? teamNames.get(profile.team_id) ?? null : null,
+        authProvider: authProviders.get(profile.id) ?? null,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at,
+        postCount: postsResult.error ? null : postCounts.get(profile.id) ?? 0,
+        commentCount: commentsResult.error ? null : commentCounts.get(profile.id) ?? 0,
+        attendanceCount: attendancesResult.error ? null : attendanceCounts.get(profile.id) ?? 0,
+        reportCount: reportCountsReady ? reportCounts.get(profile.id) ?? 0 : null,
+        warningCount: null,
+        recentActivityAt: activityReady ? latestActivity.get(profile.id) ?? null : null,
+        accountStatus: profile.account_status,
+        suspendedUntil: profile.suspended_until,
+      })),
     ...meta,
     enhancementsReady: profilesResult.enhancementsReady,
     warnings: [
