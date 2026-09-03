@@ -308,6 +308,7 @@ export async function runSyncAction(_previous: SyncActionState, formData: FormDa
       }, admin.userId, runId);
     }
     revalidatePath("/");
+    revalidatePath("/data-management");
     revalidatePath("/sync");
     revalidatePath("/squads");
     revalidatePath("/standings");
@@ -369,6 +370,7 @@ export async function runSyncAction(_previous: SyncActionState, formData: FormDa
       },
     }, admin.userId, runId);
     revalidatePath("/");
+    revalidatePath("/data-management");
     revalidatePath("/usage");
     revalidatePath("/audit");
     return {

@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Activity, DatabaseZap, History, type LucideIcon } from "lucide-react";
+import { DatabaseZap, History, type LucideIcon } from "lucide-react";
 
 import { PageHeader } from "@/components/admin/page-header";
 import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 
-export type DataManagementSection = "sync" | "usage" | "audit";
+export type DataManagementSection = "management" | "sync" | "usage" | "audit";
 
 type DataManagementTab = {
   id: DataManagementSection;
@@ -13,11 +13,11 @@ type DataManagementTab = {
   href: string;
   icon: LucideIcon;
   permission: AdminPermission;
+  alternativePermissions?: readonly AdminPermission[];
 };
 
 const dataManagementTabs: readonly DataManagementTab[] = [
-  { id: "sync", label: "데이터 동기화", href: "/sync", icon: DatabaseZap, permission: "sync.read" },
-  { id: "usage", label: "사용량 및 시스템 상태", href: "/usage", icon: Activity, permission: "system.read" },
+  { id: "management", label: "데이터 관리", href: "/data-management", icon: DatabaseZap, permission: "sync.read", alternativePermissions: ["system.read"] },
   { id: "audit", label: "관리자 로그", href: "/audit", icon: History, permission: "audit.read" },
 ];
 
@@ -28,12 +28,15 @@ export function DataManagementHeader({
   role: AdminRole;
   activeSection: DataManagementSection;
 }) {
-  const availableTabs = dataManagementTabs.filter((tab) => hasAdminPermission(role, tab.permission));
+  const availableTabs = dataManagementTabs.filter((tab) => (
+    hasAdminPermission(role, tab.permission)
+    || tab.alternativePermissions?.some((permission) => hasAdminPermission(role, permission))
+  ));
 
   return (
     <div>
       <PageHeader title="데이터 관리" />
-      <nav className="mt-5 overflow-x-auto border-b border-border/70" aria-label="데이터 관리 메뉴">
+      <nav className="mt-5 overflow-x-auto border-b border-border/70 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="데이터 관리 메뉴">
         <ul className="-mb-px flex min-w-max gap-1">
           {availableTabs.map((tab) => {
             const active = tab.id === activeSection;

@@ -41,7 +41,7 @@ export const navigationGroups: NavigationGroup[] = [
   {
     label: "시스템",
     items: [
-      { key: "data-management", label: "데이터 관리", href: "/data-management", icon: DatabaseZap, description: "동기화·시스템 상태·관리자 로그", requiredPermission: "sync.read", alternativePermissions: ["system.read", "audit.read"], activeHrefs: ["/sync", "/usage", "/audit"] },
+      { key: "data-management", label: "데이터 관리", href: "/data-management", icon: DatabaseZap, description: "데이터 동기화와 사용량, 관리자 로그", requiredPermission: "sync.read", alternativePermissions: ["system.read", "audit.read"], activeHrefs: ["/sync", "/usage", "/audit"] },
     ],
   },
 ];

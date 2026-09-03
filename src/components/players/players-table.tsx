@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { MapPin, UsersRound } from "lucide-react";
 import type { LegacyColumnDef, LegacyRow } from "@tanstack/react-table/legacy";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { StatusBadge } from "@/components/status-badge";
+import { getTeamLogoPath } from "@/lib/data/catalog";
 import { positionLabel } from "@/lib/football-labels";
 import type { PlayerRecord } from "@/lib/data/types";
 
@@ -18,20 +20,28 @@ const playerSearchFilter = (row: LegacyRow<PlayerRecord>, _columnId: string, val
 };
 
 const playerColumnWidths = {
-  player: "w-[30%] pl-5",
-  teamId: "w-[20%]",
-  shirtNumber: "w-[10%]",
-  position: "w-[16%]",
-  age: "w-[12%]",
-  status: "w-[12%]",
+  player: "w-[34%] pl-5",
+  teamId: "w-[23%]",
+  shirtNumber: "w-[12%]",
+  position: "w-[17%]",
+  age: "w-[14%]",
 };
+
+function positionDotClass(value: string) {
+  const label = positionLabel(value);
+  if (label === "골키퍼") return "bg-yellow-400";
+  if (label === "수비수") return "bg-blue-500";
+  if (label === "미드필더") return "bg-emerald-500";
+  if (label === "공격수") return "bg-red-500";
+  return "bg-muted-foreground/60";
+}
 
 const columns: LegacyColumnDef<PlayerRecord>[] = [
   {
     id: "player",
     accessorFn: (player) => player.koreanName ?? player.displayName ?? player.name,
     filterFn: playerSearchFilter,
-    header: ({ column }) => <DataTableColumnHeader column={column} title="선수" className="ml-0 text-sm" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="선수" className="ml-0 text-sm font-semibold text-foreground" />,
     cell: ({ row }) => {
       const player = row.original;
       const displayName = player.koreanName ?? player.displayName ?? player.name;
@@ -47,29 +57,62 @@ const columns: LegacyColumnDef<PlayerRecord>[] = [
     },
   },
   { accessorKey: "teamId", header: "소속 구단", cell: ({ row }) => <span className="whitespace-nowrap font-medium">{row.original.teamName}</span> },
-  { accessorKey: "shirtNumber", header: ({ column }) => <DataTableColumnHeader column={column} title="등번호" className="text-sm" />, cell: ({ row }) => <span className="tabular font-mono">{row.original.shirtNumber ?? "-"}</span> },
+  { accessorKey: "shirtNumber", header: ({ column }) => <DataTableColumnHeader column={column} title="등번호" className="ml-0 w-full justify-center text-sm font-semibold text-foreground" />, cell: ({ row }) => <span className="tabular block text-center font-mono">{row.original.shirtNumber ?? "-"}</span> },
   { accessorKey: "position", header: "포지션", cell: ({ row }) => <span className="whitespace-nowrap">{positionLabel(row.original.position)}</span> },
-  { accessorKey: "age", header: ({ column }) => <DataTableColumnHeader column={column} title="나이" className="text-sm" />, cell: ({ row }) => <span className="tabular">{row.original.age === null ? "-" : `${row.original.age}세`}</span> },
-  { accessorKey: "status", header: "상태", cell: ({ row }) => <StatusBadge className="h-7 px-2.5 text-sm font-semibold" status={row.original.status === "ACTIVE" ? "normal" : "unknown"} label={row.original.status === "ACTIVE" ? "활동" : "확인 필요"} /> },
+  { accessorKey: "age", header: ({ column }) => <DataTableColumnHeader column={column} title="나이" className="text-sm font-semibold text-foreground" />, cell: ({ row }) => <span className="tabular">{row.original.age === null ? "-" : `${row.original.age}세`}</span> },
 ];
 
 export function PlayersTable({ players }: { players: PlayerRecord[] }) {
   const teamOptions = Array.from(new Map(players.map((player) => [player.teamId, player.teamName])))
-    .map(([value, label]) => ({ value, label }))
+    .map(([value, label]) => {
+      const logoPath = getTeamLogoPath(value);
+      return {
+        value,
+        label,
+        icon: logoPath ? <Image src={logoPath} width={20} height={20} alt="" className="size-5 object-contain" /> : undefined,
+      };
+    })
     .sort((a, b) => a.label.localeCompare(b.label, "ko"));
   const positionOptions = Array.from(new Set(players.map((player) => player.position).filter((value): value is string => Boolean(value))))
-    .map((value) => ({ value, label: positionLabel(value) }));
+    .map((value) => ({
+      value,
+      label: positionLabel(value),
+      icon: <span className={`size-2 shrink-0 rounded-full ${positionDotClass(value)}`} aria-hidden="true" />,
+    }));
 
   return (
     <DataTable
       columns={columns}
       data={players}
+      headerTitle="선수 목록"
+      headerTitleId="squad-list-title"
+      showHeaderResultCount
+      resetFiltersInHeader
       searchPlaceholder="선수명, 한글명, 구단 검색"
       searchColumnId="player"
       filters={[
-        { columnId: "teamId", label: "구단", options: teamOptions },
-        { columnId: "position", label: "포지션", options: positionOptions },
-        { columnId: "status", label: "상태", options: [{ value: "ACTIVE", label: "활동" }, { value: "UNKNOWN", label: "확인 필요" }] },
+        {
+          columnId: "teamId",
+          label: "구단",
+          allLabel: "모든 구단",
+          allIcon: (
+            <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true">
+              <UsersRound className="size-3" />
+            </span>
+          ),
+          options: teamOptions,
+        },
+        {
+          columnId: "position",
+          label: "포지션",
+          allLabel: "모든 포지션",
+          allIcon: (
+            <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true">
+              <MapPin className="size-3" />
+            </span>
+          ),
+          options: positionOptions,
+        },
       ]}
       pageSize={30}
       emptyState="조건에 맞는 선수가 없습니다."

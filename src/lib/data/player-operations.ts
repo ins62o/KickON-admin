@@ -197,16 +197,15 @@ export const getPlayerOperations = cache(async (playerId: string) => {
     client.from("user_data_reports").select("id,description,status,priority,created_at").eq("entity_type", "player").eq("entity_id", playerId).order("created_at", { ascending: false }).limit(50),
     client.from("admin_audit_logs").select("id,action,entity_type,reason,before_value,after_value,created_at").eq("entity_id", playerId).order("created_at", { ascending: false }).limit(50),
   ]);
-  const error = overrides.error ?? changes.error ?? reports.error ?? audits.error;
-  if (error) {
-    const missing = isOperationsSchemaMissing(error.code);
-    return { ...empty, schemaReady: !missing, error: missing ? "선수 운영 마이그레이션 적용이 필요합니다." : "선수 운영 데이터를 조회할 수 없습니다." };
+  if (overrides.error) {
+    const missing = isOperationsSchemaMissing(overrides.error.code);
+    return { ...empty, schemaReady: !missing, error: missing ? "선수 상세 수정 SQL 적용이 필요합니다." : "선수 수정 이력을 조회할 수 없습니다." };
   }
   return {
     overrides: (overrides.data ?? []).map((row) => mapOverride(row)),
-    changes: (changes.data ?? []).map((row) => mapChange(row)),
-    reports: (reports.data ?? []).map((row) => ({ id: row.id, description: row.description, status: row.status, priority: row.priority, createdAt: row.created_at })),
-    audits: (audits.data ?? []).map((row) => ({ id: String(row.id), action: row.action, entityType: row.entity_type, reason: row.reason, beforeValue: row.before_value, afterValue: row.after_value, createdAt: row.created_at })),
+    changes: changes.error ? [] : (changes.data ?? []).map((row) => mapChange(row)),
+    reports: reports.error ? [] : (reports.data ?? []).map((row) => ({ id: row.id, description: row.description, status: row.status, priority: row.priority, createdAt: row.created_at })),
+    audits: audits.error ? [] : (audits.data ?? []).map((row) => ({ id: String(row.id), action: row.action, entityType: row.entity_type, reason: row.reason, beforeValue: row.before_value, afterValue: row.after_value, createdAt: row.created_at })),
     schemaReady: true,
     error: null,
   };

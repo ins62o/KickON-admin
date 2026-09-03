@@ -2,8 +2,26 @@ const koreaTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
 });
 
+const koreaFullTimeFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 export function formatKoreaDateTime(value: string | null) {
   return value ? koreaTimeFormatter.format(new Date(value)) : "확인 불가";
+}
+
+export function formatKoreaFullDateTime(value: string | null) {
+  if (!value) return "확인 불가";
+  const parts = koreaFullTimeFormatter.formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  const hour = Number(part("hour"));
+  return `${part("year")}년 ${Number(part("month"))}월 ${Number(part("day"))}일 ${hour < 12 ? "오전" : "오후"} ${part("hour")}:${part("minute")}`;
 }
 
 export function formatRelativeTime(value: string | null) {

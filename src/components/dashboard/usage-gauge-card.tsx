@@ -112,6 +112,12 @@ export function UsageGaugePanel({
 }: UsageGaugePanelProps) {
   const color = gaugeColor(status);
   const filledDegrees = rate === null ? 0 : Math.round((rate / 100) * 270);
+  const startCapColor = rate !== null && rate > 0
+    ? color
+    : "var(--gauge-track)";
+  const endCapColor = rate !== null && rate >= 100
+    ? color
+    : "var(--gauge-track)";
 
   return (
     <>
@@ -124,6 +130,16 @@ export function UsageGaugePanel({
           role="img"
           aria-label={rate === null ? `${title} 사용률을 계산할 수 없음` : `${title} 사용률 ${rate.toFixed(1)}퍼센트`}
         >
+          <span
+            className="pointer-events-none absolute top-[82.2%] left-[17.8%] size-5 -translate-x-1/2 -translate-y-1/2 rounded-full sm:size-6"
+            style={{ backgroundColor: startCapColor }}
+            aria-hidden="true"
+          />
+          <span
+            className="pointer-events-none absolute top-[82.2%] right-[17.8%] size-5 translate-x-1/2 -translate-y-1/2 rounded-full sm:size-6"
+            style={{ backgroundColor: endCapColor }}
+            aria-hidden="true"
+          />
           <div className="absolute inset-5 flex flex-col items-center justify-center rounded-full bg-card sm:inset-6">
             <p className="tabular max-w-[170px] truncate text-3xl font-bold tracking-[-0.05em] sm:text-4xl">{centerValue}</p>
             <p className="mt-2 text-sm font-medium text-muted-foreground">{centerLabel}</p>

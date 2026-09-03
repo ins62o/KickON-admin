@@ -290,7 +290,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
               </Select>
             </div>
             <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1">
-              <Button type="submit" className="h-11 flex-1 rounded-xl px-4 text-sm">
+              <Button type="submit" className="h-11 flex-1 rounded-xl px-4 text-sm font-semibold">
                 <Search className="size-4" aria-hidden="true" />
                 검색
               </Button>
@@ -339,11 +339,11 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-base font-semibold text-foreground">{user.nickname}</span>
-                        <span className="mt-0.5 block truncate text-xs font-medium text-muted-foreground sm:hidden">
+                        <span className="mt-0.5 block truncate text-xs font-medium text-foreground sm:hidden">
                           {user.teamName ?? "응원 팀 미선택"}
                         </span>
                       </span>
-                      <span className="hidden min-w-0 truncate text-sm font-medium text-muted-foreground sm:block">
+                      <span className="hidden min-w-0 truncate text-sm font-medium text-foreground sm:block">
                         {user.teamName ?? "응원 팀 미선택"}
                       </span>
                       <AuthProviderMark provider={user.authProvider} />

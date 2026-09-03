@@ -1,46 +1,77 @@
 "use client";
 
-import { useActionState } from "react";
+import Image from "next/image";
+import { useActionState, useState } from "react";
+import { MapPin, UsersRound } from "lucide-react";
 import { ActionSubmit } from "@/components/admin/action-submit";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createManualPlayerAction, initialAdminActionState } from "@/lib/admin/actions";
+import { getTeamLogoPath } from "@/lib/data/catalog";
+
+const positions = [
+  { value: "Goalkeeper", label: "골키퍼", dot: "bg-yellow-400" },
+  { value: "Defender", label: "수비수", dot: "bg-blue-500" },
+  { value: "Midfielder", label: "미드필더", dot: "bg-emerald-500" },
+  { value: "Attacker", label: "공격수", dot: "bg-red-500" },
+];
 
 export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: string }> }) {
   const [state, action] = useActionState(createManualPlayerAction, initialAdminActionState);
-  return <form action={action} className="grid gap-4 sm:grid-cols-2">
-    <label className="block text-xs font-medium">소속 팀<select name="teamId" required className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-xs"><option value="">팀 선택</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
-    <label className="block text-xs font-medium">원문 선수명<Input name="playerName" required maxLength={120} className="mt-1.5 text-xs" /></label>
-    <label className="block text-xs font-medium">검증 한글명<Input name="displayNameKo" maxLength={120} className="mt-1.5 text-xs" /></label>
-    <label className="block text-xs font-medium">등번호<Input name="shirtNumber" type="number" min={0} max={999} className="mt-1.5 text-xs" /></label>
-    <label className="block text-xs font-medium">포지션<Input name="position" maxLength={80} className="mt-1.5 text-xs" placeholder="예: Midfielder" /></label>
-    <label className="block text-xs font-medium">세부 포지션<Input name="detailedPosition" maxLength={80} className="mt-1.5 text-xs" /></label>
-    <label className="block text-xs font-medium sm:col-span-2">등록 사유<Textarea name="reason" required minLength={3} maxLength={1000} rows={3} className="mt-1.5 text-xs" placeholder="수동 등록 근거와 확인 내용을 입력하세요." /></label>
-    <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}<div className="mt-3 flex justify-end"><ActionSubmit>선수 등록</ActionSubmit></div></div>
+  const [teamId, setTeamId] = useState("");
+  const selectedTeam = teams.find((team) => team.id === teamId);
+  const selectedTeamLogo = selectedTeam ? getTeamLogoPath(selectedTeam.id) : null;
+  return <form action={action} className="mt-2 grid gap-x-5 gap-y-6 sm:grid-cols-2">
+    <FormField label="소속 팀" htmlFor="manual-player-team">
+      <Select name="teamId" value={teamId} onValueChange={setTeamId} required>
+        <SelectTrigger id="manual-player-team" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><span className="flex min-w-0 flex-1 items-center gap-2 text-left">{selectedTeamLogo ? <Image src={selectedTeamLogo} width={20} height={20} alt="" className="size-5 shrink-0 object-contain" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><UsersRound className="size-3" /></span>}<span className="truncate text-foreground">{selectedTeam?.name ?? "팀 선택"}</span></span></SelectTrigger>
+        <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+          {teams.map((team) => {
+            const logoPath = getTeamLogoPath(team.id);
+            return <SelectItem key={team.id} value={team.id} className="cursor-pointer py-2.5 pr-8 pl-2.5">{logoPath ? <Image src={logoPath} width={20} height={20} alt="" className="size-5 object-contain" /> : <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary"><UsersRound className="size-3" /></span>}{team.name}</SelectItem>;
+          })}
+        </SelectContent>
+      </Select>
+    </FormField>
+    <FormField label="포지션" htmlFor="manual-player-position">
+      <Select name="position" defaultValue="__none">
+        <SelectTrigger id="manual-player-position" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><SelectValue placeholder="포지션 선택" /></SelectTrigger>
+        <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+          <SelectItem value="__none" className="cursor-pointer py-2.5 pr-8 pl-2.5"><span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary"><MapPin className="size-3" /></span>포지션 미지정</SelectItem>
+          {positions.map((position) => <SelectItem key={position.value} value={position.value} className="cursor-pointer py-2.5 pr-8 pl-2.5"><span className={`size-2 shrink-0 rounded-full ${position.dot}`} aria-hidden="true" />{position.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </FormField>
+    <FormField label="영어 이름" htmlFor="manual-player-name"><Input id="manual-player-name" name="playerName" required maxLength={120} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
+    <FormField label="한국 이름" htmlFor="manual-player-name-ko"><Input id="manual-player-name-ko" name="displayNameKo" maxLength={120} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
+    <FormField label="등번호" htmlFor="manual-player-number" className="sm:col-span-2"><Input id="manual-player-number" name="shirtNumber" type="number" min={0} max={999} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
+    <FormField label="등록 사유" htmlFor="manual-player-reason" className="sm:col-span-2"><Textarea id="manual-player-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></FormField>
+    <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-sm text-danger" : "text-sm text-success"}>{state.message}</p> : null}<div className="mt-4 flex justify-end"><ActionSubmit className="h-11 px-6 text-sm font-bold">선수 등록</ActionSubmit></div></div>
   </form>;
+}
+
+function FormField({ label, htmlFor, className, children }: { label: string; htmlFor: string; className?: string; children: React.ReactNode }) {
+  return <div className={`space-y-2.5 ${className ?? ""}`}><label htmlFor={htmlFor} className="block text-sm font-semibold text-foreground">{label}</label>{children}</div>;
 }
 
 export function ManualPlayerDialog({ teams }: { teams: Array<{ id: string; name: string }> }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="h-10 min-w-28 px-5 text-base font-semibold">선수 등록</Button>
+        <Button className="h-11 min-w-32 px-6 text-base font-bold">선수 등록</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>선수 등록</DialogTitle>
-          <DialogDescription>
-            SportsMonks에 없는 선수를 직접 등록합니다.
-          </DialogDescription>
+        <DialogHeader className="gap-2 pb-1">
+          <DialogTitle className="text-xl">선수 등록</DialogTitle>
         </DialogHeader>
         <ManualPlayerForm teams={teams} />
       </DialogContent>

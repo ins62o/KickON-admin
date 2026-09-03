@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createAuthServerClient, requireAdmin, type AdminRole } from "@/lib/auth/server";
+import { hasAdminPermission } from "@/lib/auth/permissions";
+import { isOperationsSchemaMissing } from "@/lib/data/operations-client";
 import type { PlayerChangeStatus, PlayerChangeType } from "@/lib/data/player-operations";
 import type { ReportPriority, ReportStatus } from "@/lib/data/reports";
 
@@ -34,6 +36,7 @@ const fixtureOverrideFields = new Set(["kickoff_at", "status", "home_score", "aw
 const standingOverrideFields = new Set(["rank", "played", "won", "drawn", "lost", "goals_for", "goals_against", "goal_difference", "points", "clean_sheets", "average_possession"]);
 const playerIdPattern = /^[a-z0-9_-]{1,80}$/i;
 const entityIdPattern = /^[a-z0-9_-]{1,160}$/i;
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 async function getOperatorContext(requiredRole: AdminRole = "operator") {
   const admin = await requireAdmin();
@@ -163,6 +166,92 @@ function parseOverrideValue(field: string, rawValue: string): { ok: true; value:
   return { ok: true, value };
 }
 
+function parseRequiredInteger(rawValue: FormDataEntryValue | null, label: string, maximum = 9999) {
+  const value = Number(String(rawValue ?? "").trim());
+  if (!Number.isInteger(value) || value < 0 || value > maximum) return { ok: false as const, error: `${label}은(는) 0~${maximum} 사이 정수여야 합니다.` };
+  return { ok: true as const, value };
+}
+
+function parseNullableInteger(rawValue: FormDataEntryValue | null, label: string, minimum: number, maximum: number) {
+  const normalized = String(rawValue ?? "").trim();
+  if (!normalized) return { ok: true as const, value: null };
+  const value = Number(normalized);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) return { ok: false as const, error: `${label}은(는) ${minimum}~${maximum} 사이 정수여야 합니다.` };
+  return { ok: true as const, value };
+}
+
+export async function updatePlayerDetailsAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const context = await getOperatorContext("data_editor");
+  if (context.error) return { status: "error", message: context.error, completedAt: null };
+  if (!hasAdminPermission(context.admin.role, "data.write")) return { status: "error", message: "선수 정보를 수정할 권한이 없습니다.", completedAt: null };
+
+  const playerId = String(formData.get("playerId") ?? "").trim();
+  const season = Number(String(formData.get("season") ?? ""));
+  const leagueId = String(formData.get("leagueId") ?? "").trim();
+  const teamId = String(formData.get("teamId") ?? "").trim();
+  const playerName = String(formData.get("playerName") ?? "").trim();
+  const displayNameKo = String(formData.get("displayNameKo") ?? "").trim() || null;
+  const positionValue = String(formData.get("position") ?? "").trim();
+  const position = positionValue === "__none" ? null : positionValue || null;
+  const dateOfBirth = String(formData.get("dateOfBirth") ?? "").trim() || null;
+  const reason = String(formData.get("reason") ?? "").trim();
+  const shirtNumber = parseNullableInteger(formData.get("shirtNumber"), "등번호", 0, 999);
+  const appearances = parseRequiredInteger(formData.get("appearances"), "출전", 9999);
+  const goals = parseRequiredInteger(formData.get("goals"), "득점", 9999);
+  const assists = parseRequiredInteger(formData.get("assists"), "도움", 9999);
+  const height = parseNullableInteger(formData.get("height"), "신장", 50, 300);
+  const weight = parseNullableInteger(formData.get("weight"), "체중", 20, 300);
+
+  if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !entityIdPattern.test(leagueId) || !entityIdPattern.test(teamId)) {
+    return { status: "error", message: "선수 식별 정보가 올바르지 않습니다.", completedAt: null };
+  }
+  if (!playerName || playerName.length > 160 || (displayNameKo && displayNameKo.length > 160) || (position && position.length > 120)) {
+    return { status: "error", message: "선수명과 포지션 값을 확인해 주세요.", completedAt: null };
+  }
+  if (dateOfBirth && (!datePattern.test(dateOfBirth) || Number.isNaN(Date.parse(`${dateOfBirth}T00:00:00Z`)))) {
+    return { status: "error", message: "생년월일이 올바르지 않습니다.", completedAt: null };
+  }
+  for (const parsed of [shirtNumber, appearances, goals, assists, height, weight]) {
+    if (!parsed.ok) return { status: "error", message: parsed.error, completedAt: null };
+  }
+  if (reason.length < 3 || reason.length > 1000) {
+    return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
+  }
+
+  const { data, error } = await context.supabase.rpc("admin_update_player_details", {
+    p_player_id: playerId,
+    p_season: season,
+    p_league_id: leagueId,
+    p_patch: {
+      team_id: teamId,
+      player_name: playerName,
+      display_name_ko: displayNameKo,
+      shirt_number: shirtNumber.value,
+      position,
+      appearances: appearances.value,
+      goals: goals.value,
+      assists: assists.value,
+      height: height.value,
+      weight: weight.value,
+      date_of_birth: dateOfBirth,
+    },
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[player-details:update] failed", { playerId, code: error.code, message: error.message });
+    const schemaMissing = isOperationsSchemaMissing(error.code);
+    return { status: "error", message: schemaMissing ? "선수 상세 수정 SQL을 먼저 적용해 주세요." : "선수 정보를 수정하지 못했습니다. 입력값과 관리자 권한을 확인해 주세요.", completedAt: null };
+  }
+
+  const completedAt = new Date().toISOString();
+  revalidatePath("/");
+  revalidatePath("/squads");
+  revalidatePath(`/squads/${playerId}`);
+  revalidatePath("/clubs");
+  revalidatePath("/audit");
+  return { status: "success", message: Number(data) > 0 ? `${data}개 항목을 수정하고 자동 동기화 덮어쓰기를 잠갔습니다.` : "변경된 항목이 없습니다.", completedAt };
+}
+
 export async function applyPlayerOverrideAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
   const context = await getOperatorContext("admin");
   if (context.error) return { status: "error", message: context.error, completedAt: null };
@@ -189,8 +278,8 @@ export async function applyPlayerOverrideAction(_previous: OperationActionState,
   if (error || !data) return { status: "error", message: "수동 수정값을 적용하지 못했습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/players");
-  revalidatePath(`/players/${playerId}`);
+  revalidatePath("/squads");
+  revalidatePath(`/squads/${playerId}`);
   revalidatePath("/clubs");
   revalidatePath("/audit");
   return { status: "success", message: "수동 수정값을 적용하고 다음 동기화의 덮어쓰기를 잠갔습니다.", completedAt };
@@ -213,8 +302,8 @@ export async function releasePlayerOverrideAction(_previous: OperationActionStat
   if (error || data !== true) return { status: "error", message: "수동 수정 잠금을 해제하지 못했습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/players");
-  revalidatePath(`/players/${playerId}`);
+  revalidatePath("/squads");
+  revalidatePath(`/squads/${playerId}`);
   revalidatePath("/clubs");
   revalidatePath("/audit");
   return { status: "success", message: "수동 수정 잠금을 해제했습니다. 다음 동기화부터 외부 값을 따릅니다.", completedAt };

@@ -18,7 +18,7 @@ export default async function StandingsPage() {
       <PageHeader title="팀 관리" />
       {result.error ? <div className="mt-5 flex items-start gap-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-xs text-amber-100/70"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-300" />{result.error}</div> : null}
       <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35">
-        <div className="border-b border-border/70 px-5 py-4">
+        <div className="border-b border-border/70 px-11 py-4">
           <h2 className="text-base font-semibold">하나은행 K리그1 2026</h2>
         </div>
         <div className="overflow-x-auto">

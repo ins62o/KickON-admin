@@ -1,58 +1,93 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { LoaderCircle, LockKeyhole, LockOpen, Save } from "lucide-react";
+import Image from "next/image";
+import { useActionState, useState, type ReactNode } from "react";
+import { MapPin, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { applyPlayerOverrideAction, releasePlayerOverrideAction, type OperationActionState } from "@/lib/operations/actions";
-import type { ManualOverrideRecord } from "@/lib/data/player-operations";
+import { getTeamLogoPath } from "@/lib/data/catalog";
+import { updatePlayerDetailsAction, type OperationActionState } from "@/lib/operations/actions";
+import type { PlayerRecord } from "@/lib/data/types";
 
 const initialState: OperationActionState = { status: "idle", message: null, completedAt: null };
-const fieldLabels: Record<string, string> = { display_name_ko: "한글명", shirt_number: "등번호", position: "포지션", detailed_position: "세부 포지션", in_squad: "선수단 포함" };
+const positions = [
+  { value: "Goalkeeper", label: "골키퍼", dot: "bg-yellow-400" },
+  { value: "Defender", label: "수비수", dot: "bg-blue-500" },
+  { value: "Midfielder", label: "미드필더", dot: "bg-emerald-500" },
+  { value: "Attacker", label: "공격수", dot: "bg-red-500" },
+];
 
-export function PlayerOverrideControl({ playerId, overrides, canEdit, openApply = false, defaultReason = "" }: { playerId: string; overrides: ManualOverrideRecord[]; canEdit: boolean; openApply?: boolean; defaultReason?: string }) {
-  const active = overrides.filter((item) => !item.releasedAt);
-  return (
-    <div className="space-y-4">
-      <ApplyOverrideDialog playerId={playerId} canEdit={canEdit} open={openApply && canEdit} defaultReason={defaultReason} />
-      <div className="space-y-2">
-        {active.length > 0 ? active.map((item) => <ActiveOverride key={item.id} playerId={playerId} item={item} canEdit={canEdit} />) : <p className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">보호 중인 직접 수정값이 없습니다.</p>}
-      </div>
-      {!canEdit ? <p className="text-[11px] leading-5 text-muted-foreground">직접 수정은 관리자 권한이 필요합니다.</p> : null}
-    </div>
-  );
+type EditablePlayer = Pick<PlayerRecord,
+  "id" | "season" | "leagueId" | "teamId" | "name" | "koreanName" | "shirtNumber" | "position" |
+  "appearances" | "goals" | "assists" | "height" | "weight" | "dateOfBirth"
+>;
+type TeamOption = { id: string; name: string };
+
+export function PlayerOverrideControl({ player, teams, canEdit, openApply = false, defaultReason = "" }: { player: EditablePlayer; teams: TeamOption[]; canEdit: boolean; openApply?: boolean; defaultReason?: string }) {
+  return <PlayerEditDialog player={player} teams={teams} canEdit={canEdit} open={openApply && canEdit} defaultReason={defaultReason} />;
 }
 
-function ApplyOverrideDialog({ playerId, canEdit, open, defaultReason }: { playerId: string; canEdit: boolean; open: boolean; defaultReason: string }) {
-  const [field, setField] = useState("display_name_ko");
-  const [state, action, pending] = useActionState(applyPlayerOverrideAction, initialState);
+function PlayerEditDialog({ player, teams, canEdit, open, defaultReason }: { player: EditablePlayer; teams: TeamOption[]; canEdit: boolean; open: boolean; defaultReason: string }) {
+  const [state, action, pending] = useActionState(updatePlayerDetailsAction, initialState);
+  const [teamId, setTeamId] = useState(player.teamId);
+  const [position, setPosition] = useState(player.position ?? "__none");
+  const selectedTeam = teams.find((team) => team.id === teamId);
+  const selectedTeamLogo = selectedTeam ? getTeamLogoPath(selectedTeam.id) : null;
+  const selectedPosition = positions.find((item) => item.value === position);
+
   return (
     <Dialog defaultOpen={open}>
-      <DialogTrigger asChild><Button className="w-full" disabled={!canEdit}><LockKeyhole className="size-4" /> 정보 직접 수정</Button></DialogTrigger>
-      <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>선수 정보 직접 수정</DialogTitle><DialogDescription>직접 수정한 항목은 보호를 해제하기 전까지 외부 데이터 새로고침으로 바뀌지 않습니다.</DialogDescription></DialogHeader>
-        <form action={action} className="space-y-4">
-          <input type="hidden" name="playerId" value={playerId} />
-          <div className="space-y-1.5"><label htmlFor="player-override-field" className="text-xs font-medium">수정할 항목</label><Select name="field" value={field} onValueChange={setField}><SelectTrigger id="player-override-field" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="display_name_ko">한글명</SelectItem><SelectItem value="shirt_number">등번호</SelectItem><SelectItem value="position">포지션</SelectItem><SelectItem value="detailed_position">세부 포지션</SelectItem><SelectItem value="in_squad">선수단 포함 여부</SelectItem></SelectContent></Select></div>
-          <div className="space-y-1.5"><label htmlFor="override-value" className="text-xs font-medium">수정값</label>{field === "in_squad" ? <Select name="value" defaultValue="true"><SelectTrigger id="override-value" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="true">포함</SelectItem><SelectItem value="false">제외</SelectItem></SelectContent></Select> : <Input id="override-value" name="value" type={field === "shirt_number" ? "number" : "text"} min={field === "shirt_number" ? 0 : undefined} max={field === "shirt_number" ? 999 : undefined} maxLength={160} required placeholder={field === "shirt_number" ? "예: 9" : "수정할 값"} />}</div>
-          <div className="space-y-1.5"><label htmlFor="override-reason" className="text-xs font-medium">수정 이유</label><Textarea id="override-reason" name="reason" defaultValue={defaultReason} minLength={3} maxLength={1000} required placeholder="공식 구단 발표 또는 사용자 제보 등 근거를 기록하세요." /></div>
+      <DialogTrigger asChild><Button className="h-10 px-5 font-bold" disabled={!canEdit}>선수 정보 수정</Button></DialogTrigger>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl"><DialogHeader className="pb-1"><DialogTitle className="text-xl">선수 정보 수정</DialogTitle></DialogHeader>
+        <form action={action} className="mt-2 space-y-6">
+          <input type="hidden" name="playerId" value={player.id} />
+          <input type="hidden" name="season" value={player.season} />
+          <input type="hidden" name="leagueId" value={player.leagueId} />
+          <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2">
+            <Field label="영어 이름" htmlFor="player-name"><Input id="player-name" name="playerName" defaultValue={player.name} maxLength={160} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+            <Field label="한국 이름" htmlFor="player-name-ko"><Input id="player-name-ko" name="displayNameKo" defaultValue={player.koreanName ?? ""} maxLength={160} className="h-11 rounded-xl px-3.5 text-sm" placeholder="없음" /></Field>
+            <Field label="소속 구단" htmlFor="player-team">
+              <Select name="teamId" value={teamId} onValueChange={setTeamId}>
+                <SelectTrigger id="player-team" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><span className="flex min-w-0 flex-1 items-center gap-2 text-left">{selectedTeamLogo ? <Image src={selectedTeamLogo} width={20} height={20} alt="" className="size-5 shrink-0 object-contain" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><UsersRound className="size-3" /></span>}<span className="truncate text-foreground">{selectedTeam?.name ?? "팀 선택"}</span></span></SelectTrigger>
+                <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+                  {teams.map((team) => {
+                    const logoPath = getTeamLogoPath(team.id);
+                    return <SelectItem key={team.id} value={team.id} className="cursor-pointer py-2.5 pr-8 pl-2.5">{logoPath ? <Image src={logoPath} width={20} height={20} alt="" className="size-5 object-contain" /> : <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary"><UsersRound className="size-3" /></span>}{team.name}</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="등번호" htmlFor="player-shirt-number"><Input id="player-shirt-number" name="shirtNumber" type="number" min={0} max={999} defaultValue={player.shirtNumber ?? ""} placeholder="없음" className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+            <Field label="포지션" htmlFor="player-position">
+              <Select name="position" value={position} onValueChange={setPosition}>
+                <SelectTrigger id="player-position" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><span className="flex min-w-0 flex-1 items-center gap-2 text-left">{selectedPosition ? <span className={`size-2 shrink-0 rounded-full ${selectedPosition.dot}`} aria-hidden="true" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><MapPin className="size-3" /></span>}<span className="truncate text-foreground">{selectedPosition?.label ?? "포지션 미지정"}</span></span></SelectTrigger>
+                <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+                  <SelectItem value="__none" className="cursor-pointer py-2.5 pr-8 pl-2.5"><span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary"><MapPin className="size-3" /></span>포지션 미지정</SelectItem>
+                  {positions.map((item) => <SelectItem key={item.value} value={item.value} className="cursor-pointer py-2.5 pr-8 pl-2.5"><span className={`size-2 shrink-0 rounded-full ${item.dot}`} aria-hidden="true" />{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="생년월일" htmlFor="player-date-of-birth"><Input id="player-date-of-birth" name="dateOfBirth" type="date" defaultValue={player.dateOfBirth ?? ""} className="h-11 rounded-xl px-3.5 text-sm dark:[color-scheme:dark] dark:[&::-webkit-calendar-picker-indicator]:brightness-0 dark:[&::-webkit-calendar-picker-indicator]:invert" /></Field>
+            <Field label="신장 (cm)" htmlFor="player-height"><Input id="player-height" name="height" type="number" min={50} max={300} defaultValue={player.height ?? ""} placeholder="없음" className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+            <Field label="체중 (kg)" htmlFor="player-weight"><Input id="player-weight" name="weight" type="number" min={20} max={300} defaultValue={player.weight ?? ""} placeholder="없음" className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+          </div>
+          <div className="grid gap-5 rounded-xl border border-border/70 bg-muted/15 p-4 sm:grid-cols-3">
+            <Field label="출전" htmlFor="player-appearances"><Input id="player-appearances" name="appearances" type="number" min={0} max={9999} defaultValue={player.appearances} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+            <Field label="득점" htmlFor="player-goals"><Input id="player-goals" name="goals" type="number" min={0} max={9999} defaultValue={player.goals} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+            <Field label="도움" htmlFor="player-assists"><Input id="player-assists" name="assists" type="number" min={0} max={9999} defaultValue={player.assists} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
+          </div>
+          <Field label="수정 이유" htmlFor="override-reason"><Textarea id="override-reason" name="reason" defaultValue={defaultReason} minLength={3} maxLength={1000} required className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></Field>
           {state.message ? <p role="status" className={state.status === "success" ? "text-xs text-emerald-300" : "text-xs text-rose-300"}>{state.message}</p> : null}
-          <DialogFooter className="mx-0 mb-0 rounded-lg px-0 pb-0"><DialogClose asChild><Button type="button" variant="outline">취소</Button></DialogClose><Button type="submit" disabled={pending}>{pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}{pending ? "저장 중" : "수정값 저장"}</Button></DialogFooter>
+          <DialogFooter className="mx-0 mb-0 rounded-lg px-0 pb-0"><DialogClose asChild><Button type="button" variant="outline" className="h-11 px-5 text-base font-bold">취소</Button></DialogClose><Button type="submit" disabled={pending} className="h-11 px-6 text-base font-bold">{pending ? "수정 중" : "선수 정보 수정"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-function ActiveOverride({ playerId, item, canEdit }: { playerId: string; item: ManualOverrideRecord; canEdit: boolean }) {
-  const [state, action, pending] = useActionState(releasePlayerOverrideAction, initialState);
-  return (
-    <div className="rounded-lg border border-primary/15 bg-primary/[0.035] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-medium">{fieldLabels[item.fieldPath] ?? item.fieldPath}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={display(item.overrideValue)}>{display(item.originalValue)} → {display(item.overrideValue)}</p></div><span className="inline-flex items-center gap-1 text-[10px] text-primary"><LockKeyhole className="size-3" /> 자동 변경 방지</span></div><p className="mt-2 text-[11px] leading-5 text-muted-foreground">{item.reason}</p>
-      <Dialog><DialogTrigger asChild><Button variant="ghost" size="sm" className="mt-2 w-full" disabled={!canEdit}><LockOpen className="size-3.5" /> 수정값 보호 해제</Button></DialogTrigger><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{fieldLabels[item.fieldPath] ?? item.fieldPath} 수정값 보호 해제</DialogTitle><DialogDescription>현재 값은 바로 바뀌지 않습니다. 다음 선수단 새로고침부터 외부 최신값을 다시 따릅니다.</DialogDescription></DialogHeader><form action={action} className="space-y-4"><input type="hidden" name="overrideId" value={item.id} /><input type="hidden" name="playerId" value={playerId} /><div className="space-y-1.5"><label htmlFor={`release-${item.id}`} className="text-xs font-medium">해제 이유</label><Textarea id={`release-${item.id}`} name="reason" minLength={3} maxLength={1000} required placeholder="외부 데이터가 수정된 것을 확인함" /></div>{state.message ? <p role="status" className={state.status === "success" ? "text-xs text-emerald-300" : "text-xs text-rose-300"}>{state.message}</p> : null}<DialogFooter className="mx-0 mb-0 rounded-lg px-0 pb-0"><DialogClose asChild><Button type="button" variant="outline">취소</Button></DialogClose><Button type="submit" variant="destructive" disabled={pending}>{pending ? <LoaderCircle className="size-4 animate-spin" /> : <LockOpen className="size-4" />}{pending ? "해제 중" : "보호 해제"}</Button></DialogFooter></form></DialogContent></Dialog>
-    </div>
-  );
+function Field({ label, htmlFor, className, children }: { label: string; htmlFor: string; className?: string; children: ReactNode }) {
+  return <div className={`space-y-2.5 ${className ?? ""}`}><label htmlFor={htmlFor} className="block text-sm font-semibold text-foreground">{label}</label>{children}</div>;
 }
-
-function display(value: unknown) { return value === null || value === undefined ? "없음" : typeof value === "string" ? value : JSON.stringify(value); }

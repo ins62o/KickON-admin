@@ -48,6 +48,12 @@ export function CompactUsageGauge({
   const filledDegrees = normalizedRate === null
     ? 0
     : Math.round((normalizedRate / 100) * 270);
+  const startCapColor = normalizedRate !== null && normalizedRate > 0
+    ? color
+    : "var(--gauge-track)";
+  const endCapColor = normalizedRate === 100
+    ? color
+    : "var(--gauge-track)";
 
   return (
     <article className="flex min-h-72 flex-col bg-card px-4 py-5 sm:px-5">
@@ -76,6 +82,16 @@ export function CompactUsageGauge({
             ? `${title} 사용률을 계산할 수 없음`
             : `${title} 사용률 ${normalizedRate.toFixed(1)}퍼센트`}
         >
+          <span
+            className="pointer-events-none absolute top-[82.2%] left-[17.8%] size-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ backgroundColor: startCapColor }}
+            aria-hidden="true"
+          />
+          <span
+            className="pointer-events-none absolute top-[82.2%] right-[17.8%] size-4 translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ backgroundColor: endCapColor }}
+            aria-hidden="true"
+          />
           <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-card text-center">
             <p className="tabular max-w-32 truncate text-2xl font-bold tracking-[-0.04em]">
               {centerValue}

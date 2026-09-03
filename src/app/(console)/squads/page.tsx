@@ -18,7 +18,10 @@ export default async function SquadsPage() {
   const players = result.data;
   const translationNeededCount = players.filter((player) => !player.koreanName?.trim()).length;
   const canRegisterPlayer = !admin.isDevelopmentBypass && hasAdminPermission(admin.role, "data.write");
-  const teamOptions = dashboard.clubs.map((club) => ({ id: club.id, name: club.name }));
+  const teamOptions = dashboard.clubs
+    .filter((club) => club.division === "K리그1" && club.rank !== null)
+    .sort((left, right) => (left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
+    .map((club) => ({ id: club.id, name: club.name }));
 
   return <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
     <PageHeader
@@ -32,10 +35,6 @@ export default async function SquadsPage() {
       { id: "translation-needed", label: "번역 필요 선수명", value: `${formatNumber(translationNeededCount)}명`, icon: Globe2, tone: "accent" },
     ]} />
     <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="squad-list-title">
-      <div className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
-        <h2 id="squad-list-title" className="text-base font-semibold">선수 목록</h2>
-        <span className="tabular shrink-0 text-sm text-muted-foreground">{formatNumber(players.length)}건</span>
-      </div>
       <PlayersTable players={players} />
     </section>
   </div>;

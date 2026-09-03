@@ -124,7 +124,8 @@ export async function createManualPlayerAction(_state: AdminActionState, formDat
   const teamId = textValue(formData, "teamId", 120);
   const playerName = textValue(formData, "playerName", 120);
   const displayNameKo = textValue(formData, "displayNameKo", 120);
-  const position = textValue(formData, "position", 80);
+  const positionInput = textValue(formData, "position", 80);
+  const position = positionInput === "__none" ? "" : positionInput;
   const detailedPosition = textValue(formData, "detailedPosition", 80);
   const reason = textValue(formData, "reason", 1000);
   const shirtNumberInput = textValue(formData, "shirtNumber", 4);

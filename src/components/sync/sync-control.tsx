@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   Activity,
   ArchiveRestore,
@@ -77,7 +77,7 @@ export function SyncControl(props: SyncControlProps) {
 }
 
 function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, environment, initialOperation, initialTeamId, initialFixtureId, providerRemaining, providerAllowance, providerResetAt, providerQuotaLow, lastSync }: SyncControlProps & { operation: (typeof syncOperations)[number] }) {
-  const [state, action, pending] = useActionState(runSyncAction, initialState);
+  const [formSession, setFormSession] = useState(0);
   const Icon = iconByOperation[operation.key];
   const targetUnavailable = operation.target === "team"
     ? teams.length === 0
@@ -94,7 +94,12 @@ function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, 
   const operationLastSync = lastSync[operation.key];
 
   return (
-    <Dialog defaultOpen={initialOperation === operation.key}>
+    <Dialog
+      defaultOpen={initialOperation === operation.key}
+      onOpenChange={(open) => {
+        if (!open) setFormSession((session) => session + 1);
+      }}
+    >
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -131,72 +136,105 @@ function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, 
             ) : null}
           </div>
         </DialogHeader>
-        <form action={action} className="space-y-6">
-          <input type="hidden" name="operation" value={operation.key} />
-
-          {disabledReason ? (
-            <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-xs leading-5 text-amber-700 dark:text-amber-200">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {disabledReason}
-            </div>
-          ) : null}
-
-          {operation.target === "team" ? (
-            <div className="grid gap-4">
-              <label htmlFor={`sync-team-${operation.key}`} className="block text-sm leading-none font-medium">대상 구단</label>
-              <Select name="teamId" defaultValue={teams.some((team) => team.id === initialTeamId) ? initialTeamId : undefined} required>
-                <SelectTrigger id={`sync-team-${operation.key}`} className={syncSelectTriggerClassName}><SelectValue placeholder="구단 선택" /></SelectTrigger>
-                <SelectContent position="popper" align="start" sideOffset={6} className={syncSelectContentClassName}>
-                  {teams.map((team) => <SelectItem key={team.id} value={team.id} className={syncSelectItemClassName}>{team.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          {operation.target === "fixture" ? (
-            <div className="grid gap-4">
-              <label htmlFor={`sync-fixture-${operation.key}`} className="block text-sm leading-none font-medium">대상 경기</label>
-              <Select name="fixtureId" defaultValue={fixtures.some((fixture) => fixture.id === initialFixtureId) ? initialFixtureId : undefined} required>
-                <SelectTrigger id={`sync-fixture-${operation.key}`} className={syncSelectTriggerClassName}><SelectValue placeholder="경기 선택" /></SelectTrigger>
-                <SelectContent position="popper" align="start" sideOffset={6} className={syncSelectContentClassName}>
-                  {fixtures.map((fixture) => <SelectItem key={fixture.id} value={fixture.id} className={syncSelectItemClassName}>{fixture.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          <div className="grid gap-4">
-            <label htmlFor={`reason-${operation.key}`} className="block text-sm leading-none font-medium">실행 이유</label>
-            <Textarea className="min-h-24" id={`reason-${operation.key}`} name="reason" minLength={3} maxLength={500} required placeholder="예: 사용자 제보 확인을 위해 선수단 다시 가져오기" />
-          </div>
-
-          {providerQuotaLow ? (
-            <div className="rounded-lg border border-amber-700/25 bg-amber-600/[0.08] p-3 text-xs leading-5 text-amber-900 dark:text-amber-200">
-              <div className="flex items-start gap-2">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                <p>현재 잔여량은 {formatNumber(providerRemaining)}회{providerAllowance === null ? "" : ` / ${formatNumber(providerAllowance)}회`}입니다.{providerResetAt ? ` ${formatRelativeTime(providerResetAt)} 초기화 예정입니다.` : ""}</p>
-              </div>
-              <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-md border border-amber-700/20 bg-background/45 px-3 py-2 text-foreground">
-                <input type="checkbox" name="confirmLowQuota" value="yes" required className="mt-0.5 size-4 accent-primary" />
-                <span>잔여 할당량이 낮은 상태에서 이 작업을 실행하는 것을 확인했습니다.</span>
-              </label>
-            </div>
-          ) : null}
-
-          {state.message && state.operation === operation.key ? (
-            <div role="status" className={cn("rounded-lg border px-3 py-2.5 text-xs leading-5", state.status === "success" ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200" : state.status === "warning" ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-100" : "border-rose-400/20 bg-rose-400/[0.06] text-rose-200")}>
-              {state.message}
-            </div>
-          ) : null}
-
-          <DialogFooter className="mx-0 -mb-1 mt-1 rounded-lg bg-muted/35 px-0 pt-5 pb-0">
-            <DialogClose asChild><Button type="button" variant="outline" size="lg" className="min-w-16">취소</Button></DialogClose>
-            <Button type="submit" size="lg" className="min-w-16" variant={providerQuotaLow || (environment === "production" && isHighCost) ? "destructive" : "default"} disabled={pending || disabled}>
-              {pending ? "실행 중" : "실행"}
-            </Button>
-          </DialogFooter>
-        </form>
+        <SyncOperationForm
+          key={formSession}
+          operation={operation}
+          teams={teams}
+          fixtures={fixtures}
+          environment={environment}
+          initialTeamId={initialTeamId}
+          initialFixtureId={initialFixtureId}
+          providerRemaining={providerRemaining}
+          providerAllowance={providerAllowance}
+          providerResetAt={providerResetAt}
+          providerQuotaLow={providerQuotaLow}
+          disabled={disabled}
+          disabledReason={disabledReason}
+          isHighCost={isHighCost}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+type SyncOperationFormProps = Omit<
+  SyncControlProps,
+  "canRun" | "secretReady" | "initialOperation" | "lastSync"
+> & {
+  operation: (typeof syncOperations)[number];
+  disabled: boolean;
+  disabledReason: string | null;
+  isHighCost: boolean;
+};
+
+function SyncOperationForm({ operation, teams, fixtures, environment, initialTeamId, initialFixtureId, providerRemaining, providerAllowance, providerResetAt, providerQuotaLow, disabled, disabledReason, isHighCost }: SyncOperationFormProps) {
+  const [state, action, pending] = useActionState(runSyncAction, initialState);
+
+  return (
+    <form action={action} className="space-y-6">
+      <input type="hidden" name="operation" value={operation.key} />
+
+      {disabledReason ? (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-xs leading-5 text-amber-700 dark:text-amber-200">
+          <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {disabledReason}
+        </div>
+      ) : null}
+
+      {operation.target === "team" ? (
+        <div className="grid gap-4">
+          <label htmlFor={`sync-team-${operation.key}`} className="block text-sm leading-none font-medium">대상 구단</label>
+          <Select name="teamId" defaultValue={teams.some((team) => team.id === initialTeamId) ? initialTeamId : undefined} required>
+            <SelectTrigger id={`sync-team-${operation.key}`} className={syncSelectTriggerClassName}><SelectValue placeholder="구단 선택" /></SelectTrigger>
+            <SelectContent position="popper" align="start" sideOffset={6} className={syncSelectContentClassName}>
+              {teams.map((team) => <SelectItem key={team.id} value={team.id} className={syncSelectItemClassName}>{team.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+
+      {operation.target === "fixture" ? (
+        <div className="grid gap-4">
+          <label htmlFor={`sync-fixture-${operation.key}`} className="block text-sm leading-none font-medium">대상 경기</label>
+          <Select name="fixtureId" defaultValue={fixtures.some((fixture) => fixture.id === initialFixtureId) ? initialFixtureId : undefined} required>
+            <SelectTrigger id={`sync-fixture-${operation.key}`} className={syncSelectTriggerClassName}><SelectValue placeholder="경기 선택" /></SelectTrigger>
+            <SelectContent position="popper" align="start" sideOffset={6} className={syncSelectContentClassName}>
+              {fixtures.map((fixture) => <SelectItem key={fixture.id} value={fixture.id} className={syncSelectItemClassName}>{fixture.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4">
+        <label htmlFor={`reason-${operation.key}`} className="block text-sm leading-none font-medium">실행 이유</label>
+        <Textarea className="min-h-24" id={`reason-${operation.key}`} name="reason" minLength={3} maxLength={500} required placeholder="예: 사용자 제보 확인을 위해 선수단 다시 가져오기" />
+      </div>
+
+      {providerQuotaLow ? (
+        <div className="rounded-lg border border-amber-700/25 bg-amber-600/[0.08] p-3 text-xs leading-5 text-amber-900 dark:text-amber-200">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+            <p>현재 잔여량은 {formatNumber(providerRemaining)}회{providerAllowance === null ? "" : ` / ${formatNumber(providerAllowance)}회`}입니다.{providerResetAt ? ` ${formatRelativeTime(providerResetAt)} 초기화 예정입니다.` : ""}</p>
+          </div>
+          <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-md border border-amber-700/20 bg-background/45 px-3 py-2 text-foreground">
+            <input type="checkbox" name="confirmLowQuota" value="yes" required className="mt-0.5 size-4 accent-primary" />
+            <span>잔여 할당량이 낮은 상태에서 이 작업을 실행하는 것을 확인했습니다.</span>
+          </label>
+        </div>
+      ) : null}
+
+      {state.message && state.operation === operation.key ? (
+        <div role="status" className={cn("rounded-lg border px-3 py-2.5 text-xs leading-5", state.status === "success" ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200" : state.status === "warning" ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-100" : "border-rose-400/20 bg-rose-400/[0.06] text-rose-200")}>
+          {state.message}
+        </div>
+      ) : null}
+
+      <DialogFooter className="mx-0 -mb-1 mt-1 rounded-lg bg-muted/35 px-0 pt-5 pb-0">
+        <DialogClose asChild><Button type="button" variant="outline" size="lg" className="min-w-16">취소</Button></DialogClose>
+        <Button type="submit" size="lg" className="min-w-16" variant={providerQuotaLow || (environment === "production" && isHighCost) ? "destructive" : "default"} disabled={pending || disabled}>
+          {pending ? "실행 중" : "실행"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

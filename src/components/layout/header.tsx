@@ -14,7 +14,6 @@ import { signOutAction } from "@/lib/auth/actions";
 import { adminRoleLabels } from "@/lib/auth/permissions";
 import type { AdminIdentity } from "@/lib/auth/server";
 import { cn } from "@/lib/utils";
-import { GlobalSearch } from "./global-search";
 import { MobileNavigation } from "./mobile-navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { TopNavigation } from "./top-navigation";
@@ -70,7 +69,6 @@ export function Header({ admin }: { admin: AdminIdentity }) {
         <TopNavigation role={admin.role} />
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-          <GlobalSearch compact role={admin.role} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

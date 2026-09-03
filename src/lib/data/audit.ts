@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { getSyncOperation } from "@/lib/sync/catalog";
 import { getOperationsClient, isOperationsSchemaMissing } from "./operations-client";
 
 export type AuditLogRecord = {
@@ -25,6 +26,7 @@ export function auditActionLabel(value: string) {
     CONTENT_REPORT_STATUS_UPDATE: "신고 상태 변경", CONTENT_HIDE: "콘텐츠 숨김", CONTENT_RESTORE: "콘텐츠 복원",
     PLAYER_VERIFIED_NAME_SET: "선수 검증명 변경", MANUAL_PLAYER_CREATED: "수동 선수 등록",
     MANUAL_PLAYER_UPDATED: "수동 선수 수정", MANUAL_PLAYER_MERGED: "수동 선수 병합",
+    SYNC_RUN_EXECUTE: "동기화 실행",
   } as Record<string, string>)[value.toUpperCase()] ?? "기타 작업";
 }
 
@@ -35,6 +37,7 @@ export function auditEntityLabel(value: string) {
     error_groups: "앱 오류",
     manual_overrides: "직접 수정 보호값",
     player_change_events: "선수 변동",
+    sync_runs: "데이터 동기화",
     football_provider_usage: "외부 축구 데이터 사용 기록",
     fixture_cheer_messages: "경기 응원 메시지",
     support_inquiry: "1:1 문의",
@@ -171,6 +174,15 @@ export function auditFieldDiff(beforeValue: Record<string, unknown> | null, afte
 }
 
 export function auditChangeSummary(log: AuditLogRecord) {
+  if (log.action.toUpperCase() === "SYNC_RUN_EXECUTE") {
+    const metadata = log.afterValue?.metadata;
+    const operationKey = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      && typeof (metadata as Record<string, unknown>).operationKey === "string"
+      ? String((metadata as Record<string, unknown>).operationKey)
+      : null;
+    const operationLabel = operationKey ? getSyncOperation(operationKey)?.label : null;
+    return `${operationLabel ?? "데이터 동기화"} 실행`;
+  }
   if (log.action.toUpperCase() === "RETENTION_CLEANUP") return "보관 기한이 지난 기록 정리";
   if (log.action.toUpperCase() === "INSERT") return `${auditEntityLabel(log.entityType)} 새 기록 추가`;
   if (log.action.toUpperCase() === "DELETE") return `${auditEntityLabel(log.entityType)} 기록 삭제`;

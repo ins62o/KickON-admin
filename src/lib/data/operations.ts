@@ -115,6 +115,24 @@ export const getPlayersData = cache(async (): Promise<DataQueryResult<PlayerReco
   };
 });
 
+export const getTeamPlayersData = cache(async (teamId: string): Promise<DataQueryResult<PlayerRecord[]>> => {
+  const { client } = getSupabaseConnection();
+  if (!client) return noConnection([]);
+  const result = await client
+    .from("team_players")
+    .select("season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at")
+    .eq("season", 2026)
+    .eq("league_id", "kleague")
+    .eq("team_id", teamId)
+    .order("shirt_number", { nullsFirst: false })
+    .order("player_name");
+  return {
+    data: ((result.data ?? []) as TeamPlayerRow[]).map(mapPlayer),
+    error: result.error?.message ?? null,
+    connected: !result.error,
+  };
+});
+
 export const getPlayerData = cache(async (playerId: string): Promise<DataQueryResult<PlayerRecord | null>> => {
   const { client } = getSupabaseConnection();
   if (!client) return noConnection(null);

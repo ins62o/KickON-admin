@@ -27,12 +27,19 @@ import { cn } from "@/lib/utils";
 export type DataTableFilter = {
   columnId: string;
   label: string;
-  options: Array<{ label: string; value: string }>;
+  allLabel?: string;
+  allIcon?: ReactNode;
+  options: Array<{ label: string; value: string; icon?: ReactNode }>;
 };
 
 type DataTableProps<TData extends RowData> = {
   columns: LegacyColumnDef<TData>[];
   data: TData[];
+  headerTitle?: string;
+  headerTitleId?: string;
+  headerMeta?: ReactNode;
+  showHeaderResultCount?: boolean;
+  resetFiltersInHeader?: boolean;
   searchPlaceholder: string;
   searchColumnId: string;
   filters?: DataTableFilter[];
@@ -50,6 +57,11 @@ type DataTableProps<TData extends RowData> = {
 export function DataTable<TData extends RowData>({
   columns,
   data,
+  headerTitle,
+  headerTitleId,
+  headerMeta,
+  showHeaderResultCount = false,
+  resetFiltersInHeader = false,
   searchPlaceholder,
   searchColumnId,
   filters = [],
@@ -83,6 +95,29 @@ export function DataTable<TData extends RowData>({
 
   return (
     <div className="min-w-0">
+      {headerTitle ? (
+        <div className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
+          <h2 id={headerTitleId} className="text-base font-semibold">{headerTitle}</h2>
+          <div className="flex shrink-0 items-center gap-3">
+            {resetFiltersInHeader && hasFilters ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 cursor-pointer px-2.5 text-sm text-muted-foreground"
+                onClick={() => table.resetColumnFilters()}
+              >
+                <X className="size-3.5" /> 필터 초기화
+              </Button>
+            ) : null}
+            {headerMeta}
+            {showHeaderResultCount ? (
+              <span className="tabular text-sm text-muted-foreground">
+                {table.getFilteredRowModel().rows.length.toLocaleString("ko-KR")}건
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2 border-b border-border/70 p-3 lg:flex-row lg:items-center">
         <div className="relative min-w-0 flex-1 lg:max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -116,16 +151,20 @@ export function DataTable<TData extends RowData>({
                 align={comfortableToolbar ? "start" : "center"}
                 className={comfortableToolbar ? "w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl" : undefined}
               >
-                <SelectItem value="all" className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>{filter.label}: 전체</SelectItem>
+                <SelectItem value="all" className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>
+                  {filter.allIcon}
+                  {filter.allLabel ?? `${filter.label}: 전체`}
+                </SelectItem>
                 {filter.options.map((option) => (
                   <SelectItem key={option.value} value={option.value} className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>
+                    {option.icon}
                     {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           ))}
-          {hasFilters ? (
+          {hasFilters && !resetFiltersInHeader ? (
             <Button
               variant="ghost"
               size="sm"

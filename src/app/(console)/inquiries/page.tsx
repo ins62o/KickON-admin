@@ -146,7 +146,7 @@ function InquiryHistoryPanel({
               ))}
             </SelectContent>
           </Select>
-          <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
+          <Button type="submit" className="h-11 rounded-xl px-5 text-sm font-semibold">
             <Search className="size-4" aria-hidden="true" />
             검색
           </Button>
@@ -289,7 +289,7 @@ function ReportHistoryPanel({
               <SelectItem value="FIXTURE_CHEER" className="cursor-pointer py-2.5 pr-8 pl-2.5">경기 응원</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
+          <Button type="submit" className="h-11 rounded-xl px-5 text-sm font-semibold">
             <Search className="size-4" aria-hidden="true" />
             검색
           </Button>
