@@ -207,12 +207,13 @@ set search_path = ''
 as $$
 declare
   current_actor uuid := (select auth.uid());
-  current_role public.admin_role;
+  -- CURRENT_ROLE은 PostgreSQL 예약 표현식이므로 다른 변수명을 사용합니다.
+  actor_admin_role public.admin_role;
   row_id text;
   audit_reason text;
 begin
   select administrator.role
-  into current_role
+  into actor_admin_role
   from public.admin_users administrator
   where administrator.user_id = current_actor;
 
@@ -233,7 +234,7 @@ begin
     actor_id, actor_role, action, entity_type, entity_id, reason,
     before_value, after_value
   ) values (
-    current_actor, current_role, tg_op, tg_table_name, row_id, audit_reason,
+    current_actor, actor_admin_role, tg_op, tg_table_name, row_id, audit_reason,
     case when tg_op = 'INSERT' then null else to_jsonb(old) end,
     case when tg_op = 'DELETE' then null else to_jsonb(new) end
   );

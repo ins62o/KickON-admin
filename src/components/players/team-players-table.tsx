@@ -84,8 +84,9 @@ export function TeamPlayersTable({ players }: { players: PlayerRecord[] }) {
           <TableBody>
             {filteredPlayers.length > 0 ? filteredPlayers.map((player) => {
               const displayName = player.koreanName ?? player.displayName ?? player.name;
-              return <ClickableTableRow key={player.id} href={`/squads/${player.id}`} className="hover:bg-muted/30">
-                <TableCell className="py-4 pl-5"><Link href={`/squads/${player.id}`} className="block min-w-44 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="truncate text-base font-semibold text-foreground">{displayName}</p>{displayName !== player.name ? <p className="mt-1 truncate text-sm text-muted-foreground">{player.name}</p> : null}</Link></TableCell>
+              const playerHref = `/squads/detail/?playerId=${encodeURIComponent(player.id)}`;
+              return <ClickableTableRow key={player.id} href={playerHref} className="hover:bg-muted/30">
+                <TableCell className="py-4 pl-5"><Link href={playerHref} className="block min-w-44 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="truncate text-base font-semibold text-foreground">{displayName}</p>{displayName !== player.name ? <p className="mt-1 truncate text-sm text-muted-foreground">{player.name}</p> : null}</Link></TableCell>
                 <TableCell className="tabular py-4 text-center font-mono text-sm">{player.shirtNumber ?? "-"}</TableCell>
                 <TableCell className="py-4 text-sm">{positionLabel(player.position)}</TableCell>
                 <TableCell className="tabular py-4 text-right text-sm">{player.age === null ? "-" : `${player.age}세`}</TableCell>

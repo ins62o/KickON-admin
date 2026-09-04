@@ -1,8 +1,11 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Headphones, Search, ShieldAlert } from "lucide-react";
 
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { DataState } from "@/components/admin/data-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { PageHeader } from "@/components/admin/page-header";
@@ -18,11 +21,10 @@ import {
   type AdminSupportInquiryData,
 } from "@/lib/admin/console-data";
 import { reportTargetLabel } from "@/lib/admin/labels";
+import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { requireAdmin } from "@/lib/auth/server";
+import { useClientData } from "@/lib/client-data";
 import { formatKoreaDateTime, formatNumber } from "@/lib/format";
-
-export const metadata: Metadata = { title: "문의 신고" };
 
 type InquiryHistorySearchParams = {
   tab?: string;
@@ -169,7 +171,7 @@ function InquiryHistoryPanel({
                   </TableCell>
                   <TableCell className="max-w-xl px-4 py-4">
                     <Link
-                      href={`/inquiries/${inquiry.id}`}
+                      href={`/inquiries/detail/?inquiryId=${encodeURIComponent(inquiry.id)}`}
                       className="block cursor-pointer truncate text-sm font-semibold text-foreground hover:text-primary hover:underline"
                     >
                       {inquiry.subject}
@@ -312,7 +314,7 @@ function ReportHistoryPanel({
                   </TableCell>
                   <TableCell className="max-w-xl px-4 py-4">
                     <Link
-                      href={`/moderation/${report.id}`}
+                      href={`/moderation/detail/?reportId=${encodeURIComponent(report.id)}`}
                       className="block cursor-pointer truncate text-sm font-semibold text-foreground hover:text-primary hover:underline"
                     >
                       {report.target?.title || report.target?.content || report.target?.emoticonKey || "원문을 찾을 수 없음"}
@@ -338,22 +340,35 @@ function ReportHistoryPanel({
   );
 }
 
-export default async function InquiriesPage({
-  searchParams,
-}: {
-  searchParams: Promise<InquiryHistorySearchParams>;
-}) {
-  const admin = await requireAdmin();
-  const canReadInquiries = hasAdminPermission(admin.role, "support.read");
-  const canReadReports = hasAdminPermission(admin.role, "moderation.read");
+export default function InquiriesPage() {
+  const { admin } = useAdminAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const canReadInquiries = Boolean(admin && hasAdminPermission(admin.role, "support.read"));
+  const canReadReports = Boolean(admin && hasAdminPermission(admin.role, "moderation.read"));
 
-  if (!canReadInquiries && !canReadReports) redirect("/?reason=forbidden");
+  useEffect(() => {
+    if (!canReadInquiries && !canReadReports) router.replace("/?reason=forbidden");
+  }, [canReadInquiries, canReadReports, router]);
 
-  const [query, inquiryData, reportData] = await Promise.all([
-    searchParams,
-    canReadInquiries ? getSupportInquiryData() : Promise.resolve(null),
-    canReadReports ? getModerationData() : Promise.resolve(null),
-  ]);
+  const { data, error, loading, reload } = useClientData(async () => {
+    const [inquiryData, reportData] = await Promise.all([
+      canReadInquiries ? getSupportInquiryData() : Promise.resolve(null),
+      canReadReports ? getModerationData() : Promise.resolve(null),
+    ]);
+    return { inquiryData, reportData };
+  }, [canReadInquiries, canReadReports]);
+  if (!canReadInquiries && !canReadReports) return <ClientPageLoading label="접근 권한을 확인하고 있습니다." />;
+  if (loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "문의·신고 데이터를 확인할 수 없습니다."} retry={reload} />;
+  const query: InquiryHistorySearchParams = {
+    tab: searchParams.get("tab") ?? undefined,
+    q: searchParams.get("q") ?? undefined,
+    status: searchParams.get("status") ?? undefined,
+    category: searchParams.get("category") ?? undefined,
+    target: searchParams.get("target") ?? undefined,
+  };
+  const { inquiryData, reportData } = data;
   const activeTab = query.tab === "reports" && canReadReports
     ? "reports"
     : canReadInquiries

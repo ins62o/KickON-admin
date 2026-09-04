@@ -7,10 +7,10 @@ export type GlobalSearchItem = {
   description: string;
   keywords: string;
   href:
-    | `/users/${string}`
-    | `/inquiries/${string}`
-    | `/moderation/${string}`
-    | `/squads/${string}`;
+    | `/users/detail/?userId=${string}`
+    | `/inquiries/detail/?inquiryId=${string}`
+    | `/moderation/detail/?reportId=${string}`
+    | `/squads/detail/?playerId=${string}`;
 };
 
 export type GlobalSearchResponse = {

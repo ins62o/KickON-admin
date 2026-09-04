@@ -1,4 +1,3 @@
-import "server-only";
 import { cache } from "react";
 import { formatNumber, formatRelativeTime } from "@/lib/format";
 import { getSupabaseConnection } from "./supabase";

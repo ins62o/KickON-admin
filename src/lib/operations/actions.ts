@@ -1,9 +1,12 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createAuthServerClient, requireAdmin, type AdminRole } from "@/lib/auth/server";
+import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
+import type { AdminRole } from "@/lib/auth/permissions";
 import { hasAdminPermission } from "@/lib/auth/permissions";
+import { invalidateAdminData } from "@/lib/client-data";
 import { isOperationsSchemaMissing } from "@/lib/data/operations-client";
+import { formatPlayerUpdateErrorLog, getPlayerUpdateErrorMessage } from "@/lib/operations/player-update-errors";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import type { PlayerChangeStatus, PlayerChangeType } from "@/lib/data/player-operations";
 import type { ReportPriority, ReportStatus } from "@/lib/data/reports";
 
@@ -39,10 +42,10 @@ const entityIdPattern = /^[a-z0-9_-]{1,160}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 async function getOperatorContext(requiredRole: AdminRole = "operator") {
-  const admin = await requireAdmin();
-  if (admin.isDevelopmentBypass || !admin.userId) return { error: "인증 우회 상태에서는 운영 데이터를 변경할 수 없습니다." } as const;
+  const admin = await getCurrentBrowserAdmin();
+  if (!admin) return { error: "관리자 세션을 다시 확인해 주세요." } as const;
   if (roleRank[admin.role] < roleRank[requiredRole]) return { error: `${requiredRole === "admin" ? "관리자" : "운영자"} 이상의 권한이 필요합니다.` } as const;
-  const supabase = await createAuthServerClient();
+  const supabase = getBrowserSupabaseClient();
   if (!supabase) return { error: "운영 데이터 연결 설정이 없습니다." } as const;
   return { admin, supabase, error: null } as const;
 }
@@ -74,10 +77,7 @@ export async function updateReportAction(_previous: OperationActionState, formDa
   if (!data) return { status: "error", message: "처리할 제보를 찾을 수 없거나 변경 권한이 없습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/");
-  revalidatePath("/reports");
-  revalidatePath(`/reports/${reportId}`);
-  revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "제보 처리 상태와 감사 기록을 갱신했습니다.", completedAt };
 }
 
@@ -106,10 +106,7 @@ export async function updateErrorGroupAction(_previous: OperationActionState, fo
   if (!data) return { status: "error", message: "처리할 오류 그룹을 찾을 수 없거나 변경 권한이 없습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/");
-  revalidatePath("/errors");
-  revalidatePath(`/errors/${groupId}`);
-  revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "오류 처리 상태와 감사 기록을 갱신했습니다.", completedAt };
 }
 
@@ -143,12 +140,7 @@ export async function updatePlayerChangeAction(_previous: OperationActionState, 
   if (!data) return { status: "error", message: status === "applied" ? "앱 데이터에 아직 반영되지 않았습니다. 먼저 선수단 새로고침 또는 직접 수정을 실행해 주세요." : "처리할 선수 변동을 찾을 수 없거나 변경 권한이 없습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/");
-  revalidatePath("/transfers");
-  revalidatePath(`/transfers/${changeId}`);
-  revalidatePath(`/players/${playerId}`);
-  revalidatePath("/clubs");
-  revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "선수 변동 검토 결과를 저장했습니다.", completedAt };
 }
 
@@ -238,17 +230,13 @@ export async function updatePlayerDetailsAction(_previous: OperationActionState,
     p_reason: reason,
   });
   if (error) {
-    console.error("[player-details:update] failed", { playerId, code: error.code, message: error.message });
+    console.error(formatPlayerUpdateErrorLog(playerId, error));
     const schemaMissing = isOperationsSchemaMissing(error.code);
-    return { status: "error", message: schemaMissing ? "선수 상세 수정 SQL을 먼저 적용해 주세요." : "선수 정보를 수정하지 못했습니다. 입력값과 관리자 권한을 확인해 주세요.", completedAt: null };
+    return { status: "error", message: getPlayerUpdateErrorMessage(error, schemaMissing), completedAt: null };
   }
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/");
-  revalidatePath("/squads");
-  revalidatePath(`/squads/${playerId}`);
-  revalidatePath("/clubs");
-  revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: Number(data) > 0 ? `${data}개 항목을 수정하고 자동 동기화 덮어쓰기를 잠갔습니다.` : "변경된 항목이 없습니다.", completedAt };
 }
 
@@ -278,10 +266,7 @@ export async function applyPlayerOverrideAction(_previous: OperationActionState,
   if (error || !data) return { status: "error", message: "수동 수정값을 적용하지 못했습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/squads");
-  revalidatePath(`/squads/${playerId}`);
-  revalidatePath("/clubs");
-  revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "수동 수정값을 적용하고 다음 동기화의 덮어쓰기를 잠갔습니다.", completedAt };
 }
 
@@ -302,10 +287,7 @@ export async function releasePlayerOverrideAction(_previous: OperationActionStat
   if (error || data !== true) return { status: "error", message: "수동 수정 잠금을 해제하지 못했습니다.", completedAt: null };
 
   const completedAt = new Date().toISOString();
-  revalidatePath("/squads");
-  revalidatePath(`/squads/${playerId}`);
-  revalidatePath("/clubs");
-  revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "수동 수정 잠금을 해제했습니다. 다음 동기화부터 외부 값을 따릅니다.", completedAt };
 }
 
@@ -332,7 +314,7 @@ export async function applyFixtureOverrideAction(_previous: OperationActionState
   const { data, error } = await context.supabase.rpc("apply_fixture_manual_override", { p_fixture_id: fixtureId, p_field_path: field, p_override_value: parsed.value, p_reason: reason });
   if (error || !data) return { status: "error", message: "경기 수동 수정값을 적용하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
-  revalidatePath("/fixtures"); revalidatePath(`/fixtures/${fixtureId}`); revalidatePath("/clubs"); revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "경기 수정값을 적용하고 다음 동기화의 덮어쓰기를 잠갔습니다.", completedAt };
 }
 
@@ -356,7 +338,7 @@ export async function applyStandingOverrideAction(_previous: OperationActionStat
   const { data, error } = await context.supabase.rpc("apply_standing_manual_override", { p_team_id: teamId, p_season: 2026, p_league_id: "kleague", p_field_path: field, p_override_value: parsed.value, p_reason: reason });
   if (error || !data) return { status: "error", message: "순위 수동 수정값을 적용하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
-  revalidatePath("/standings"); revalidatePath(`/standings/${teamId}`); revalidatePath(`/clubs/${teamId}`); revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "순위 수정값을 적용하고 다음 동기화의 덮어쓰기를 잠갔습니다.", completedAt };
 }
 
@@ -371,8 +353,6 @@ export async function releaseEntityOverrideAction(_previous: OperationActionStat
   const { data, error } = await context.supabase.rpc("release_entity_manual_override", { p_override_id: overrideId, p_entity_type: entityType, p_release_reason: reason });
   if (error || data !== true) return { status: "error", message: "수동 수정 잠금을 해제하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
-  revalidatePath(`/${entityType === "fixture" ? "fixtures" : "standings"}`);
-  revalidatePath(`/${entityType === "fixture" ? "fixtures" : "standings"}/${entityId}`);
-  revalidatePath("/clubs"); revalidatePath("/audit");
+  invalidateAdminData();
   return { status: "success", message: "수동 수정 잠금을 해제했습니다. 다음 동기화부터 외부 값을 따릅니다.", completedAt };
 }

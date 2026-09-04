@@ -1,5 +1,3 @@
-import "server-only";
-
 import { cache } from "react";
 import type { FixtureRecord, PlayerRecord, StandingRecord } from "./types";
 import { getOperationsClient, isOperationsSchemaMissing } from "./operations-client";

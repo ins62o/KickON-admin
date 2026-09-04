@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/command";
 import type { AdminRole } from "@/lib/auth/permissions";
 import { navigationGroupsForRole } from "@/lib/navigation";
-import type { GlobalSearchItem, GlobalSearchResponse } from "@/lib/search/types";
+import { searchAdminData } from "@/lib/search/client";
+import type { GlobalSearchItem } from "@/lib/search/types";
 import { cn } from "@/lib/utils";
 
 const resultIcons: Record<GlobalSearchItem["type"], LucideIcon> = {
@@ -41,6 +42,10 @@ const resultLabels: Record<GlobalSearchItem["type"], string> = {
   moderation: "신고",
   player: "선수",
 };
+
+function resultHref(item: GlobalSearchItem) {
+  return item.href;
+}
 
 export function GlobalSearch({ compact = false, role }: { compact?: boolean; role: AdminRole }) {
   const [open, setOpen] = useState(false);
@@ -71,15 +76,7 @@ export function GlobalSearch({ compact = false, role }: { compact?: boolean; rol
     const timeout = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(normalizedQuery)}`, {
-          signal: controller.signal,
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
-        const payload = await response.json() as Partial<GlobalSearchResponse> & { error?: string | null };
-        if (!response.ok) {
-          throw new Error(payload.error || "검색 결과를 불러오지 못했습니다.");
-        }
+        const payload = await searchAdminData(normalizedQuery, role);
         if (controller.signal.aborted) return;
         setItems(payload.items ?? []);
         setError(payload.error ?? null);
@@ -96,7 +93,7 @@ export function GlobalSearch({ compact = false, role }: { compact?: boolean; rol
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [open, query, retryKey]);
+  }, [open, query, retryKey, role]);
 
   const normalizedQuery = query.trim();
   const visibleItems = open && normalizedQuery.length >= 2 ? items : [];
@@ -189,7 +186,7 @@ export function GlobalSearch({ compact = false, role }: { compact?: boolean; rol
                   <CommandItem
                     key={item.id}
                     value={`${normalizedQuery} ${item.label} ${item.description} ${item.keywords}`}
-                    onSelect={() => navigate(item.href)}
+                    onSelect={() => navigate(resultHref(item))}
                   >
                     <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
                     <div className="min-w-0">

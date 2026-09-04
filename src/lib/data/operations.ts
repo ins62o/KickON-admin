@@ -1,4 +1,3 @@
-import "server-only";
 import { cache } from "react";
 import { getTeamLogoPath, getTeamName } from "./catalog";
 import { getOperationsClient } from "./operations-client";

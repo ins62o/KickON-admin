@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { HealthStatus } from "@/lib/data/types";
 
 export type KickonApiHealth = {
@@ -18,9 +16,9 @@ export function getKickonApiHealth(now = new Date()): KickonApiHealth {
   return {
     status: "normal",
     service: "kickon-admin",
-    detail: "현재 Next.js 서버 요청 처리와 Health 계약이 정상입니다.",
+    detail: "CloudFront에서 정적 관리자 콘솔이 정상적으로 실행 중입니다.",
     checkedAt,
     latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-    source: "Next.js Route Handler · /api/health",
+    source: "S3 + CloudFront static export",
   };
 }

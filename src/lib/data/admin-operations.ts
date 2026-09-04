@@ -175,7 +175,7 @@ export const getOperationDataset = cache(async (section: OperationSection): Prom
     section, ...sectionMeta[section], schemaReady: true, error: null, total: result.count,
     rows: (result.data ?? []).map((row) => ({
       id: row.id,
-      href: `/audit/${row.id}`,
+      href: `/audit/detail/?auditId=${encodeURIComponent(String(row.id))}`,
       actor: row.actor_id,
       action: auditActionLabel(row.action),
       entity: `${row.entity_type}${row.entity_id ? ` · ${row.entity_id}` : ""}`,

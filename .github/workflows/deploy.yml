@@ -1,0 +1,485 @@
+name: Verify and deploy admin console
+
+on:
+  pull_request:
+    branches: [Dev, Prod]
+  push:
+    branches: [Dev, Prod]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kickon-admin-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Verify source and build artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      # Verification uses non-routable public placeholders. Production values are
+      # available only to the deploy job after every source check has passed.
+      KICKON_ENVIRONMENT: production
+      NEXT_PUBLIC_KICKON_ENVIRONMENT: production
+      NEXT_PUBLIC_KICKON_DEFAULT_ENVIRONMENT: production
+      NEXT_PUBLIC_SUPABASE_URL: https://production.example.invalid
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: verify-production-publishable-key
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL: https://development.example.invalid
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: verify-development-publishable-key
+      NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL: https://production.example.invalid
+      NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY: verify-production-publishable-key
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL: https://development-api.example.invalid/api
+      NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL: https://production-api.example.invalid/api
+      NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB: "0.5"
+      NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB: "1"
+      NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE: "2000"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v5
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-verify-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'public/**', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: |
+            ${{ runner.os }}-next-verify-${{ hashFiles('package-lock.json') }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build static site
+        run: npm run build:static
+
+      - name: Build admin API
+        run: npm run build:admin-api
+
+      - name: Validate build artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s out/index.html
+          test -s out/login/index.html
+          test -s dist/admin-api/index.js
+
+  deploy-production:
+    name: Deploy production
+    needs: verify
+    if: >-
+      github.ref == 'refs/heads/Prod' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_PAGER: ""
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+      S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+      CLOUDFRONT_FUNCTION_NAME: ${{ vars.AWS_CLOUDFRONT_FUNCTION_NAME }}
+      DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME: ${{ vars.AWS_DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME }}
+      PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME: ${{ vars.AWS_PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME }}
+      ADMIN_SITE_URL: ${{ vars.ADMIN_SITE_URL }}
+      KICKON_ENVIRONMENT: production
+      NEXT_PUBLIC_KICKON_ENVIRONMENT: production
+      NEXT_PUBLIC_KICKON_DEFAULT_ENVIRONMENT: production
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL }}
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL }}
+      NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL }}
+      NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL }}
+      NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB: ${{ vars.NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB }}
+      NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB: ${{ vars.NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB }}
+      NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE: ${{ vars.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE }}
+      NEXT_PUBLIC_ADMIN_SYNC_ENABLED: ${{ vars.NEXT_PUBLIC_ADMIN_SYNC_ENABLED || 'true' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Restore production Next.js build cache
+        uses: actions/cache@v5
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-production-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'public/**', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: |
+            ${{ runner.os }}-next-production-${{ hashFiles('package-lock.json') }}-
+
+      - name: Validate production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required=(
+            AWS_ACCOUNT_ID
+            AWS_REGION
+            AWS_ROLE_TO_ASSUME
+            S3_BUCKET
+            CLOUDFRONT_DISTRIBUTION_ID
+            CLOUDFRONT_FUNCTION_NAME
+            DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME
+            PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME
+            ADMIN_SITE_URL
+            NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL
+            NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY
+            NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL
+            NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY
+            NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL
+            NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL
+            NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB
+            NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB
+            NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE
+          )
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "Missing production variable: $variable" >&2
+              exit 1
+            fi
+          done
+
+          for variable in \
+            ADMIN_SITE_URL \
+            NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL \
+            NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL \
+            NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL; do
+            value="${!variable}"
+            if [[ "$value" != https://* ]]; then
+              echo "$variable must use https://" >&2
+              exit 1
+            fi
+          done
+
+          if [[ "$NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL" != "/api" \
+            && "$NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL" != /api/* \
+            && "$NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL" != https://* ]]; then
+            echo "NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL must be an HTTPS URL or a same-origin /api path." >&2
+            exit 1
+          fi
+
+          for variable in \
+            NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL \
+            NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL; do
+            value="${!variable}"
+            normalized_value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+            if [[ "$normalized_value" == *localhost* \
+              || "$normalized_value" == *127.0.0.1* \
+              || "$normalized_value" == *0.0.0.0* \
+              || "$normalized_value" == *"[::1]"* ]]; then
+              echo "$variable must not point at a loopback address in a deployed bundle." >&2
+              exit 1
+            fi
+          done
+
+          if [[ "$DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME" == "$PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME" ]]; then
+            echo "Development and production must use separate Lambda functions and runtime secrets." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production artifacts
+        run: |
+          npm run build:static
+          npm run build:admin-api
+          test -s out/index.html
+          test -s out/login/index.html
+          test -s dist/admin-api/index.js
+          if grep -R -F -q "127.0.0.1:3001" out; then
+            echo "The production bundle contains the local admin API fallback." >&2
+            exit 1
+          fi
+          (cd dist/admin-api && zip -q -9 ../admin-api.zip index.js)
+          sha256sum dist/admin-api.zip
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          role-session-name: kickon-admin-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Validate admin API Lambda runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          site_origin="$(node -e 'process.stdout.write(new URL(process.env.ADMIN_SITE_URL).origin)')"
+
+          validate_lambda() {
+            local environment="$1"
+            local function_name="$2"
+            local expected_supabase_url="$3"
+            local expected_publishable_key="$4"
+            local configuration
+            local runtime_environment
+
+            # Keep the response in memory: Lambda environment variables include
+            # secrets and must never be copied to the Actions log or summary.
+            configuration="$(aws lambda get-function-configuration \
+              --function-name "$function_name" \
+              --output json)"
+            runtime_environment="$(jq -c '.Environment.Variables // {}' <<< "$configuration")"
+
+            if ! jq -e '
+              .Runtime == "nodejs22.x"
+              and .Handler == "index.handler"
+              and (.Timeout >= 60)
+            ' <<< "$configuration" >/dev/null; then
+              echo "$environment Lambda must use nodejs22.x, index.handler, and a timeout of at least 60 seconds." >&2
+              exit 1
+            fi
+
+            require_exact() {
+              local variable="$1"
+              local expected="$2"
+              if ! jq -e --arg variable "$variable" --arg expected "$expected" \
+                '.[$variable] == $expected' <<< "$runtime_environment" >/dev/null; then
+                echo "$environment Lambda runtime variable $variable is missing or does not match the deployment configuration." >&2
+                exit 1
+              fi
+            }
+
+            require_positive() {
+              local variable="$1"
+              if ! jq -e --arg variable "$variable" '
+                .[$variable] as $value
+                | (($value | type) == "string")
+                  and (try (($value | tonumber) > 0) catch false)
+              ' <<< "$runtime_environment" >/dev/null; then
+                echo "$environment Lambda runtime variable $variable must be a positive number." >&2
+                exit 1
+              fi
+            }
+
+            require_exact KICKON_ENVIRONMENT "$environment"
+            require_exact NEXT_PUBLIC_SUPABASE_URL "$expected_supabase_url"
+            require_exact NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$expected_publishable_key"
+            require_positive SUPABASE_DATABASE_LIMIT_GB
+            require_positive SUPABASE_STORAGE_LIMIT_GB
+            require_positive SPORTSMONKS_API_ALLOWANCE
+
+            if ! jq -e '
+              (.SUPABASE_METRICS_SECRET_KEY // "") as $secret
+              | (($secret | type) == "string")
+                and ($secret | startswith("sb_secret_"))
+                and (($secret | length) > 10)
+            ' <<< "$runtime_environment" >/dev/null; then
+              echo "$environment Lambda runtime variable SUPABASE_METRICS_SECRET_KEY is missing or has the wrong key type." >&2
+              exit 1
+            fi
+
+            if ! jq -e --arg site_origin "$site_origin" '
+              ((.ADMIN_ALLOWED_ORIGINS // "")
+                | split(",")
+                | map(gsub("^\\s+|\\s+$"; ""))
+                | index($site_origin)) != null
+            ' <<< "$runtime_environment" >/dev/null; then
+              echo "$environment Lambda ADMIN_ALLOWED_ORIGINS does not include the deployed site origin." >&2
+              exit 1
+            fi
+
+            echo "- $environment admin API runtime configuration: validated" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          validate_lambda \
+            development \
+            "$DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME" \
+            "$NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL" \
+            "$NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY"
+          validate_lambda \
+            production \
+            "$PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME" \
+            "$NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL" \
+            "$NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Deploy admin APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          deploy_lambda() {
+            local environment="$1"
+            local function_name="$2"
+            local version
+            local update_status
+
+            version="$(aws lambda update-function-code \
+              --function-name "$function_name" \
+              --zip-file fileb://dist/admin-api.zip \
+              --publish \
+              --query 'Version' \
+              --output text)"
+            aws lambda wait function-updated-v2 --function-name "$function_name"
+            update_status="$(aws lambda get-function-configuration \
+              --function-name "$function_name" \
+              --query 'LastUpdateStatus' \
+              --output text)"
+            if [[ "$update_status" != "Successful" ]]; then
+              echo "$environment Lambda update failed: $update_status" >&2
+              exit 1
+            fi
+            echo "- $environment admin API: $function_name (version $version)" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          deploy_lambda development "$DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME"
+          deploy_lambda production "$PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME"
+
+      - name: Upload versioned Next.js assets
+        run: |
+          aws s3 sync out/_next/static/ "s3://$S3_BUCKET/_next/static/" \
+            --cache-control "public,max-age=31536000,immutable" \
+            --only-show-errors
+
+      - name: Upload HTML and public assets
+        run: |
+          aws s3 sync out/ "s3://$S3_BUCKET" \
+            --delete \
+            --exclude "_next/static/*" \
+            --cache-control "no-cache,max-age=0,must-revalidate" \
+            --only-show-errors
+
+      - name: Publish CloudFront viewer-request function
+        shell: bash
+        run: |
+          set -euo pipefail
+          description="$(aws cloudfront describe-function \
+            --name "$CLOUDFRONT_FUNCTION_NAME" \
+            --stage DEVELOPMENT)"
+          etag="$(jq -r '.ETag' <<< "$description")"
+          jq '.FunctionSummary.FunctionConfig' <<< "$description" > "$RUNNER_TEMP/cloudfront-function-config.json"
+          updated_etag="$(aws cloudfront update-function \
+            --name "$CLOUDFRONT_FUNCTION_NAME" \
+            --if-match "$etag" \
+            --function-config "file://$RUNNER_TEMP/cloudfront-function-config.json" \
+            --function-code fileb://infrastructure/cloudfront/viewer-request.js \
+            --query 'ETag' \
+            --output text)"
+          aws cloudfront publish-function \
+            --name "$CLOUDFRONT_FUNCTION_NAME" \
+            --if-match "$updated_etag" >/dev/null
+
+      - name: Invalidate CloudFront cache
+        id: invalidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+          echo "invalidation-id=$invalidation_id" >> "$GITHUB_OUTPUT"
+
+      - name: Verify deployed cache metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          html_cache="$(aws s3api head-object \
+            --bucket "$S3_BUCKET" \
+            --key index.html \
+            --query 'CacheControl' \
+            --output text)"
+          if [[ "$html_cache" != "no-cache,max-age=0,must-revalidate" ]]; then
+            echo "Unexpected index.html Cache-Control: $html_cache" >&2
+            exit 1
+          fi
+
+          static_file="$(find out/_next/static -type f -print -quit)"
+          static_key="${static_file#out/}"
+          static_cache="$(aws s3api head-object \
+            --bucket "$S3_BUCKET" \
+            --key "$static_key" \
+            --query 'CacheControl' \
+            --output text)"
+          if [[ "$static_cache" != "public,max-age=31536000,immutable" ]]; then
+            echo "Unexpected $static_key Cache-Control: $static_cache" >&2
+            exit 1
+          fi
+
+      - name: Smoke-check site and both admin APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          site_url="${ADMIN_SITE_URL%/}"
+          curl --fail --silent --show-error --location \
+            --retry 8 --retry-delay 3 --retry-all-errors \
+            "$site_url/login/" > "$RUNNER_TEMP/login.html"
+          grep -q "킥온 데이터 센터" "$RUNNER_TEMP/login.html"
+
+          smoke_api() {
+            local environment="$1"
+            local configured_base="$2"
+            local base_url="$configured_base"
+            local headers_file="$RUNNER_TEMP/${environment}-admin-api-headers.txt"
+            local status
+            if [[ "$base_url" == /* ]]; then
+              base_url="$site_url$base_url"
+            fi
+            base_url="${base_url%/}"
+            status="$(curl --silent --show-error \
+              --retry 8 --retry-delay 3 --retry-all-errors \
+              --header "Origin: $site_url" \
+              --dump-header "$headers_file" \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "$base_url/admin/usage/metrics")"
+            if [[ "$status" != "401" ]]; then
+              echo "$environment admin API expected HTTP 401 without a token, received $status." >&2
+              exit 1
+            fi
+            if [[ "$configured_base" != /* ]] \
+              && ! tr -d '\r' < "$headers_file" | grep -Fqi "access-control-allow-origin: $site_url"; then
+              echo "$environment admin API did not allow the deployed site origin." >&2
+              exit 1
+            fi
+          }
+
+          smoke_api development "$NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL"
+          smoke_api production "$NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL"
+          {
+            echo "### Production deployment"
+            echo "- Site: $site_url"
+            echo "- CloudFront invalidation: ${{ steps.invalidate.outputs.invalidation-id }}"
+            echo "- Static site and both authenticated admin API boundaries passed smoke checks."
+          } >> "$GITHUB_STEP_SUMMARY"

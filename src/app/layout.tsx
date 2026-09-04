@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
-import { cookies } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -22,17 +20,19 @@ const tmoneyRoundWind = localFont({
   display: "swap",
   fallback: ["system-ui", "Arial"],
 });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const themeScript = `(function(){try{var t=localStorage.getItem("kickon-theme");document.documentElement.classList.toggle("dark",t!=="light");document.documentElement.style.colorScheme=t==="light"?"light":"dark"}catch(e){}})()`;
 
 export const metadata: Metadata = {
   title: { default: "킥온 데이터 센터", template: "%s | 킥온 데이터 센터" },
   description: "킥온 축구 데이터와 서비스 상태를 관리하는 운영 콘솔",
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const theme = (await cookies()).get("kickon-theme")?.value === "light" ? "light" : "dark";
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" className={`${tmoneyRoundWind.variable} ${tmoneyRoundWind.className} ${geistMono.variable} ${theme === "dark" ? "dark" : ""}`} suppressHydrationWarning>
+    <html lang="ko" className={`${tmoneyRoundWind.variable} ${tmoneyRoundWind.className} dark`} suppressHydrationWarning>
+      <head>
+        <script id="kickon-theme" dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body><TooltipProvider delayDuration={250}>{children}</TooltipProvider></body>
     </html>
   );

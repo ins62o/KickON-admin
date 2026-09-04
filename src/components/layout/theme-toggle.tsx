@@ -7,7 +7,8 @@ export function ThemeToggle() {
   const toggleTheme = () => {
     const nextTheme = document.documentElement.classList.contains("dark") ? "light" : "dark";
     document.documentElement.classList.toggle("dark", nextTheme === "dark");
-    document.cookie = `kickon-theme=${nextTheme}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    document.documentElement.style.colorScheme = nextTheme;
+    localStorage.setItem("kickon-theme", nextTheme);
   };
 
   return (

@@ -1,20 +1,27 @@
-import type { Metadata } from "next";
+"use client";
+
 import { AlertTriangle, Globe2, UsersRound } from "lucide-react";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { PageHeader } from "@/components/admin/page-header";
 import { PlayersTable } from "@/components/players/players-table";
 import { ManualPlayerDialog } from "@/components/admin/manual-player-form";
-import { requireAdminPermission } from "@/lib/auth/server";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { hasAdminPermission } from "@/lib/auth/permissions";
+import { useClientData } from "@/lib/client-data";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { getPlayersData } from "@/lib/data/operations";
 import { formatNumber } from "@/lib/format";
 
-export const metadata: Metadata = { title: "선수 관리" };
-
-export default async function SquadsPage() {
-  const admin = await requireAdminPermission("data.read");
-  const [result, dashboard] = await Promise.all([getPlayersData(), getDashboardData()]);
+export default function SquadsPage() {
+  const admin = useRequiredAdminPermission("data.read");
+  const { data, error, loading, reload } = useClientData(async () => {
+    const [result, dashboard] = await Promise.all([getPlayersData(), getDashboardData()]);
+    return { result, dashboard };
+  });
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "선수 데이터를 확인할 수 없습니다."} retry={reload} />;
+  const { result, dashboard } = data;
   const players = result.data;
   const translationNeededCount = players.filter((player) => !player.koreanName?.trim()).length;
   const canRegisterPlayer = !admin.isDevelopmentBypass && hasAdminPermission(admin.role, "data.write");

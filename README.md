@@ -1,6 +1,6 @@
 # KickON Data Center
 
-KickON 운영자 전용 Next.js 관리자 콘솔입니다. 사용자·문의·커뮤니티 운영과 K리그 데이터·동기화·인프라 상태를 한곳에서 관리합니다.
+KickON 운영자 전용 Next.js 정적 관리자 콘솔입니다. `output: "export"`로 생성한 `out/`을 S3에 올리고 CloudFront에서 제공합니다. 사용자·문의·커뮤니티 운영과 K리그 데이터·동기화·인프라 상태를 한곳에서 관리합니다.
 
 ## 로컬 실행
 
@@ -10,9 +10,11 @@ npm install
 npm run dev
 ```
 
-개발 환경에서도 실제 쓰기 작업은 Supabase 로그인과 활성 관리자 계정이 있어야 합니다. `KICKON_ADMIN_AUTH_REQUIRED=false`는 화면 확인용이며, 이 상태에서는 문의 답변·사용자 제재·숨김·동기화 같은 변경 작업을 실행하지 않습니다. `KICKON_ENVIRONMENT=production`에서는 인증 우회가 항상 차단됩니다.
+`npm run dev`는 Next.js와 로컬 관리자 API를 함께 실행합니다. `.env*.local`의 서버 전용 Metrics 키는 로컬 API만 읽으며 브라우저 번들에는 포함하지 않습니다. 웹만 따로 실행하려면 `npm run dev:web`, API만 실행하려면 `npm run dev:admin-api`를 사용합니다.
 
-헤더의 서버 전환 메뉴는 같은 화면에서 데이터베이스 키를 교체하지 않고, 환경별로 분리 배포된 관리자 콘솔 사이를 이동합니다. 개발·운영 배포에 `KICKON_DEVELOPMENT_ADMIN_URL`, `KICKON_PRODUCTION_ADMIN_URL`을 각각 설정해야 반대 환경으로 이동할 수 있습니다.
+개발 환경에서도 실제 쓰기 작업은 Supabase 로그인과 활성 관리자 계정이 있어야 합니다. 인증과 일반 조회·관리 RPC는 브라우저 Supabase 클라이언트와 RLS로 보호합니다. 동기화와 Metrics 연결 수·Storage 큰 파일처럼 비밀값이 필요한 상세 조회는 별도 관리자 API에서 다시 토큰과 역할을 검사합니다.
+
+헤더의 서버 전환 메뉴는 다른 사이트로 이동하거나 문서를 새로고침하지 않습니다. 한 정적 번들에 포함된 개발·운영 Supabase 공개 설정과 관리자 API 주소를 전환하고, 환경마다 분리된 인증 세션을 다시 검사합니다. 이때 헤더·푸터·레이아웃은 유지하고 본문만 로딩 상태로 바뀌므로 전체 화면 점멸과 레이아웃 이동을 줄입니다. 두 환경을 모두 사용하려면 `.env.example`의 `NEXT_PUBLIC_KICKON_{DEVELOPMENT,PRODUCTION}_SUPABASE_*`와 환경별 `..._ADMIN_API_BASE_URL`을 설정합니다.
 
 ## 9개 운영 메뉴
 
@@ -35,7 +37,7 @@ npm run dev
 - `moderator`: 사용자 경고·정지, 신고 처리, 콘텐츠 숨김·복원
 - `data_editor`: 선수·순위 보정과 데이터 동기화
 
-기존 `viewer`, `operator`, `admin` 계정은 마이그레이션 기간 동안 호환합니다. 메뉴를 숨기는 것과 별개로 각 Server Action과 DB RPC가 권한을 다시 검사합니다. 관리자 공개 가입 경로는 없습니다.
+기존 `viewer`, `operator`, `admin` 계정은 마이그레이션 기간 동안 호환합니다. 메뉴를 숨기는 것과 별개로 DB RPC와 별도 관리자 API가 권한을 다시 검사합니다. 관리자 공개 가입 경로는 없습니다.
 
 ### 첫 `super_admin` 등록
 
@@ -69,21 +71,28 @@ set role = excluded.role,
 
 ## Supabase 마이그레이션
 
-새 관리자 계약은 다음 forward migration에 있습니다.
+관리자 계약은 충돌하던 이전 버전을 정리한 다음 forward migration 순서에 있습니다. 파일명 순서대로 적용합니다.
 
 ```text
-supabase/migrations/202609020001_admin_data_center.sql
+202609050001_admin_operations.sql
+  … 202609050007_provider_player_change_candidates.sql  운영 기반 계약
+202609050008_admin_data_center.sql                        역할·capability·관리 기능
+202609050009_admin_dashboard_summary.sql
+  … 202609050012_exclude_admin_accounts_from_user_metrics.sql  집계·사용자 조회 보정
+202609050013_admin_usage_metrics.sql                      DB·Storage 사용량 집계
 ```
 
-이 마이그레이션은 역할·관리자 대시보드 집계·문의 답변·사용자 경고/정지·콘텐츠 숨김/복원·수동 선수·검증명·스토리지 집계·감사 로그 계약을 추가합니다. 모바일이 사용하는 기존 테이블과 `team_players.image_url`은 유지합니다.
+이 순서는 역할·관리자 대시보드 집계·문의 답변·사용자 경고/정지·콘텐츠 숨김/복원·수동 선수·검증명·스토리지 집계·감사 로그 계약을 추가합니다. 모바일이 사용하는 기존 테이블과 `team_players.image_url`은 유지합니다.
 
-중요: 모바일 저장소와 이 관리자 저장소가 서로 다른 SQL에 동일한 `202608300001`~`202608300007` 버전을 사용한 이력이 있습니다. 같은 Supabase 프로젝트에 적용하기 전에 반드시 원격 `supabase_migrations.schema_migrations`와 실제 스키마를 감사하고 마이그레이션 소유권을 통합하세요. 버전 기록만 믿고 기존 파일을 일괄 적용하면 안 됩니다.
+마지막 `202609050013_admin_usage_metrics.sql`은 `system.read` 권한이 있는 로그인 관리자에게 객체 경로를 노출하지 않는 집계 RPC를 제공합니다. `admin_get_usage_snapshot()`은 DB 크기, 전체 Storage 객체/바이트, 측정 불가 객체와 서울 기준 이번 달 증가량을 반환하고, `admin_get_storage_usage()`는 같은 권한으로 버킷별 합계를 반환합니다. 따라서 DB·Storage 핵심 수치는 서버 secret 없이 선택된 Supabase에서 직접 읽을 수 있으며, 관리자 API의 Metrics/Storage secret 연동은 연결 수와 큰 파일 목록 같은 상세 정보에만 필요합니다.
+
+중요: 모바일 저장소와 이 관리자 저장소가 서로 다른 SQL에 동일한 `202608300001`~`202608300007` 버전을 사용한 이력이 있습니다. 이 저장소의 관리자 전용 SQL은 `202609050001`~`202609050013`으로 재조정했지만, 같은 Supabase 프로젝트에 적용하기 전에 원격 `supabase_migrations.schema_migrations`와 실제 스키마를 감사해야 합니다. 버전 기록만 믿고 기존 파일을 일괄 적용하면 안 됩니다.
 
 현재 작업에서는 원격 개발·운영 DB에 마이그레이션을 적용하지 않았습니다. 운영 적용 순서는 [배포 체크리스트](docs/deployment-checklist.md)를 따릅니다.
 
-## 서버 전용 비밀값
+## 정적 빌드와 서버 전용 비밀값
 
-브라우저에 노출 가능한 값은 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`뿐입니다. 다음 값은 서버에서만 읽습니다.
+정적 번들에는 `.env.example`의 `NEXT_PUBLIC_*` 값만 넣습니다. 환경별 Supabase URL과 publishable key, 관리자 API 경로는 공개 설정이며 보안 경계는 Supabase RLS/RPC와 관리자 API의 토큰·역할 재검사입니다. 다음 값은 S3나 브라우저 번들에 넣지 않고 필요한 백엔드에만 설정합니다.
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_METRICS_SECRET_KEY`
@@ -93,7 +102,7 @@ supabase/migrations/202609020001_admin_data_center.sql
 - `KICKON_PROVIDER_SNAPSHOT_SECRET`
 - `KICKON_ERROR_INGEST_SECRET`
 
-DB와 파일 스토리지는 서로 다른 한도입니다. `SUPABASE_DATABASE_LIMIT_GB`는 PostgreSQL 테이블·인덱스 사용량, `SUPABASE_STORAGE_LIMIT_GB`는 Storage 버킷의 파일 사용량 계산에 씁니다.
+DB와 파일 스토리지는 서로 다른 한도입니다. 공개 설정인 `NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB`, `NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB`는 표시용 한도이며 실제 Metrics secret과 Management token은 관리자 API만 사용합니다.
 
 ## 운영 원칙
 
@@ -111,7 +120,10 @@ npm test
 npm run lint
 npm run typecheck
 npm run build
+npm run build:admin-api
 ```
+
+빌드 후 `npm start`로 `out/`을 로컬 정적 서버에서 확인할 수 있습니다. `Dev` 개발 브랜치와 `Prod` 운영 브랜치를 사용하며, PR 검증과 `Prod` 자동 배포는 [GitHub Actions 자동 배포](docs/github-actions-deployment.md), 실제 AWS 리소스·CloudFront Function·캐시 설정은 [S3 + CloudFront 배포 문서](docs/s3-cloudfront-deployment.md)를 따릅니다.
 
 `npm test`는 역할별 최소 권한 계약을 검증합니다. 문의·제재·숨김·선수명 전파·수동 선수 보호·순위 잠금·감사 로그 같은 DB 통합 흐름은 마이그레이션을 감사한 뒤 개발 Supabase에서 별도로 실행해야 합니다.
 

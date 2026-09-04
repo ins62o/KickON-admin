@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Activity,
   BellRing,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { AdminStatusBadge } from "@/components/admin/status-badge";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
 import { SyncControl } from "@/components/sync/sync-control";
@@ -21,14 +24,14 @@ import {
   getAdminDashboardSummary,
   type AdminDashboardAttentionItem,
 } from "@/lib/admin/console-data";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { requireAdminPermission } from "@/lib/auth/server";
+import { useClientData } from "@/lib/client-data";
+import { getDashboardUsageSnapshotsClient } from "@/lib/data/client-usage";
 import { getSyncOperationHistory } from "@/lib/data/sync-operation-history";
 import { getSyncControlOptions } from "@/lib/data/sync-control-options";
-import { getDashboardUsageSnapshots } from "@/lib/data/usage-snapshots";
 import { formatNumber } from "@/lib/format";
-
-export const metadata: Metadata = { title: "대시보드" };
+import { useConsoleEnvironment } from "@/lib/environment";
 
 function positiveNumber(value: string | undefined) {
   const parsed = Number(value);
@@ -65,26 +68,27 @@ function DashboardAttentionLink({ href, title, item, icon: Icon }: {
   );
 }
 
-export default async function AdminDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ reason?: string }>;
-}) {
-  const admin = await requireAdminPermission("dashboard.read");
-  const query = await searchParams;
-  const [dashboard, attention, usage, syncOptions, syncHistory] = await Promise.all([
-    getAdminDashboardSummary(),
-    getAdminDashboardAttention(),
-    getDashboardUsageSnapshots(),
-    getSyncControlOptions(),
-    getSyncOperationHistory(),
-  ]);
+export default function AdminDashboardPage() {
+  const admin = useRequiredAdminPermission("dashboard.read");
+  const environment = useConsoleEnvironment();
+  const searchParams = useSearchParams();
+  const { data, error, loading, reload } = useClientData(async () => {
+    const [dashboard, attention, usage, syncOptions, syncHistory] = await Promise.all([
+      getAdminDashboardSummary(),
+      getAdminDashboardAttention(),
+      getDashboardUsageSnapshotsClient(),
+      getSyncControlOptions(),
+      getSyncOperationHistory(),
+    ]);
+    return { dashboard, attention, usage, syncOptions, syncHistory };
+  });
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "대시보드 데이터를 확인할 수 없습니다."} retry={reload} />;
+  const { dashboard, attention, usage, syncOptions, syncHistory } = data;
+  const query = { reason: searchParams.get("reason") ?? undefined };
 
-  const environment = process.env.KICKON_ENVIRONMENT === "production"
-    ? "production"
-    : "development";
   const providerAllowance = usage.sportsMonks.allowance
-    ?? positiveNumber(process.env.SPORTSMONKS_API_ALLOWANCE);
+    ?? positiveNumber(process.env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE);
   const providerRemaining = usage.sportsMonks.remaining;
   const lowQuotaThreshold = providerAllowance === null
     ? 200
@@ -214,7 +218,7 @@ export default async function AdminDashboardPage({
             teams={syncOptions.teams}
             fixtures={syncOptions.fixtures}
             canRun={canRunSync}
-            secretReady={Boolean(process.env.FOOTBALL_SYNC_SECRET)}
+            secretReady={process.env.NEXT_PUBLIC_ADMIN_SYNC_ENABLED !== "false"}
             environment={environment}
             providerRemaining={providerRemaining}
             providerAllowance={providerAllowance}

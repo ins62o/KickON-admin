@@ -1,12 +1,8 @@
-import "server-only";
-
-import { createAuthServerClient } from "@/lib/auth/server";
-import { isAdminAuthRequired } from "@/lib/auth/config";
 import { getSupabaseConnection } from "./supabase";
+import type { ConsoleEnvironment } from "@/lib/environment";
 
-export async function getOperationsClient() {
-  if (isAdminAuthRequired()) return createAuthServerClient();
-  return getSupabaseConnection().client;
+export async function getOperationsClient(environment?: ConsoleEnvironment) {
+  return getSupabaseConnection(environment).client;
 }
 
 export function isOperationsSchemaMissing(code?: string) {

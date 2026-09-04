@@ -1,45 +1,61 @@
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Activity, CircleAlert, Database, HardDrive, RefreshCcw } from "lucide-react";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
+import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { PageHeader } from "@/components/admin/page-header";
 import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
 import { SyncControl } from "@/components/sync/sync-control";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { requireAdmin } from "@/lib/auth/server";
+import { useClientData } from "@/lib/client-data";
 import { getAuditLogList } from "@/lib/data/audit";
+import { getDashboardUsageSnapshotsClient } from "@/lib/data/client-usage";
 import { getSyncControlOptions } from "@/lib/data/sync-control-options";
 import { getSyncOperationHistory } from "@/lib/data/sync-operation-history";
-import { getDashboardUsageSnapshots } from "@/lib/data/usage-snapshots";
 import { formatNumber } from "@/lib/format";
 import { getSyncOperation } from "@/lib/sync/catalog";
-
-export const metadata: Metadata = { title: "데이터 관리" };
+import { useConsoleEnvironment } from "@/lib/environment";
 
 function positiveNumber(value: string | undefined) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-export default async function DataManagementPage({ searchParams }: { searchParams: Promise<{ operation?: string; teamId?: string; fixtureId?: string }> }) {
-  const admin = await requireAdmin();
-  const query = await searchParams;
-  const canViewSync = hasAdminPermission(admin.role, "sync.read");
-  const canViewUsage = hasAdminPermission(admin.role, "system.read");
-  const canViewAudit = hasAdminPermission(admin.role, "audit.read");
+export default function DataManagementPage() {
+  const { admin } = useAdminAuth();
+  const environment = useConsoleEnvironment();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const canViewSync = Boolean(admin && hasAdminPermission(admin.role, "sync.read"));
+  const canViewUsage = Boolean(admin && hasAdminPermission(admin.role, "system.read"));
+  const canViewAudit = Boolean(admin && hasAdminPermission(admin.role, "audit.read"));
 
-  if (!canViewSync && !canViewUsage && !canViewAudit) {
-    redirect("/?reason=forbidden");
-  }
+  useEffect(() => {
+    if (admin && !canViewSync && !canViewUsage && !canViewAudit) router.replace("/?reason=forbidden");
+  }, [admin, canViewAudit, canViewSync, canViewUsage, router]);
 
-  const [usage, syncOptions, syncHistory, audit] = await Promise.all([
-    canViewSync || canViewUsage ? getDashboardUsageSnapshots() : Promise.resolve(null),
-    canViewSync ? getSyncControlOptions() : Promise.resolve(null),
-    canViewSync ? getSyncOperationHistory() : Promise.resolve(null),
-    canViewAudit ? getAuditLogList() : Promise.resolve(null),
-  ]);
-  const environment = process.env.KICKON_ENVIRONMENT === "production" ? "production" : "development";
-  const providerAllowance = usage?.sportsMonks.allowance ?? positiveNumber(process.env.SPORTSMONKS_API_ALLOWANCE);
+  const { data, error, loading, reload } = useClientData(async () => {
+    const [usage, syncOptions, syncHistory, audit] = await Promise.all([
+      canViewSync || canViewUsage ? getDashboardUsageSnapshotsClient() : Promise.resolve(null),
+      canViewSync ? getSyncControlOptions() : Promise.resolve(null),
+      canViewSync ? getSyncOperationHistory() : Promise.resolve(null),
+      canViewAudit ? getAuditLogList() : Promise.resolve(null),
+    ]);
+    return { usage, syncOptions, syncHistory, audit };
+  }, [canViewSync, canViewUsage, canViewAudit]);
+  if (!admin || loading) return <ClientPageLoading />;
+  if (!canViewSync && !canViewUsage && !canViewAudit) return <ClientPageLoading label="접근 권한을 확인하고 있습니다." />;
+  if (error || !data) return <ClientPageError message={error ?? "데이터 관리 정보를 확인할 수 없습니다."} retry={reload} />;
+  const { usage, syncOptions, syncHistory, audit } = data;
+  const query = {
+    operation: searchParams.get("operation") ?? undefined,
+    teamId: searchParams.get("teamId") ?? undefined,
+    fixtureId: searchParams.get("fixtureId") ?? undefined,
+  };
+  const providerAllowance = usage?.sportsMonks.allowance ?? positiveNumber(process.env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE);
   const providerRemaining = usage?.sportsMonks.remaining ?? null;
   const lowQuotaThreshold = providerAllowance === null ? 200 : Math.max(1, Math.floor(providerAllowance * 0.15));
   const providerQuotaLow = providerRemaining !== null && providerRemaining <= lowQuotaThreshold;
@@ -60,7 +76,7 @@ export default async function DataManagementPage({ searchParams }: { searchParam
             teams={syncOptions.teams}
             fixtures={syncOptions.fixtures}
             canRun={canRunSync}
-            secretReady={Boolean(process.env.FOOTBALL_SYNC_SECRET)}
+            secretReady={process.env.NEXT_PUBLIC_ADMIN_SYNC_ENABLED !== "false"}
             environment={environment}
             initialOperation={getSyncOperation(query.operation ?? "")?.key}
             initialTeamId={syncOptions.teams.some((team) => team.id === query.teamId) ? query.teamId : undefined}

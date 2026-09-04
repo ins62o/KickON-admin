@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+"use client";
+
 import {
   Activity,
   CalendarDays,
@@ -15,16 +16,16 @@ import {
 
 import { DataState } from "@/components/admin/data-state";
 import { DataManagementHeader } from "@/components/admin/data-management-header";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { SupabaseUsageCard } from "@/components/dashboard/supabase-usage-card";
 import { UsageGaugeCard } from "@/components/dashboard/usage-gauge-card";
 import { StatusBadge } from "@/components/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireAdminPermission } from "@/lib/auth/server";
-import { getUsageSnapshots } from "@/lib/data/usage-snapshots";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
+import { useClientData } from "@/lib/client-data";
+import { getUsageSnapshotsClient } from "@/lib/data/client-usage";
 import { formatBytes, formatKoreaDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
-
-export const metadata: Metadata = { title: "데이터 관리 · 사용량 및 시스템 상태" };
 
 function changeLabel(value: number | null) {
   if (value === null) return "비교 기준 없음";
@@ -32,9 +33,11 @@ function changeLabel(value: number | null) {
   return `${value > 0 ? "+" : ""}${value.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
 }
 
-export default async function UsagePage() {
-  const admin = await requireAdminPermission("system.read");
-  const data = await getUsageSnapshots();
+export default function UsagePage() {
+  const admin = useRequiredAdminPermission("system.read");
+  const { data, error, loading, reload } = useClientData(getUsageSnapshotsClient);
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "사용량 데이터를 확인할 수 없습니다."} retry={reload} />;
   const provider = data.sportsMonks;
   const hasProviderRows = provider.connected && (provider.recordCount ?? 0) > 0;
   const hourlyMaximum = Math.max(1, ...provider.trends["24h"].map((bucket) => bucket.requests));

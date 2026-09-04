@@ -1,24 +1,48 @@
 import type { NextConfig } from "next";
 
+const serverEnvironment = process.env.KICKON_ENVIRONMENT;
+const publicEnvironment = process.env.NEXT_PUBLIC_KICKON_ENVIRONMENT;
+
+if (serverEnvironment && publicEnvironment && serverEnvironment !== publicEnvironment) {
+  throw new Error("KICKON_ENVIRONMENT와 NEXT_PUBLIC_KICKON_ENVIRONMENT가 일치해야 합니다.");
+}
+
+const kickonEnvironment = (publicEnvironment ?? serverEnvironment) === "production"
+  ? "production"
+  : "development";
+const databaseLimitGb = process.env.NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB
+  ?? process.env.SUPABASE_DATABASE_LIMIT_GB;
+const storageLimitGb = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB
+  ?? process.env.SUPABASE_STORAGE_LIMIT_GB;
+const sportsMonksAllowance = process.env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE
+  ?? process.env.SPORTSMONKS_API_ALLOWANCE;
+const developmentSupabaseUrl = process.env.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL
+  ?? (kickonEnvironment === "development" ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
+const developmentSupabasePublishableKey = process.env.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY
+  ?? (kickonEnvironment === "development" ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY : undefined);
+const productionSupabaseUrl = process.env.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL
+  ?? (kickonEnvironment === "production" ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
+const productionSupabasePublishableKey = process.env.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY
+  ?? (kickonEnvironment === "production" ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY : undefined);
+
 const nextConfig: NextConfig = {
-  async redirects() {
-    return [
-      { source: "/dashboard", destination: "/", permanent: false },
-      { source: "/clubs/:path*", destination: "/squads", permanent: false },
-      { source: "/players", destination: "/squads", permanent: false },
-      { source: "/players/:path*", destination: "/squads/:path*", permanent: false },
-      { source: "/fixtures/:path*", destination: "/sync", permanent: false },
-      { source: "/rankings/:path*", destination: "/standings", permanent: false },
-      { source: "/transfers/:path*", destination: "/squads", permanent: false },
-      { source: "/data-status", destination: "/sync", permanent: false },
-      { source: "/sync-history/:path*", destination: "/sync", permanent: false },
-      { source: "/reports/:path*", destination: "/moderation", permanent: false },
-      { source: "/errors/:path*", destination: "/usage?view=errors", permanent: false },
-      { source: "/cron", destination: "/sync?view=schedule", permanent: false },
-      { source: "/api-usage", destination: "/usage?view=sportsmonks", permanent: false },
-      { source: "/supabase", destination: "/usage?view=supabase", permanent: false },
-      { source: "/system-status", destination: "/usage", permanent: false },
-    ];
+  output: "export",
+  trailingSlash: true,
+  env: {
+    NEXT_PUBLIC_KICKON_ENVIRONMENT: kickonEnvironment,
+    NEXT_PUBLIC_KICKON_DEFAULT_ENVIRONMENT: process.env.NEXT_PUBLIC_KICKON_DEFAULT_ENVIRONMENT ?? kickonEnvironment,
+    NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB: databaseLimitGb,
+    NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB: storageLimitGb,
+    NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE: sportsMonksAllowance,
+    NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL: developmentSupabaseUrl,
+    NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: developmentSupabasePublishableKey,
+    NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL: productionSupabaseUrl,
+    NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY: productionSupabasePublishableKey,
+    NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL: process.env.NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL,
+    NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL: process.env.NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL,
+  },
+  images: {
+    unoptimized: true,
   },
 };
 

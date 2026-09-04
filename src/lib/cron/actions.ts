@@ -1,9 +1,10 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createAuthServerClient, requireAdmin } from "@/lib/auth/server";
-import { sanitizeErrorText } from "@/lib/errors/ingestion";
+import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
+import { invalidateAdminData } from "@/lib/client-data";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cronMaintenanceJobs, isCronMaintenanceJobKey } from "./catalog";
+import { getActiveConsoleEnvironment } from "@/lib/environment";
 
 export type CronMaintenanceActionState = {
   status: "idle" | "success" | "error";
@@ -12,17 +13,21 @@ export type CronMaintenanceActionState = {
   runId: string | null;
 };
 
+function safeErrorText(value: string) {
+  return value.replace(/Bearer\s+\S+|token|secret|authorization/gi, "[REDACTED]").slice(0, 1_000);
+}
+
 export async function runCronMaintenanceAction(_previous: CronMaintenanceActionState, formData: FormData): Promise<CronMaintenanceActionState> {
-  const admin = await requireAdmin();
+  const admin = await getCurrentBrowserAdmin();
   const jobKey = String(formData.get("jobKey") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
 
   if (!isCronMaintenanceJobKey(jobKey)) return { status: "error", message: "허용되지 않은 보관 정리 작업입니다.", jobKey, runId: null };
-  if (admin.isDevelopmentBypass || !admin.userId) return { status: "error", message: "인증 우회 상태에서는 보관 데이터를 삭제할 수 없습니다.", jobKey, runId: null };
+  if (!admin) return { status: "error", message: "관리자 세션을 다시 확인해 주세요.", jobKey, runId: null };
   if (admin.role !== "admin" && admin.role !== "super_admin") return { status: "error", message: "보관 정리에는 관리자 이상의 권한이 필요합니다.", jobKey, runId: null };
   if (reason.length < 3 || reason.length > 500) return { status: "error", message: "실행 이유를 3자 이상 500자 이하로 입력해 주세요.", jobKey, runId: null };
 
-  const supabase = await createAuthServerClient();
+  const supabase = getBrowserSupabaseClient();
   if (!supabase) return { status: "error", message: "운영 데이터 연결 설정이 없습니다.", jobKey, runId: null };
 
   const startedAt = new Date().toISOString();
@@ -31,7 +36,7 @@ export async function runCronMaintenanceAction(_previous: CronMaintenanceActionS
     target_type: "retention",
     target_id: null,
     trigger_type: "manual",
-    environment: process.env.KICKON_ENVIRONMENT === "production" ? "production" : "development",
+    environment: getActiveConsoleEnvironment(),
     status: "running",
     requested_by: admin.userId,
     reason,
@@ -45,7 +50,7 @@ export async function runCronMaintenanceAction(_previous: CronMaintenanceActionS
   const cleanup = await supabase.rpc("run_admin_retention_cleanup", { p_job_key: jobKey, p_reason: reason });
   const finishedAt = new Date().toISOString();
   if (cleanup.error) {
-    const message = sanitizeErrorText(cleanup.error.message) || "보관 정리 작업을 실행하지 못했습니다.";
+    const message = safeErrorText(cleanup.error.message) || "보관 정리 작업을 실행하지 못했습니다.";
     await supabase.from("sync_runs").update({
       status: "failed",
       finished_at: finishedAt,
@@ -54,8 +59,7 @@ export async function runCronMaintenanceAction(_previous: CronMaintenanceActionS
       error_message: message,
       metadata: { action: "retention-cleanup" },
     }).eq("id", runId);
-    revalidatePath("/cron");
-    revalidatePath("/sync-history");
+    invalidateAdminData();
     return { status: "error", message: "보관 정리에 실패했습니다. 실행 기록에서 원인을 확인해 주세요.", jobKey, runId };
   }
 
@@ -69,9 +73,7 @@ export async function runCronMaintenanceAction(_previous: CronMaintenanceActionS
     metadata: { action: "retention-cleanup", deletedCount, cutoffAt },
   }).eq("id", runId);
 
-  revalidatePath("/cron");
-  revalidatePath("/sync-history");
-  revalidatePath("/audit");
+  invalidateAdminData();
   return finalization.error
     ? { status: "error", message: `${deletedCount.toLocaleString("ko-KR")}건을 삭제했지만 실행 기록을 마무리하지 못했습니다. 중복 실행하지 말고 실행 기록을 확인해 주세요.`, jobKey, runId }
     : { status: "success", message: `${cronMaintenanceJobs[jobKey].target} ${deletedCount.toLocaleString("ko-KR")}건을 삭제했습니다.`, jobKey, runId };

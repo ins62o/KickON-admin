@@ -31,6 +31,22 @@ export function PlayerOverrideControl({ player, teams, canEdit, openApply = fals
 }
 
 function PlayerEditDialog({ player, teams, canEdit, open, defaultReason }: { player: EditablePlayer; teams: TeamOption[]; canEdit: boolean; open: boolean; defaultReason: string }) {
+  const [formSession, setFormSession] = useState(0);
+
+  return (
+    <Dialog defaultOpen={open} onOpenChange={(nextOpen) => {
+      if (!nextOpen) setFormSession((session) => session + 1);
+    }}>
+      <DialogTrigger asChild><Button className="h-10 px-5 font-bold" disabled={!canEdit}>선수 정보 수정</Button></DialogTrigger>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader className="pb-1"><DialogTitle className="text-xl">선수 정보 수정</DialogTitle></DialogHeader>
+        <PlayerEditForm key={formSession} player={player} teams={teams} defaultReason={defaultReason} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PlayerEditForm({ player, teams, defaultReason }: { player: EditablePlayer; teams: TeamOption[]; defaultReason: string }) {
   const [state, action, pending] = useActionState(updatePlayerDetailsAction, initialState);
   const [teamId, setTeamId] = useState(player.teamId);
   const [position, setPosition] = useState(player.position ?? "__none");
@@ -39,10 +55,7 @@ function PlayerEditDialog({ player, teams, canEdit, open, defaultReason }: { pla
   const selectedPosition = positions.find((item) => item.value === position);
 
   return (
-    <Dialog defaultOpen={open}>
-      <DialogTrigger asChild><Button className="h-10 px-5 font-bold" disabled={!canEdit}>선수 정보 수정</Button></DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl"><DialogHeader className="pb-1"><DialogTitle className="text-xl">선수 정보 수정</DialogTitle></DialogHeader>
-        <form action={action} className="mt-2 space-y-6">
+    <form action={action} className="mt-2 space-y-6">
           <input type="hidden" name="playerId" value={player.id} />
           <input type="hidden" name="season" value={player.season} />
           <input type="hidden" name="leagueId" value={player.leagueId} />
@@ -82,9 +95,7 @@ function PlayerEditDialog({ player, teams, canEdit, open, defaultReason }: { pla
           <Field label="수정 이유" htmlFor="override-reason"><Textarea id="override-reason" name="reason" defaultValue={defaultReason} minLength={3} maxLength={1000} required className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></Field>
           {state.message ? <p role="status" className={state.status === "success" ? "text-xs text-emerald-300" : "text-xs text-rose-300"}>{state.message}</p> : null}
           <DialogFooter className="mx-0 mb-0 rounded-lg px-0 pb-0"><DialogClose asChild><Button type="button" variant="outline" className="h-11 px-5 text-base font-bold">취소</Button></DialogClose><Button type="submit" disabled={pending} className="h-11 px-6 text-base font-bold">{pending ? "수정 중" : "선수 정보 수정"}</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    </form>
   );
 }
 

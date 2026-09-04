@@ -1,7 +1,8 @@
-import "server-only";
+"use client";
 
 import { cache } from "react";
 import { getPublicSupabaseConfig } from "@/lib/auth/config";
+import { getActiveConsoleEnvironment } from "@/lib/environment";
 import type { HealthStatus } from "@/lib/data/types";
 
 const HEALTH_TIMEOUT_MS = 4_000;
@@ -75,7 +76,7 @@ async function probeStorage(projectUrl: string, publishableKey: string): Promise
       return { status: "danger", detail: "Storage Health 응답 크기가 비정상적으로 큽니다.", checkedAt, latencyMs, source: "Supabase Storage · /storage/v1/health" };
     }
     const body = await response.text();
-    if (Buffer.byteLength(body, "utf8") > MAXIMUM_HEALTH_BODY_BYTES) {
+    if (new TextEncoder().encode(body).byteLength > MAXIMUM_HEALTH_BODY_BYTES) {
       return { status: "danger", detail: "Storage Health 응답 크기가 비정상적으로 큽니다.", checkedAt, latencyMs, source: "Supabase Storage · /storage/v1/health" };
     }
     let healthy = false;
@@ -102,7 +103,7 @@ async function probeStorage(projectUrl: string, publishableKey: string): Promise
 }
 
 export const getSupabaseServiceHealth = cache(async () => {
-  const config = getPublicSupabaseConfig();
+  const config = getPublicSupabaseConfig(getActiveConsoleEnvironment());
   if (!config) return {
     auth: unavailableProbe("Supabase URL 또는 Publishable key가 설정되지 않았습니다.", "환경 설정"),
     storage: unavailableProbe("Supabase URL 또는 Publishable key가 설정되지 않았습니다.", "환경 설정"),

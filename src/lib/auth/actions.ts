@@ -1,11 +1,11 @@
-"use server";
+"use client";
 
-import { redirect } from "next/navigation";
-import { createAuthServerClient } from "./server";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export type LoginState = {
   error: string | null;
   email: string;
+  redirectTo?: string | null;
 };
 
 function safeNextPath(value: FormDataEntryValue | null) {
@@ -17,7 +17,7 @@ export async function signInAction(_previous: LoginState, formData: FormData): P
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const nextPath = safeNextPath(formData.get("next"));
-  const supabase = await createAuthServerClient();
+  const supabase = getBrowserSupabaseClient();
 
   if (!supabase) {
     return { error: "Supabase 공개 환경 변수가 설정되지 않았습니다.", email };
@@ -47,11 +47,10 @@ export async function signInAction(_previous: LoginState, formData: FormData): P
     };
   }
 
-  redirect(nextPath);
+  return { error: null, email, redirectTo: nextPath };
 }
 
 export async function signOutAction() {
-  const supabase = await createAuthServerClient();
+  const supabase = getBrowserSupabaseClient();
   if (supabase) await supabase.auth.signOut();
-  redirect("/login");
 }

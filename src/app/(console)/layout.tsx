@@ -1,11 +1,10 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { requireAdmin } from "@/lib/auth/server";
+import { AdminAuthProvider } from "@/components/auth/admin-auth-provider";
 
-export const dynamic = "force-dynamic";
-
-export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
-  const admin = await requireAdmin();
+export default function ConsoleLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AppShell admin={admin}>{children}</AppShell>
+    <AdminAuthProvider>
+      <AppShell>{children}</AppShell>
+    </AdminAuthProvider>
   );
 }

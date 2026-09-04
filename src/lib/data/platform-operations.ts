@@ -1,9 +1,9 @@
-import "server-only";
+"use client";
 
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAuthServerClient } from "@/lib/auth/server";
-import { isAdminAuthRequired } from "@/lib/auth/config";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
+import type { ConsoleEnvironment } from "@/lib/environment";
 import { getSupabaseProjectMetrics, type SupabaseProjectMetrics } from "@/lib/supabase/project-metrics";
 import { getSupabaseServiceHealth } from "@/lib/supabase/service-health";
 import { getKickonApiHealth } from "@/lib/health/kickon-api";
@@ -204,9 +204,8 @@ const COUNT_TABLES = [
   ["push_tokens", "푸시 토큰"],
 ] as const;
 
-async function getAdminReadClient(): Promise<SupabaseClient | null> {
-  if (isAdminAuthRequired()) return createAuthServerClient();
-  return getSupabaseConnection().client;
+async function getAdminReadClient(environment?: ConsoleEnvironment): Promise<SupabaseClient | null> {
+  return getBrowserSupabaseClient(environment);
 }
 
 function isMissingAdminRpc(code?: string) {
@@ -434,13 +433,15 @@ function newerProviderRow(current: ProviderUsageRow | null, candidate: ProviderU
     : current;
 }
 
-export const getProviderUsageData = cache(async (): Promise<ProviderUsageData> => {
-  const client = await getAdminReadClient();
+export const getProviderUsageData = cache(async (
+  environment?: ConsoleEnvironment,
+): Promise<ProviderUsageData> => {
+  const client = await getAdminReadClient(environment);
   if (!client) return emptyProviderUsage("Supabase 환경 변수가 설정되지 않았습니다.");
 
   const now = new Date();
   const nowMs = now.getTime();
-  const configuredAllowanceValue = Number(process.env.SPORTSMONKS_API_ALLOWANCE);
+  const configuredAllowanceValue = Number(process.env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE);
   const configuredAllowance = Number.isFinite(configuredAllowanceValue) && configuredAllowanceValue > 0
     ? configuredAllowanceValue
     : null;
@@ -615,15 +616,28 @@ export const getProviderUsageData = cache(async (): Promise<ProviderUsageData> =
   };
 });
 
-export const getSupabaseUsageData = cache(async (): Promise<SupabaseUsageData> => {
-  const [client, projectMetrics] = await Promise.all([getAdminReadClient(), getSupabaseProjectMetrics()]);
+type SupabaseUsageDataOptions = {
+  environment?: ConsoleEnvironment;
+  projectMetrics?: SupabaseProjectMetrics;
+  storageUsedBytes?: number | null;
+};
+
+export const getSupabaseUsageData = cache(async (
+  options: SupabaseUsageDataOptions = {},
+): Promise<SupabaseUsageData> => {
+  const [client, projectMetrics] = await Promise.all([
+    getAdminReadClient(options.environment),
+    options.projectMetrics
+      ? Promise.resolve(options.projectMetrics)
+      : getSupabaseProjectMetrics(options.environment),
+  ]);
   if (!client) return {
     connected: false,
     error: "Supabase 환경 변수가 설정되지 않았습니다.",
     rowCounts: COUNT_TABLES.map(([table, label]) => ({ label, value: null, source: table })),
     metricsConfigured: projectMetrics.configured,
     metricsCheckedAt: projectMetrics.checkedAt,
-    infrastructure: infrastructureMetrics(projectMetrics),
+    infrastructure: infrastructureMetrics(projectMetrics, options.storageUsedBytes ?? null),
   };
 
   const rpcResult = await client.rpc("get_admin_table_counts");
@@ -636,7 +650,7 @@ export const getSupabaseUsageData = cache(async (): Promise<SupabaseUsageData> =
       rowCounts: COUNT_TABLES.map(([table, label]) => ({ label, value: countMap.get(table) ?? null, source: table })),
       metricsConfigured: projectMetrics.configured,
       metricsCheckedAt: projectMetrics.checkedAt,
-      infrastructure: infrastructureMetrics(projectMetrics),
+      infrastructure: infrastructureMetrics(projectMetrics, options.storageUsedBytes ?? null),
     };
   }
 
@@ -650,13 +664,16 @@ export const getSupabaseUsageData = cache(async (): Promise<SupabaseUsageData> =
     rowCounts: fallback,
     metricsConfigured: projectMetrics.configured,
     metricsCheckedAt: projectMetrics.checkedAt,
-    infrastructure: infrastructureMetrics(projectMetrics),
+    infrastructure: infrastructureMetrics(projectMetrics, options.storageUsedBytes ?? null),
   };
 });
 
-function infrastructureMetrics(metrics: SupabaseProjectMetrics): SupabaseUsageData["infrastructure"] {
+function infrastructureMetrics(
+  metrics: SupabaseProjectMetrics,
+  storageUsedBytes: number | null = null,
+): SupabaseUsageData["infrastructure"] {
   const metricStatus = (value: number | null) => value !== null ? "available" as const : metrics.configured ? "error" as const : "unavailable" as const;
-  const unavailableDetail = metrics.error ?? "해당 지표를 확인할 수 없습니다.";
+  const unavailableDetail = metrics.detailsError ?? metrics.error ?? "해당 지표를 확인할 수 없습니다.";
   const connectionsDetail = metrics.databaseConnections === null
     ? unavailableDetail
     : metrics.databaseMaxConnections === null
@@ -667,12 +684,18 @@ function infrastructureMetrics(metrics: SupabaseProjectMetrics): SupabaseUsageDa
     {
       key: "database-size", label: "DB 용량", value: metrics.databaseSizeBytes, unit: "bytes" as const,
       detail: metrics.databaseSizeBytes === null ? unavailableDetail : "postgres 데이터베이스 사용 공간",
-      source: "Supabase Metrics API · pg_database_size_bytes", status: metricStatus(metrics.databaseSizeBytes),
+      source: metrics.databaseSizeSource === "database-rpc"
+        ? "Database RPC · pg_database_size"
+        : "Supabase Metrics API · pg_database_size_bytes",
+      status: metricStatus(metrics.databaseSizeBytes),
     },
     {
-      key: "storage-size", label: "Storage 용량", value: null, unit: "bytes" as const,
-      detail: "Metrics API가 Storage 객체 용량을 제공하지 않습니다. Management API 계약이 필요합니다.",
-      source: "미연동", status: "unavailable" as const,
+      key: "storage-size", label: "Storage 용량", value: storageUsedBytes, unit: "bytes" as const,
+      detail: storageUsedBytes === null
+        ? "Storage 집계 RPC를 확인할 수 없습니다."
+        : "storage.objects metadata.size 합계",
+      source: storageUsedBytes === null ? "미연동" : "Database RPC · admin_get_usage_snapshot",
+      status: storageUsedBytes === null ? "unavailable" as const : "available" as const,
     },
     {
       key: "bandwidth", label: "Bandwidth", value: null, unit: "bytes" as const,

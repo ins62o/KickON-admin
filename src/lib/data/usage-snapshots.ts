@@ -1,4 +1,4 @@
-import "server-only";
+"use client";
 
 import type { SupabaseUsageSnapshot } from "@/components/dashboard/supabase-usage-card";
 import type { UsageGaugePanelProps } from "@/components/dashboard/usage-gauge-card";
@@ -8,6 +8,7 @@ import { getSupabaseStorageUsage } from "@/lib/supabase/storage-usage";
 import { getProviderUsageData, getSupabaseUsageData, getSystemStatusData } from "./platform-operations";
 import { getOperationsClient } from "./operations-client";
 import type { HealthStatus } from "./types";
+import { getActiveConsoleEnvironment, type ConsoleEnvironment } from "@/lib/environment";
 
 function positiveNumber(value: string | undefined) {
   const parsed = Number(value);
@@ -40,24 +41,184 @@ type CoreUsageSources = {
   sportsMonks: Awaited<ReturnType<typeof getProviderUsageData>>;
 };
 
-async function getCoreUsageSources(): Promise<CoreUsageSources> {
-  const [supabase, storage, sportsMonks] = await Promise.all([
-    getSupabaseProjectMetrics(),
-    getSupabaseStorageUsage(),
-    getProviderUsageData(),
+type DirectUsageSnapshot = {
+  databaseSizeBytes: number | null;
+  storageUsedBytes: number | null;
+  storageBucketCount: number | null;
+  storageObjectCount: number | null;
+  storageUnmeasuredObjectCount: number | null;
+  storageCurrentMonthObjectCount: number | null;
+  storageCurrentMonthUsedBytes: number | null;
+  checkedAt: string | null;
+  error: string | null;
+};
+
+function skippedProjectMetrics(): CoreUsageSources["supabase"] {
+  return {
+    configured: false,
+    checkedAt: null,
+    databaseSizeBytes: null,
+    databaseConnections: null,
+    databaseMaxConnections: null,
+    databaseLimitBytes: null,
+    providerAllowance: null,
+    databaseSizeSource: null,
+    detailsError: null,
+    error: null,
+  };
+}
+
+function skippedStorageDetails(): CoreUsageSources["storage"] {
+  return {
+    configured: false,
+    checkedAt: null,
+    usedBytes: null,
+    bucketCount: null,
+    objectCount: null,
+    unmeasuredObjectCount: null,
+    currentMonthObjectCount: null,
+    currentMonthUsedBytes: null,
+    storageLimitBytes: null,
+    buckets: [],
+    largestObjects: [],
+    detailsError: null,
+    error: null,
+  };
+}
+
+function nonNegativeSafeInteger(value: unknown) {
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value)
+      ? Number(value)
+      : Number.NaN;
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function hasCompleteDirectStorageUsage(snapshot: DirectUsageSnapshot) {
+  return snapshot.storageUsedBytes !== null
+    && snapshot.storageBucketCount !== null
+    && snapshot.storageObjectCount !== null
+    && snapshot.storageUnmeasuredObjectCount !== null;
+}
+
+async function getDirectUsageSnapshot(
+  environment: ConsoleEnvironment,
+): Promise<DirectUsageSnapshot> {
+  const unavailable = (error: string): DirectUsageSnapshot => ({
+    databaseSizeBytes: null,
+    storageUsedBytes: null,
+    storageBucketCount: null,
+    storageObjectCount: null,
+    storageUnmeasuredObjectCount: null,
+    storageCurrentMonthObjectCount: null,
+    storageCurrentMonthUsedBytes: null,
+    checkedAt: null,
+    error,
+  });
+
+  try {
+    const client = await getOperationsClient(environment);
+    if (!client) return unavailable("Supabase 연결 설정을 확인해 주세요.");
+
+    const result = await client.rpc("admin_get_usage_snapshot");
+    const row = Array.isArray(result.data) ? result.data[0] : null;
+    if (result.error || !row || typeof row !== "object") {
+      const missing = result.error?.code === "PGRST202" || result.error?.code === "42883";
+      return unavailable(missing
+        ? "admin_get_usage_snapshot 마이그레이션을 이 Supabase 프로젝트에 적용해 주세요."
+        : "현재 로그인에는 사용량 집계 권한이 없거나 집계 RPC를 실행할 수 없습니다.");
+    }
+
+    const snapshot = row as Record<string, unknown>;
+    return {
+      databaseSizeBytes: nonNegativeSafeInteger(snapshot.database_size_bytes),
+      storageUsedBytes: nonNegativeSafeInteger(snapshot.storage_used_bytes),
+      storageBucketCount: nonNegativeSafeInteger(snapshot.storage_bucket_count),
+      storageObjectCount: nonNegativeSafeInteger(snapshot.storage_object_count),
+      storageUnmeasuredObjectCount: nonNegativeSafeInteger(snapshot.storage_unmeasured_object_count),
+      storageCurrentMonthObjectCount: nonNegativeSafeInteger(snapshot.storage_current_month_object_count),
+      storageCurrentMonthUsedBytes: nonNegativeSafeInteger(snapshot.storage_current_month_used_bytes),
+      checkedAt: new Date().toISOString(),
+      error: null,
+    };
+  } catch {
+    // The metrics card must never make the dashboard fail when the optional
+    // aggregate RPC is temporarily unavailable.
+    return unavailable("사용량 집계 RPC 요청에 실패했습니다.");
+  }
+}
+
+async function getCoreUsageSources(
+  environment: ConsoleEnvironment = getActiveConsoleEnvironment(),
+  includeSupplementaryDetails = true,
+): Promise<CoreUsageSources> {
+  const directSnapshotPromise = getDirectUsageSnapshot(environment);
+  const supabasePromise = includeSupplementaryDetails
+    ? getSupabaseProjectMetrics(environment)
+    : directSnapshotPromise.then((snapshot) => snapshot.databaseSizeBytes === null
+      ? getSupabaseProjectMetrics(environment)
+      : skippedProjectMetrics());
+  const storagePromise = includeSupplementaryDetails
+    ? getSupabaseStorageUsage(environment)
+    : directSnapshotPromise.then((snapshot) => hasCompleteDirectStorageUsage(snapshot)
+      ? skippedStorageDetails()
+      : getSupabaseStorageUsage(environment));
+  const [supabase, storage, sportsMonks, directSnapshot] = await Promise.all([
+    supabasePromise,
+    storagePromise,
+    getProviderUsageData(environment),
+    directSnapshotPromise,
   ]);
 
-  return { supabase, storage, sportsMonks };
+  const hasDirectDatabaseUsage = directSnapshot.databaseSizeBytes !== null;
+  const hasDirectStorageUsage = hasCompleteDirectStorageUsage(directSnapshot);
+
+  return {
+    supabase: hasDirectDatabaseUsage
+      ? {
+          ...supabase,
+          configured: true,
+          checkedAt: directSnapshot.checkedAt,
+          databaseSizeBytes: directSnapshot.databaseSizeBytes,
+          databaseSizeSource: "database-rpc" as const,
+          detailsError: supabase.error,
+          error: null,
+        }
+      : supabase.databaseSizeBytes !== null
+        ? supabase
+        : { ...supabase, error: directSnapshot.error ?? supabase.error },
+    storage: hasDirectStorageUsage
+      ? {
+          ...storage,
+          configured: true,
+          checkedAt: directSnapshot.checkedAt,
+          usedBytes: directSnapshot.storageUsedBytes,
+          bucketCount: directSnapshot.storageBucketCount,
+          objectCount: directSnapshot.storageObjectCount,
+          unmeasuredObjectCount: directSnapshot.storageUnmeasuredObjectCount,
+          currentMonthObjectCount: directSnapshot.storageCurrentMonthObjectCount
+            ?? storage.currentMonthObjectCount,
+          currentMonthUsedBytes: directSnapshot.storageCurrentMonthUsedBytes
+            ?? storage.currentMonthUsedBytes,
+          detailsError: storage.error,
+          error: null,
+        }
+      : storage.usedBytes !== null
+        ? storage
+        : { ...storage, error: directSnapshot.error ?? storage.error },
+    sportsMonks,
+  };
 }
 
 function buildUsageCards({ supabase, storage, sportsMonks }: CoreUsageSources) {
-  const databaseLimitGb = positiveNumber(process.env.SUPABASE_DATABASE_LIMIT_GB);
-  const databaseLimitBytes = databaseLimitGb === null ? null : databaseLimitGb * 1_000 ** 3;
+  const databaseLimitGb = positiveNumber(process.env.NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB);
+  const databaseLimitBytes = supabase.databaseLimitBytes ?? (databaseLimitGb === null ? null : databaseLimitGb * 1_000 ** 3);
   const databaseRate = percentage(supabase.databaseSizeBytes, databaseLimitBytes);
-  const storageLimitGb = positiveNumber(process.env.SUPABASE_STORAGE_LIMIT_GB);
-  const storageLimitBytes = storageLimitGb === null ? null : storageLimitGb * 1_000 ** 3;
+  const storageLimitGb = positiveNumber(process.env.NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB);
+  const storageLimitBytes = storage.storageLimitBytes ?? (storageLimitGb === null ? null : storageLimitGb * 1_000 ** 3);
   const storageRate = percentage(storage.usedBytes, storageLimitBytes);
-  const providerAllowance = positiveNumber(process.env.SPORTSMONKS_API_ALLOWANCE);
+  const providerAllowance = supabase.providerAllowance ?? positiveNumber(process.env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE);
   const providerUsed = sportsMonks.remaining !== null && providerAllowance !== null
     ? Math.max(0, providerAllowance - sportsMonks.remaining)
     : null;
@@ -132,22 +293,36 @@ function buildUsageCards({ supabase, storage, sportsMonks }: CoreUsageSources) {
     unmeasuredObjectCount: storage.unmeasuredObjectCount,
     largestObjects: storage.largestObjects,
     configured: storage.configured,
-    error: storage.error,
+    error: storage.detailsError ?? storage.error,
   };
 
   return { database, fileStorage, provider, checkedAt, storageInsights };
 }
 
 export async function getDashboardUsageSnapshots() {
-  const sources = await getCoreUsageSources();
+  const environment = getActiveConsoleEnvironment();
+  const sources = await getCoreUsageSources(environment, false);
   const { database, fileStorage, provider } = buildUsageCards(sources);
 
-  return { database, fileStorage, provider, sportsMonks: sources.sportsMonks };
+  return {
+    database,
+    fileStorage,
+    provider,
+    sportsMonks: sources.sportsMonks.allowance === null && sources.supabase.providerAllowance !== null
+      ? { ...sources.sportsMonks, allowance: sources.supabase.providerAllowance }
+      : sources.sportsMonks,
+  };
 }
 
 export async function getUsageSnapshots() {
-  const coreUsagePromise = getCoreUsageSources();
-  const storageBucketsPromise = getOperationsClient().then(async (client) => {
+  const environment = getActiveConsoleEnvironment();
+  const coreUsagePromise = getCoreUsageSources(environment);
+  const supabaseDetailsPromise = coreUsagePromise.then((coreUsage) => getSupabaseUsageData({
+    environment,
+    projectMetrics: coreUsage.supabase,
+    storageUsedBytes: coreUsage.storage.usedBytes,
+  }));
+  const storageBucketsPromise = getOperationsClient(environment).then(async (client) => {
     if (!client) return { rows: [] as StorageBucketUsage[], error: "Supabase 연결이 없습니다." };
     const result = await client.rpc("admin_get_storage_usage");
     if (result.error) return { rows: [] as StorageBucketUsage[], error: "버킷별 Storage 집계를 확인하려면 관리자 마이그레이션이 필요합니다." };
@@ -165,7 +340,7 @@ export async function getUsageSnapshots() {
   });
   const [coreUsage, supabaseDetails, systems, storageBuckets] = await Promise.all([
     coreUsagePromise,
-    getSupabaseUsageData(),
+    supabaseDetailsPromise,
     getSystemStatusData(),
     storageBucketsPromise,
   ]);
@@ -175,7 +350,9 @@ export async function getUsageSnapshots() {
     database,
     fileStorage,
     provider,
-    sportsMonks: coreUsage.sportsMonks,
+    sportsMonks: coreUsage.sportsMonks.allowance === null && coreUsage.supabase.providerAllowance !== null
+      ? { ...coreUsage.sportsMonks, allowance: coreUsage.supabase.providerAllowance }
+      : coreUsage.sportsMonks,
     supabaseDetails,
     systems,
     storageBuckets,

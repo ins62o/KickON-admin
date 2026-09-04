@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { signInAction, type LoginState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,11 @@ const initialState: LoginState = { error: null, email: "" };
 
 export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
   const [state, action, pending] = useActionState(signInAction, initialState);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state.redirectTo) router.replace(state.redirectTo);
+  }, [router, state.redirectTo]);
 
   return (
     <form action={action} className="mt-9 space-y-6">
@@ -45,7 +51,7 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
         </div>
       )}
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      <Button type="submit" size="lg" className="h-12 w-full font-bold" disabled={pending}>
         {pending ? "로그인 중" : "로그인"}
       </Button>
     </form>

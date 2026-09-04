@@ -1,5 +1,3 @@
-import "server-only";
-
 import { cache } from "react";
 import { getSyncOperation } from "@/lib/sync/catalog";
 import { getOperationsClient, isOperationsSchemaMissing } from "./operations-client";
@@ -199,13 +197,9 @@ export function auditEntityHref(log: AuditLogRecord) {
   const nestedType = typeof value?.entity_type === "string" ? value.entity_type : null;
   const nestedId = typeof value?.entity_id === "string" ? value.entity_id : log.entityId;
   if (log.entityType === "manual_overrides" && nestedType && nestedId) {
-    if (nestedType === "player") return `/squads/${nestedId}`;
+    if (nestedType === "player") return `/squads/detail/?playerId=${encodeURIComponent(nestedId)}`;
     if (nestedType === "fixture") return `/fixtures/${nestedId}`;
-    if (nestedType === "standing") return `/standings/${nestedId}`;
+    if (nestedType === "standing") return `/standings/detail/?teamId=${encodeURIComponent(nestedId)}`;
   }
-  if (!log.entityId) return null;
-  if (log.entityType === "user_data_reports") return `/reports/${log.entityId}`;
-  if (log.entityType === "error_groups") return `/errors/${log.entityId}`;
-  if (log.entityType === "player_change_events") return `/transfers/${log.entityId}`;
   return null;
 }

@@ -1,8 +1,11 @@
-import type { Metadata } from "next";
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Mail, Search, UsersRound } from "lucide-react";
 import { siApple } from "simple-icons";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { DataState } from "@/components/admin/data-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { AdminStatusBadge } from "@/components/admin/status-badge";
@@ -10,11 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getAdminUsersData } from "@/lib/admin/console-data";
-import { requireAdminPermission } from "@/lib/auth/server";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
+import { useClientData } from "@/lib/client-data";
 import { getTeamLogoPath, getTeamName } from "@/lib/data/catalog";
 import { formatNumber } from "@/lib/format";
-
-export const metadata: Metadata = { title: "사용자" };
 
 type UserSearchParams = {
   q?: string;
@@ -111,10 +113,18 @@ function AuthProviderMark({ provider }: { provider: string | null }) {
   );
 }
 
-export default async function UsersPage({ searchParams }: { searchParams: Promise<UserSearchParams> }) {
-  await requireAdminPermission("users.read");
-  const query = await searchParams;
-  const data = await getAdminUsersData();
+export default function UsersPage() {
+  const admin = useRequiredAdminPermission("users.read");
+  const searchParams = useSearchParams();
+  const { data, error, loading, reload } = useClientData(getAdminUsersData);
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "사용자 데이터를 확인할 수 없습니다."} retry={reload} />;
+  const query: UserSearchParams = {
+    q: searchParams.get("q") ?? undefined,
+    status: searchParams.get("status") ?? undefined,
+    team: searchParams.get("team") ?? undefined,
+    page: searchParams.get("page") ?? undefined,
+  };
   const keyword = query.q?.trim().toLocaleLowerCase("ko-KR") ?? "";
   const accountStatusFilter = query.status === "ACTIVE" || query.status === "SUSPENDED"
     ? query.status
@@ -320,7 +330,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 return (
                   <Link
                     key={user.id}
-                    href={`/users/${user.id}`}
+                    href={`/users/detail/?userId=${encodeURIComponent(user.id)}`}
                     aria-label={`${user.nickname} 사용자 정보 보기`}
                     className="grid cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 p-4 outline-none transition-colors hover:bg-primary/[0.06] focus-visible:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[40px_minmax(120px,1fr)_minmax(120px,0.8fr)_auto] sm:p-5"
                   >

@@ -47,7 +47,7 @@ const columns: LegacyColumnDef<PlayerRecord>[] = [
       const displayName = player.koreanName ?? player.displayName ?? player.name;
       return (
         <Link
-          href={`/squads/${player.id}`}
+          href={`/squads/detail/?playerId=${encodeURIComponent(player.id)}`}
           className="block min-w-44 max-w-80 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <p className="truncate text-lg font-semibold text-foreground">{displayName}</p>
@@ -116,7 +116,7 @@ export function PlayersTable({ players }: { players: PlayerRecord[] }) {
       ]}
       pageSize={30}
       emptyState="조건에 맞는 선수가 없습니다."
-      getRowHref={(player) => `/squads/${player.id}`}
+      getRowHref={(player) => `/squads/detail/?playerId=${encodeURIComponent(player.id)}`}
       comfortableToolbar
       alignFiltersEnd
       showResultCount={false}

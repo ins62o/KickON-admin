@@ -5,12 +5,14 @@
 - 모바일 저장소와 관리자 저장소의 `202608300001`~`202608300007` SQL이 서로 다른 내용인지 확인한다.
 - 원격 `supabase_migrations.schema_migrations`와 실제 테이블·함수·정책을 함께 비교한다.
 - 이미 적용된 버전을 파일명만 보고 재적용하거나 완료로 간주하지 않는다.
-- 충돌을 해소한 뒤 전역 고유 버전 `202609020001_admin_data_center.sql`을 개발 프로젝트에서 먼저 검토한다.
+- 이 저장소에서 재조정한 관리자 migration `202609050001`~`202609050013`과 원격 객체의 차이를 개발 프로젝트에서 먼저 검토한다.
 
 ## 2. 개발 Supabase 적용
 
 - 개발 프로젝트를 백업하거나 복구 지점을 만든다.
-- migration SQL을 리뷰하고 transaction 안에서 적용한다.
+- `202609050001_admin_operations.sql`부터 `202609050013_admin_usage_metrics.sql`까지 파일명 순서대로 리뷰하고 적용한다.
+- `202609050013` 적용 뒤 `system.read` 관리자와 service role만 `admin_get_usage_snapshot()`·`admin_get_storage_usage()`를 실행할 수 있는지 확인한다.
+- 개발 콘솔에서 DB 크기, Storage 전체/이번 달/버킷 합계가 실제 값으로 표시되고 객체 경로가 aggregate RPC 응답에 포함되지 않는지 확인한다.
 - 기존 모바일 조회/작성 정책이 유지되는지 확인한다.
 - 숨김 콘텐츠가 일반 사용자 조회에서 제외되고 작성자·관리자 계약이 의도대로인지 확인한다.
 - 정지 사용자의 게시글·댓글·응원·좋아요·게시 이미지 업로드가 차단되는지 확인한다.
@@ -27,19 +29,25 @@
 
 - `.env.example`의 서버 전용 값이 클라이언트 번들에 포함되지 않았는지 확인한다.
 - DB와 Storage 한도를 각각 설정한다.
-- `ADMIN_ALLOWED_ORIGINS`에 실제 관리자 도메인을 지정한다.
-- Vercel/호스팅 환경에는 Production·Preview·Development 범위를 분리해 입력한다.
+- 하나의 정적 번들에 개발·운영 `NEXT_PUBLIC_KICKON_*_SUPABASE_*`와 환경별 `..._ADMIN_API_BASE_URL`이 모두 설정되었는지 확인한다. 환경 전환용 별도 관리자 사이트 URL은 사용하지 않는다.
+- GitHub `production` Environment의 공개 빌드 변수에 localhost 주소가 없는지 확인한다.
+- 개발·운영 관리자 API Lambda를 분리하고 각 함수에 해당 Supabase URL·publishable key·Metrics secret만 설정한다.
+- 두 Lambda의 `ADMIN_ALLOWED_ORIGINS`에 실제 관리자 콘솔 origin을 지정한다.
+- S3/CloudFront가 운영 배포 기준이면 Vercel Git 자동 배포를 함께 켜 두지 않는다.
 
 ## 5. 회귀 검증
 
-- `npm run lint`, `npm run typecheck`, `npm run build`를 통과한다.
+- `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run build:admin-api`를 통과한다.
 - 로그인·로그아웃·비활성 관리자 차단을 확인한다.
+- 새로고침과 개발↔운영 전환 중 헤더·푸터가 유지되고 전체 화면 점멸이나 이전 환경 데이터 노출이 없는지 확인한다.
+- 개발·운영 각각에서 DB·Storage aggregate가 표시되는지 확인하고, 선택적 Metrics/Storage 상세 API를 끈 상태에서도 핵심 합계가 유지되는지 확인한다.
 - 문의 답변, 사용자 경고/정지/해제, 신고 상태, 숨김/복원, 선수·순위 보정, 동기화 실행의 감사 로그를 확인한다.
 - 모바일 앱에서 게시글·댓글·경기 응원·선수단·순위 핵심 흐름을 회귀 테스트한다.
 - 다크/라이트, 키보드 탐색, 포커스, 빈 상태, 오류 상태를 확인한다.
 
 ## 6. 운영 승격
 
+- [GitHub Actions 자동 배포](github-actions-deployment.md)에 따라 `production` Environment, OIDC 역할, S3/CloudFront와 개발·운영 Lambda 변수를 구성한다.
 - 개발 환경 검증 결과와 SQL diff를 별도 승인받는다.
 - 운영 DB 백업과 롤백 절차를 준비한다.
 - 낮은 트래픽 시간에 적용하고 모바일 쿼리·RLS 오류·동기화 실패를 모니터링한다.

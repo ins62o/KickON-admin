@@ -3,10 +3,10 @@ import {
   AlertTriangle,
   DatabaseZap,
   Inbox,
-  LoaderCircle,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type DataStateKind = "loading" | "empty" | "error" | "unavailable";
 
@@ -31,7 +31,7 @@ const stateConfig: Record<DataStateKind, {
   loading: {
     title: "데이터를 불러오는 중입니다",
     description: "잠시만 기다려 주세요.",
-    icon: LoaderCircle,
+    icon: DatabaseZap,
     iconClassName: "border-primary/20 bg-primary/10 text-primary",
   },
   empty: {
@@ -71,6 +71,39 @@ export function DataState({
   const isLoading = kind === "loading";
   const role = kind === "error" ? "alert" : isLoading ? "status" : undefined;
 
+  if (isLoading) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col justify-center px-5",
+          compact ? "min-h-28 py-5" : "min-h-48 py-8",
+          className,
+        )}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-busy="true"
+        data-state="loading"
+      >
+        <span className="sr-only">{title ?? stateConfig.loading.title}</span>
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-9 shrink-0 rounded-lg" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-4 w-40 max-w-full" />
+            {!hideDescription ? <Skeleton className="mt-2 h-3 w-64 max-w-full" /> : null}
+          </div>
+        </div>
+        {!compact ? (
+          <div className="mt-6 space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -91,7 +124,7 @@ export function DataState({
         )}
         aria-hidden="true"
       >
-        <Icon className={cn("size-4", isLoading && "motion-safe:animate-spin")} />
+        <Icon className="size-4" />
       </span>
       <p className="mt-3 text-sm font-semibold text-foreground">{title ?? config.title}</p>
       {!hideDescription ? (

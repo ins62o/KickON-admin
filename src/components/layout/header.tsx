@@ -1,6 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { Check, ChevronDown, ExternalLink, LogOut, Server } from "lucide-react";
+import { Check, ChevronDown, LogOut, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,53 +14,43 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOutAction } from "@/lib/auth/actions";
 import { adminRoleLabels } from "@/lib/auth/permissions";
-import type { AdminIdentity } from "@/lib/auth/server";
+import type { AdminIdentity } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
+import { environmentLabel, setActiveConsoleEnvironment, useConsoleEnvironment, type ConsoleEnvironment } from "@/lib/environment";
 import { MobileNavigation } from "./mobile-navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { TopNavigation } from "./top-navigation";
 
-type ConsoleEnvironment = "development" | "production";
+const environmentOptions = [
+  {
+    key: "development",
+    label: "개발 서버",
+    dotClassName: "bg-sky-500",
+  },
+  {
+    key: "production",
+    label: "운영 서버",
+    dotClassName: "bg-emerald-500",
+  },
+] satisfies ReadonlyArray<{
+  key: ConsoleEnvironment;
+  label: string;
+  dotClassName: string;
+}>;
 
-function getConsoleUrl(value: string | undefined) {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-export function Header({ admin }: { admin: AdminIdentity }) {
-  const isProduction = process.env.KICKON_ENVIRONMENT === "production";
-  const currentEnvironment: ConsoleEnvironment = isProduction ? "production" : "development";
-  const environmentLabel = isProduction ? "운영 서버" : "개발 서버";
-  const environmentOptions: Array<{
-    key: ConsoleEnvironment;
-    label: string;
-    url: string | null;
-    dotClassName: string;
-  }> = [
-    {
-      key: "development",
-      label: "개발 서버",
-      url: getConsoleUrl(process.env.KICKON_DEVELOPMENT_ADMIN_URL),
-      dotClassName: "bg-sky-500",
-    },
-    {
-      key: "production",
-      label: "운영 서버",
-      url: getConsoleUrl(process.env.KICKON_PRODUCTION_ADMIN_URL),
-      dotClassName: "bg-emerald-500",
-    },
-  ];
+export function Header({ admin, loading = false, switching = false }: {
+  admin: AdminIdentity | null;
+  loading?: boolean;
+  switching?: boolean;
+}) {
+  const currentEnvironment = useConsoleEnvironment();
+  const isProduction = currentEnvironment === "production";
+  const currentLabel = environmentLabel(currentEnvironment);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background">
       <div className="mx-auto flex h-[68px] w-full max-w-[1720px] items-center gap-2 px-4 lg:gap-3 lg:px-6">
-        <MobileNavigation role={admin.role} />
+        {admin ? <MobileNavigation role={admin.role} /> : <span className="size-11 shrink-0 xl:hidden" aria-hidden="true" />}
         <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="킥온 대시보드">
           <span className="flex h-9 w-11 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-[#08111e]">
             <Image src="/branding/app-logo.png" alt="" width={44} height={32} priority className="h-8 w-11 object-contain" />
@@ -66,7 +58,7 @@ export function Header({ admin }: { admin: AdminIdentity }) {
           <span className="hidden text-base font-semibold leading-none tracking-tight sm:block">KICKON</span>
         </Link>
 
-        <TopNavigation role={admin.role} />
+        {admin ? <TopNavigation role={admin.role} /> : <span className="hidden min-w-0 flex-1 xl:block" aria-hidden="true" />}
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <DropdownMenu>
@@ -75,11 +67,12 @@ export function Header({ admin }: { admin: AdminIdentity }) {
                 type="button"
                 variant="outline"
                 className="size-11 gap-2 border-border/80 bg-card/50 px-0 shadow-none md:w-auto md:px-3 xl:h-9"
-                aria-label={`${environmentLabel} 계정 메뉴 열기`}
-                title={`${environmentLabel} · 계정 메뉴`}
+                aria-label={`${currentLabel}${switching ? " 전환 중" : ""} 계정 메뉴 열기`}
+                title={`${currentLabel}${switching ? " 전환 중" : ""} · 계정 메뉴`}
+                aria-busy={switching}
               >
                 <span className={cn("size-2 shrink-0 rounded-full", isProduction ? "bg-emerald-500" : "bg-sky-500")} aria-hidden="true" />
-                <span className="hidden text-[13px] font-semibold md:inline">{environmentLabel}</span>
+                <span className="hidden text-[13px] font-semibold md:inline">{currentLabel}</span>
                 <ChevronDown className="hidden size-3.5 text-muted-foreground md:block" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
@@ -90,12 +83,14 @@ export function Header({ admin }: { admin: AdminIdentity }) {
                   <Server className="size-4 text-muted-foreground" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 leading-tight">
-                  <p className="text-sm font-semibold">{environmentLabel}</p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{adminRoleLabels[admin.role]}</p>
+                  <p className="text-sm font-semibold">{currentLabel}{switching ? " 전환 중" : ""}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {admin ? adminRoleLabels[admin.role] : loading ? "세션 확인 중" : "로그인 필요"}
+                  </p>
                 </div>
               </div>
               <DropdownMenuSeparator className="my-1.5" />
-              <DropdownMenuLabel className="px-2.5 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">서버 전환</DropdownMenuLabel>
+              <DropdownMenuLabel className="px-2.5 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">모드 전환</DropdownMenuLabel>
               {environmentOptions.map((option) => {
                 const isCurrent = option.key === currentEnvironment;
                 const content = (
@@ -103,43 +98,38 @@ export function Header({ admin }: { admin: AdminIdentity }) {
                     <span className={cn("size-2 shrink-0 rounded-full", option.dotClassName)} aria-hidden="true" />
                     <span className="font-medium">{option.label}</span>
                     <span className="ml-auto text-[11px] text-muted-foreground">
-                      {isCurrent ? "현재 접속" : option.url ? "이동" : "주소 설정 필요"}
+                      {isCurrent ? "현재 접속" : "전환"}
                     </span>
                     {isCurrent ? (
                       <Check className="size-3.5 text-primary" aria-hidden="true" />
-                    ) : option.url ? (
-                      <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
                     ) : null}
                   </>
                 );
 
-                if (isCurrent || !option.url) {
-                  return (
-                    <DropdownMenuItem
-                      key={option.key}
-                      disabled
-                      className={cn(
-                        "min-h-10 rounded-lg px-2.5 py-2",
-                        isCurrent && "data-disabled:opacity-100",
-                      )}
-                    >
-                      {content}
-                    </DropdownMenuItem>
-                  );
-                }
-
                 return (
-                  <DropdownMenuItem key={option.key} asChild className="min-h-10 cursor-pointer rounded-lg p-0">
-                    <a href={option.url} className="flex w-full items-center gap-2 px-2.5 py-2">
-                      {content}
-                    </a>
+                  <DropdownMenuItem
+                    key={option.key}
+                    disabled={isCurrent || switching}
+                    onSelect={() => {
+                      if (!isCurrent) setActiveConsoleEnvironment(option.key);
+                    }}
+                    className={cn(
+                      "min-h-10 rounded-lg px-2.5 py-2",
+                      !isCurrent && !switching && "cursor-pointer",
+                      isCurrent && "data-disabled:opacity-100",
+                    )}
+                  >
+                    {content}
                   </DropdownMenuItem>
                 );
               })}
               <DropdownMenuSeparator className="my-1.5" />
-              <form action={signOutAction}>
+              <form onSubmit={async (event) => {
+                event.preventDefault();
+                await signOutAction();
+              }}>
                 <DropdownMenuItem asChild variant="destructive" className="cursor-pointer rounded-lg p-0">
-                  <button type="submit" className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2.5 text-left">
+                  <button type="submit" disabled={!admin || switching} className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-50">
                     <LogOut className="size-4" aria-hidden="true" />
                     로그아웃
                   </button>

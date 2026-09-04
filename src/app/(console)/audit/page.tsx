@@ -1,18 +1,21 @@
-import type { Metadata } from "next";
+"use client";
+
 import { AlertTriangle, ClipboardClock, FileCheck2, History, UserRound } from "lucide-react";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
 import { DataManagementHeader } from "@/components/admin/data-management-header";
 import { Badge } from "@/components/ui/badge";
-import { requireAdminPermission } from "@/lib/auth/server";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
+import { useClientData } from "@/lib/client-data";
 import { getAuditLogList } from "@/lib/data/audit";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "데이터 관리 · 관리자 로그" };
-
-export default async function AuditPage() {
-  const admin = await requireAdminPermission("audit.read");
-  const data = await getAuditLogList();
+export default function AuditPage() {
+  const admin = useRequiredAdminPermission("audit.read");
+  const { data, error, loading, reload } = useClientData(getAuditLogList);
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "감사 로그를 확인할 수 없습니다."} retry={reload} />;
   const manualChanges = data.logs.filter((log) => log.entityType === "manual_overrides").length;
   const missingReasons = data.logs.filter((log) => !log.reason?.trim()).length;
   const recentOperators = new Set(data.logs.flatMap((log) => log.actorId ? [log.actorId] : [])).size;

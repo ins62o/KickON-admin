@@ -1,0 +1,1 @@
+-- Diagnostic retry retired; final bootstrap is coordinated in migration 032.

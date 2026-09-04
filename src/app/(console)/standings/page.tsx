@@ -1,18 +1,21 @@
-import type { Metadata } from "next";
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { ClickableTableRow } from "@/components/ui/clickable-table-row";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
+import { useClientData } from "@/lib/client-data";
 import { getStandingsData } from "@/lib/data/operations";
-import { requireAdminPermission } from "@/lib/auth/server";
 
-export const metadata: Metadata = { title: "팀 관리" };
-
-export default async function StandingsPage() {
-  await requireAdminPermission("data.read");
-  const result = await getStandingsData();
+export default function StandingsPage() {
+  const admin = useRequiredAdminPermission("data.read");
+  const { data: result, error, loading, reload } = useClientData(getStandingsData);
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !result) return <ClientPageError message={error ?? "팀 순위 데이터를 확인할 수 없습니다."} retry={reload} />;
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
       <PageHeader title="팀 관리" />
@@ -39,10 +42,10 @@ export default async function StandingsPage() {
             </TableHeader>
             <TableBody>
               {result.data.length > 0 ? result.data.map((row) => (
-                <ClickableTableRow key={row.teamId} href={`/standings/${row.teamId}`}>
+                <ClickableTableRow key={row.teamId} href={`/standings/detail/?teamId=${encodeURIComponent(row.teamId)}`}>
                   <TableCell className="tabular py-5 text-center font-mono text-base font-semibold">{row.rank}</TableCell>
                   <TableCell className="py-5">
-                    <Link href={`/standings/${row.teamId}`} className="flex min-w-44 items-center gap-3.5 rounded-md text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Link href={`/standings/detail/?teamId=${encodeURIComponent(row.teamId)}`} className="flex min-w-44 items-center gap-3.5 rounded-md text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       {row.logoPath ? (
                         <span className="relative size-10 overflow-hidden rounded-lg bg-white p-1">
                           <Image src={row.logoPath} alt={`${row.teamName} 로고`} fill sizes="40px" className="object-contain p-1" />

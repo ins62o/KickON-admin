@@ -1,37 +1,51 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle, CheckCircle2, CircleDotDashed, RefreshCcw } from "lucide-react";
+import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { DataManagementHeader } from "@/components/admin/data-management-header";
 import { SyncTable } from "@/components/dashboard/sync-table";
 import { SyncControl } from "@/components/sync/sync-control";
-import { requireAdminPermission } from "@/lib/auth/server";
+import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { hasAdminPermission } from "@/lib/auth/permissions";
+import { useClientData } from "@/lib/client-data";
+import { getProviderUsageDataClient } from "@/lib/data/client-usage";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { getFixturesData } from "@/lib/data/operations";
-import { getProviderUsageData } from "@/lib/data/platform-operations";
 import { getSyncOperationHistory } from "@/lib/data/sync-operation-history";
 import { formatKoreaDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
 import { getSyncOperation, syncCoverage } from "@/lib/sync/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-export const metadata: Metadata = { title: "데이터 관리 · 데이터 동기화" };
+import { useConsoleEnvironment } from "@/lib/environment";
 
 function positiveNumber(value: string | undefined) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-export default async function SyncPage({ searchParams }: { searchParams: Promise<{ operation?: string; teamId?: string; fixtureId?: string }> }) {
-  const query = await searchParams;
-  const [admin, dashboard, fixtures, providerUsage, syncHistory] = await Promise.all([
-    requireAdminPermission("sync.read"),
-    getDashboardData(),
-    getFixturesData(),
-    getProviderUsageData(),
-    getSyncOperationHistory(),
-  ]);
-  const environment = process.env.KICKON_ENVIRONMENT === "production" ? "production" : "development";
-  const providerAllowance = providerUsage.allowance ?? positiveNumber(process.env.SPORTSMONKS_API_ALLOWANCE);
+export default function SyncPage() {
+  const admin = useRequiredAdminPermission("sync.read");
+  const environment = useConsoleEnvironment();
+  const searchParams = useSearchParams();
+  const { data, error, loading, reload } = useClientData(async () => {
+    const [dashboard, fixtures, providerUsage, syncHistory] = await Promise.all([
+      getDashboardData(),
+      getFixturesData(),
+      getProviderUsageDataClient(),
+      getSyncOperationHistory(),
+    ]);
+    return { dashboard, fixtures, providerUsage, syncHistory };
+  });
+  if (!admin || loading) return <ClientPageLoading />;
+  if (error || !data) return <ClientPageError message={error ?? "동기화 데이터를 확인할 수 없습니다."} retry={reload} />;
+  const { dashboard, fixtures, providerUsage, syncHistory } = data;
+  const query = {
+    operation: searchParams.get("operation") ?? undefined,
+    teamId: searchParams.get("teamId") ?? undefined,
+    fixtureId: searchParams.get("fixtureId") ?? undefined,
+  };
+  const providerAllowance = providerUsage.allowance ?? positiveNumber(process.env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE);
   const lowQuotaThreshold = providerAllowance === null ? 200 : Math.max(1, Math.floor(providerAllowance * 0.15));
   const providerQuotaLow = providerUsage.remaining !== null && providerUsage.remaining <= lowQuotaThreshold;
   const generatedAt = new Date(dashboard.generatedAt).getTime();
@@ -80,7 +94,7 @@ export default async function SyncPage({ searchParams }: { searchParams: Promise
           teams={dashboard.clubs.map((club) => ({ id: club.id, name: club.name }))}
           fixtures={fixtureOptions}
           canRun={!admin.isDevelopmentBypass && hasAdminPermission(admin.role, "sync.run")}
-          secretReady={Boolean(process.env.FOOTBALL_SYNC_SECRET)}
+          secretReady={process.env.NEXT_PUBLIC_ADMIN_SYNC_ENABLED !== "false"}
           environment={environment}
           initialOperation={getSyncOperation(query.operation ?? "")?.key}
           initialTeamId={dashboard.clubs.some((club) => club.id === query.teamId) ? query.teamId : undefined}

@@ -20,7 +20,7 @@ export function AuditLogTable({
   return (
     <div className="overflow-x-auto">
       <Table className="min-w-[880px]">
-        <TableHeader>
+        <TableHeader className="[&_th]:h-12 [&_th]:px-3">
           <TableRow className="hover:bg-transparent">
             <TableHead>변경 시각</TableHead>
             <TableHead>작업</TableHead>
@@ -29,7 +29,7 @@ export function AuditLogTable({
             <TableHead>작업자</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="[&_td]:px-3 [&_td]:py-4">
           {logs.length > 0 ? (
             logs.map((log) => <AuditRow key={log.id} log={log} />)
           ) : (
@@ -48,7 +48,7 @@ export function AuditLogTable({
 }
 
 function AuditRow({ log }: { log: AuditLogRecord }) {
-  const detailHref = `/audit/${log.id}`;
+  const detailHref = `/audit/detail/?auditId=${encodeURIComponent(log.id)}`;
   const changeSummary = auditChangeSummary(log);
 
   return (

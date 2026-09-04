@@ -1,25 +1,21 @@
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+"use client";
 
-export const metadata: Metadata = { title: "신고 내역" };
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ClientPageLoading } from "@/components/admin/client-page-state";
 
-type LegacyModerationSearchParams = {
-  q?: string;
-  status?: string;
-  target?: string;
-};
+export default function ModerationPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-export default async function ModerationPage({
-  searchParams,
-}: {
-  searchParams: Promise<LegacyModerationSearchParams>;
-}) {
-  const query = await searchParams;
-  const nextQuery = new URLSearchParams({ tab: "reports" });
+  useEffect(() => {
+    const nextQuery = new URLSearchParams({ tab: "reports" });
+    for (const key of ["q", "status", "target"]) {
+      const value = searchParams.get(key);
+      if (value) nextQuery.set(key, value);
+    }
+    router.replace(`/inquiries?${nextQuery.toString()}`);
+  }, [router, searchParams]);
 
-  if (query.q) nextQuery.set("q", query.q);
-  if (query.status) nextQuery.set("status", query.status);
-  if (query.target) nextQuery.set("target", query.target);
-
-  redirect(`/inquiries?${nextQuery.toString()}`);
+  return <ClientPageLoading label="신고 내역으로 이동하고 있습니다." />;
 }

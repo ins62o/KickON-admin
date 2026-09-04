@@ -61,10 +61,12 @@ set search_path = ''
 as $$
 declare
   current_actor uuid := (select auth.uid());
-  current_role public.admin_role;
+  -- current_role은 PostgreSQL 예약 표현식(CURRENT_ROLE, name 타입)이므로
+  -- PL/pgSQL 변수명으로 사용하지 않습니다.
+  actor_admin_role public.admin_role;
 begin
   select administrator.role
-  into current_role
+  into actor_admin_role
   from public.admin_users administrator
   where administrator.user_id = current_actor
     and administrator.is_active;
@@ -74,7 +76,7 @@ begin
     before_value, after_value
   ) values (
     current_actor,
-    current_role,
+    actor_admin_role,
     left(coalesce(nullif(trim(p_action), ''), 'UNKNOWN'), 120),
     left(coalesce(nullif(trim(p_target_type), ''), 'unknown'), 120),
     nullif(left(coalesce(p_target_id, ''), 300), ''),
@@ -118,7 +120,7 @@ begin
 
   perform public.data_center_write_audit(
     audit_action,
-    tg_table_name,
+    tg_table_name::text,
     row_id,
     case when tg_op = 'INSERT' then null else to_jsonb(old) end,
     case when tg_op = 'DELETE' then null else to_jsonb(new) end,
@@ -132,21 +134,82 @@ begin
 end;
 $$;
 
-do $$
+-- 이전 관리자 스키마가 연결한 트리거도 같은 안전한 구현으로 교체합니다.
+create or replace function public.data_center_record_table_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  row_data jsonb;
+  row_id text;
+  audit_reason text;
+  audit_action text;
 begin
-  if to_regclass('public.manual_overrides') is not null
-    and not exists (
-      select 1
+  row_data := case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end;
+  row_id := coalesce(
+    row_data ->> 'entity_id',
+    row_data ->> 'player_id',
+    row_data ->> 'user_id',
+    row_data ->> 'id'
+  );
+  audit_reason := coalesce(
+    row_data ->> 'release_reason',
+    row_data ->> 'resolution_note',
+    row_data ->> 'reason'
+  );
+  audit_action := case
+    when tg_table_name = 'sync_runs' and tg_op = 'INSERT'
+      then 'SYNC_RUN_EXECUTE'
+    else tg_op
+  end;
+
+  perform public.data_center_write_audit(
+    audit_action,
+    tg_table_name::text,
+    row_id,
+    case when tg_op = 'INSERT' then null else to_jsonb(old) end,
+    case when tg_op = 'DELETE' then null else to_jsonb(new) end,
+    audit_reason
+  );
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+-- 이름이 다른 구형 감사 트리거까지 제거하고 정상 구현으로 강제 재연결합니다.
+-- 함수 본문에 감사 테이블/writer가 등장하는 트리거만 대상으로 삼아
+-- updated_at 같은 비감사 트리거는 보존합니다.
+do $$
+declare
+  audit_trigger record;
+begin
+  if to_regclass('public.manual_overrides') is not null then
+    for audit_trigger in
+      select trigger_record.tgname
       from pg_trigger trigger_record
       join pg_proc trigger_function
         on trigger_function.oid = trigger_record.tgfoid
       where trigger_record.tgrelid = 'public.manual_overrides'::regclass
         and not trigger_record.tgisinternal
-        and trigger_function.proname in (
-          'record_admin_audit_log', 'data_center_record_table_audit'
+        and (
+          trigger_function.proname in (
+            'record_admin_audit_log', 'data_center_record_table_audit'
+          )
+          or position('admin_audit_logs' in lower(trigger_function.prosrc)) > 0
+          or position('data_center_write_audit' in lower(trigger_function.prosrc)) > 0
         )
-    )
-  then
+    loop
+      execute format(
+        'drop trigger %I on public.manual_overrides',
+        audit_trigger.tgname
+      );
+    end loop;
+
     create trigger manual_overrides_audit
       after insert or update or delete on public.manual_overrides
       for each row execute function public.record_admin_audit_log();
@@ -155,24 +218,63 @@ end
 $$;
 
 do $$
+declare
+  audit_trigger record;
 begin
-  if to_regclass('public.sync_runs') is not null
-    and not exists (
-      select 1
+  if to_regclass('public.sync_runs') is not null then
+    for audit_trigger in
+      select trigger_record.tgname
       from pg_trigger trigger_record
       join pg_proc trigger_function
         on trigger_function.oid = trigger_record.tgfoid
       where trigger_record.tgrelid = 'public.sync_runs'::regclass
         and not trigger_record.tgisinternal
-        and trigger_function.proname in (
-          'record_admin_audit_log', 'data_center_record_table_audit'
+        and (
+          trigger_function.proname in (
+            'record_admin_audit_log', 'data_center_record_table_audit'
+          )
+          or position('admin_audit_logs' in lower(trigger_function.prosrc)) > 0
+          or position('data_center_write_audit' in lower(trigger_function.prosrc)) > 0
         )
-    )
-  then
+    loop
+      execute format(
+        'drop trigger %I on public.sync_runs',
+        audit_trigger.tgname
+      );
+    end loop;
+
     create trigger sync_runs_audit
       after insert on public.sync_runs
       for each row execute function public.record_admin_audit_log();
   end if;
+end
+$$;
+
+-- 감사 로그가 자기 자신을 다시 감사하면 재귀 또는 구형 타입 오류가 납니다.
+do $$
+declare
+  audit_trigger record;
+begin
+  for audit_trigger in
+    select trigger_record.tgname
+    from pg_trigger trigger_record
+    join pg_proc trigger_function
+      on trigger_function.oid = trigger_record.tgfoid
+    where trigger_record.tgrelid = 'public.admin_audit_logs'::regclass
+      and not trigger_record.tgisinternal
+      and (
+        trigger_function.proname in (
+          'record_admin_audit_log', 'data_center_record_table_audit'
+        )
+        or position('admin_audit_logs' in lower(trigger_function.prosrc)) > 0
+        or position('data_center_write_audit' in lower(trigger_function.prosrc)) > 0
+      )
+  loop
+    execute format(
+      'drop trigger %I on public.admin_audit_logs',
+      audit_trigger.tgname
+    );
+  end loop;
 end
 $$;
 
@@ -232,6 +334,8 @@ revoke all on function public.data_center_write_audit(
 ) from public, anon, authenticated;
 revoke all on function public.record_admin_audit_log()
   from public, anon, authenticated;
+revoke all on function public.data_center_record_table_audit()
+  from public, anon, authenticated;
 
 commit;
 
@@ -241,4 +345,19 @@ select
   to_regclass('public.admin_audit_logs') is not null as audit_table_ready,
   to_regprocedure(
     'public.data_center_write_audit(text,text,text,jsonb,jsonb,text)'
-  ) is not null as audit_writer_ready;
+  ) is not null as audit_writer_ready,
+  exists (
+    select 1
+    from pg_trigger trigger_record
+    join pg_proc trigger_function
+      on trigger_function.oid = trigger_record.tgfoid
+    where trigger_record.tgrelid = 'public.manual_overrides'::regclass
+      and not trigger_record.tgisinternal
+      and trigger_function.proname = 'record_admin_audit_log'
+  ) as override_audit_trigger_ready,
+  not exists (
+    select 1
+    from pg_trigger trigger_record
+    where trigger_record.tgrelid = 'public.admin_audit_logs'::regclass
+      and not trigger_record.tgisinternal
+  ) as audit_self_trigger_free;

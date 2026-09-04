@@ -1,8 +1,7 @@
-import "server-only";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 
+import { getServiceAccountIds } from "@/lib/admin/user-visibility";
 import {
   getOperationsClient,
   isOperationsSchemaMissing,
@@ -332,6 +331,7 @@ type AdminDashboardSummaryRpcPayload = {
   totalProfiles: number;
   failedSyncCount: number | null;
   syncAvailable: boolean;
+  excludesServiceAccounts?: boolean;
 };
 
 type BasicSupportInquiryRow = {
@@ -518,7 +518,8 @@ function isDashboardSummaryPayload(
       Number.isSafeInteger(value.failedSyncCount) &&
       value.failedSyncCount >= 0
     )) &&
-    typeof value.syncAvailable === "boolean";
+    typeof value.syncAvailable === "boolean" &&
+    (value.excludesServiceAccounts === undefined || typeof value.excludesServiceAccounts === "boolean");
 }
 
 function isMissingDashboardMetricsRpc(error: DatabaseError | null) {
@@ -667,10 +668,16 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
   };
   if (!client) return unavailable;
 
-  const [summaryRpc, syncStateFailureResult] = await Promise.all([
+  const [summaryRpc, syncStateFailureResult, authProviders, adminUserIds] = await Promise.all([
     client.rpc("admin_get_dashboard_summary"),
     getRecentFootballSyncFailureCount(client, twentyFourHoursAgo),
+    loadAdminUserAuthProviders(client),
+    loadAdminUserIds(client),
   ]);
+  const excludedProfileCount = await countExistingProfiles(
+    client,
+    getServiceAccountIds(adminUserIds, authProviders),
+  );
   if (!summaryRpc.error) {
     if (!isDashboardSummaryPayload(summaryRpc.data)) {
       return {
@@ -690,8 +697,14 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
     const syncAvailable = failedSyncCount24h !== null;
     return {
       generatedAt: summaryRpc.data.generatedAt,
-      totalProfiles: summaryRpc.data.totalProfiles,
-      profilesError: null,
+      totalProfiles: summaryRpc.data.excludesServiceAccounts
+        ? summaryRpc.data.totalProfiles
+        : excludedProfileCount === null
+          ? null
+          : Math.max(0, summaryRpc.data.totalProfiles - excludedProfileCount),
+      profilesError: !summaryRpc.data.excludesServiceAccounts && excludedProfileCount === null
+        ? "관리자 계정 제외 집계를 확인할 수 없습니다."
+        : null,
       syncFailure24h: !syncAvailable
         ? "unavailable"
         : (failedSyncCount24h ?? 0) > 0
@@ -720,7 +733,10 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
       .or("status.eq.failed,failed_count.gt.0,error_code.not.is.null,error_message.not.is.null"),
   ]);
 
-  const totalProfiles = countValue(profilesResult);
+  const rawTotalProfiles = countValue(profilesResult);
+  const totalProfiles = rawTotalProfiles === null || excludedProfileCount === null
+    ? null
+    : Math.max(0, rawTotalProfiles - excludedProfileCount);
   const failedSyncCount24h = availableFailureCount(
     countValue(failedSyncResult),
     syncStateFailureResult.count,
@@ -1117,6 +1133,18 @@ async function loadAdminUserIds(client: SupabaseClient) {
   );
 }
 
+async function countExistingProfiles(
+  client: SupabaseClient,
+  profileIds: Set<string>,
+) {
+  if (profileIds.size === 0) return 0;
+  const result = await client
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .in("id", [...profileIds]);
+  return result.error ? null : result.count ?? 0;
+}
+
 export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
   const client = await getOperationsClient();
   if (!client) {
@@ -1144,9 +1172,10 @@ export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
       loadAdminUserAuthProviders(client),
       loadAdminUserIds(client),
     ]);
+    const excludedUserIds = getServiceAccountIds(adminUserIds, authProviders);
     return {
       users: rpcResult.rows
-        .filter((row) => !adminUserIds.has(row.user_id))
+        .filter((row) => !excludedUserIds.has(row.user_id))
         .map((row) => ({
           id: row.user_id,
           nickname: row.nickname,
@@ -1176,6 +1205,7 @@ export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
     loadAdminUserIds(client),
     loadProfilesWithAccountState(client),
   ]);
+  const excludedUserIds = getServiceAccountIds(adminUserIds, authProviders);
   const [teamsResult, postsResult, commentsResult, attendancesResult, reportsResult, cheersResult] = await Promise.all([
     loadTeams(client),
     collectRows<PostActivityRow>(async (from, to) => {
@@ -1282,7 +1312,7 @@ export const getAdminUsersData = cache(async (): Promise<AdminUsersData> => {
   const meta = resultMeta(issues);
   return {
     users: profilesResult.error ? [] : profilesResult.rows
-      .filter((profile) => !adminUserIds.has(profile.id))
+      .filter((profile) => !excludedUserIds.has(profile.id))
       .map((profile) => ({
         id: profile.id,
         nickname: profile.nickname,
