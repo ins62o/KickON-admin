@@ -5,9 +5,10 @@
 `.github/workflows/deploy.yml`은 다음처럼 동작합니다.
 
 - Pull Request: lint, typecheck, 테스트, 정적 빌드, Lambda 번들 빌드만 실행합니다.
-- `main` push: lint, typecheck, 테스트, 정적 빌드, Lambda 번들 빌드를 통과한 뒤 운영 배포를 실행합니다.
-- 수동 실행: 실행 기준 ref가 `main`일 때만 운영 배포합니다.
-- `main` 대상 Pull Request: 검증만 실행합니다.
+- `Dev` push: lint, typecheck, 테스트, 정적 빌드, Lambda 번들 빌드만 실행합니다.
+- `Prod` push: 같은 검증을 통과한 뒤 운영 배포를 실행합니다.
+- 수동 실행: 실행 기준 ref가 `Prod`일 때만 운영 배포합니다.
+- `Dev` 또는 `Prod` 대상 Pull Request: 검증만 실행합니다.
 - AWS 권한: 배포 job에만 `id-token: write`를 부여하고 장기 액세스 키를 저장하지 않습니다.
 - 배포 전: 개발·운영 Lambda의 런타임, 환경별 Supabase 연결, Metrics 키 형식, 사용량 한도, 허용 origin을 값 노출 없이 검사합니다.
 - 배포 후: S3 Cache-Control, 로그인 HTML, 개발·운영 관리자 API의 인증 경계를 스모크 체크합니다.
@@ -32,7 +33,7 @@
 
 Repository **Settings → Environments → New environment**에서 `production`을 만듭니다.
 
-- Deployment branches에는 `main`만 허용합니다.
+- Deployment branches에는 `Prod`만 허용합니다.
 - 완전 자동 배포가 필요하면 Required reviewers는 설정하지 않습니다.
 - 아래 값은 모두 Environment **Variables**에 둡니다. `NEXT_PUBLIC_*`는 빌드 뒤 브라우저 번들에 포함되므로 secret이 아닙니다.
 
@@ -213,4 +214,4 @@ Lambda 환경 변수를 고객 관리형 KMS key로 암호화했고 배포 역�
 
 현재 저장소에는 Vercel 프로젝트 설정이나 Vercel 배포 workflow가 없고, Next.js도 `output: "export"`로 S3 배포를 전제로 합니다. 이 Actions 경로에서는 `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`가 필요하지 않습니다.
 
-과거에 이 GitHub 저장소를 Vercel Git Integration에 연결했다면 `main` push마다 Vercel과 AWS가 동시에 배포될 수 있습니다. 운영 도메인이 S3/CloudFront를 사용한다면 Vercel의 자동 Production Deployment를 끄거나 프로젝트 연결을 해제해 배포 기준을 하나로 유지합니다.
+과거에 이 GitHub 저장소를 Vercel Git Integration에 연결했다면 `Prod` push마다 Vercel과 AWS가 동시에 배포될 수 있습니다. 운영 도메인이 S3/CloudFront를 사용한다면 Vercel의 자동 Production Deployment를 끄거나 프로젝트 연결을 해제해 배포 기준을 하나로 유지합니다.

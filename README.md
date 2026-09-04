@@ -123,7 +123,7 @@ npm run build
 npm run build:admin-api
 ```
 
-빌드 후 `npm start`로 `out/`을 로컬 정적 서버에서 확인할 수 있습니다. `main` 브랜치에서 PR 검증과 운영 자동 배포를 실행하며, 세부 절차는 [GitHub Actions 자동 배포](docs/github-actions-deployment.md), 실제 AWS 리소스·CloudFront Function·캐시 설정은 [S3 + CloudFront 배포 문서](docs/s3-cloudfront-deployment.md)를 따릅니다.
+빌드 후 `npm start`로 `out/`을 로컬 정적 서버에서 확인할 수 있습니다. `Dev` 개발 브랜치와 `Prod` 운영 브랜치를 사용하며, PR 검증과 `Prod` 자동 배포는 [GitHub Actions 자동 배포](docs/github-actions-deployment.md), 실제 AWS 리소스·CloudFront Function·캐시 설정은 [S3 + CloudFront 배포 문서](docs/s3-cloudfront-deployment.md)를 따릅니다.
 
 `npm test`는 역할별 최소 권한 계약을 검증합니다. 문의·제재·숨김·선수명 전파·수동 선수 보호·순위 잠금·감사 로그 같은 DB 통합 흐름은 마이그레이션을 감사한 뒤 개발 Supabase에서 별도로 실행해야 합니다.
 
