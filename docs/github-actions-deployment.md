@@ -129,7 +129,11 @@ repo:ins62o/KickON-admin:environment:production
     {
       "Sid": "DeployAdminApiCode",
       "Effect": "Allow",
-      "Action": ["lambda:UpdateFunctionCode", "lambda:GetFunctionConfiguration"],
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetFunction"
+      ],
       "Resource": [
         "arn:aws:lambda:<REGION>:<AWS_ACCOUNT_ID>:function:<DEVELOPMENT_FUNCTION_NAME>",
         "arn:aws:lambda:<REGION>:<AWS_ACCOUNT_ID>:function:<PRODUCTION_FUNCTION_NAME>"
