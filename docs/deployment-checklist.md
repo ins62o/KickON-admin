@@ -10,7 +10,8 @@
 ## 2. 개발 Supabase 적용
 
 - 개발 프로젝트를 백업하거나 복구 지점을 만든다.
-- `202609050001_admin_operations.sql`부터 `202609070003_fixture_schedule_edit.sql`까지 파일명 순서대로 리뷰하고 적용한다.
+- `202609050001_admin_operations.sql`부터 `202609070005_player_detail_editing.sql`까지 파일명 순서대로 리뷰하고 적용한다.
+- `202609070005` 적용 뒤 `manual_overrides`와 `admin_update_player_details(text,integer,text,jsonb,text)`가 모두 준비됐는지 확인한다.
 - `202609050013` 적용 뒤 `system.read` 관리자와 service role만 `admin_get_usage_snapshot()`·`admin_get_storage_usage()`를 실행할 수 있는지 확인한다.
 - 개발 콘솔에서 DB 크기, Storage 전체/이번 달/버킷 합계가 실제 값으로 표시되고 객체 경로가 aggregate RPC 응답에 포함되지 않는지 확인한다.
 - 기존 모바일 조회/작성 정책이 유지되는지 확인한다.
