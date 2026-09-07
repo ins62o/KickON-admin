@@ -9,7 +9,7 @@ function redirect(location) {
 function encodedSegment(value) {
   try {
     return encodeURIComponent(decodeURIComponent(value));
-  } catch {
+  } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
     return encodeURIComponent(value);
   }
 }
