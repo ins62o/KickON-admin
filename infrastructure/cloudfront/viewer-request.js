@@ -25,7 +25,7 @@ function handler(event) {
   if (uri === "/api" || uri.indexOf("/api/") === 0) return request;
 
   var detail = uri.match(/^\/(users|inquiries|moderation|squads|standings|audit)\/([^/]+)\/?$/);
-  if (detail && detail[2] !== "detail") {
+  if (detail && detail[2] !== "detail" && detail[2].indexOf(".") === -1) {
     var parameterByRoute = {
       users: "userId",
       inquiries: "inquiryId",

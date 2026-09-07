@@ -32,6 +32,13 @@ test("기존 동적 상세 URL을 query 기반 정적 URL로 보낸다", () => {
   });
 });
 
+test("Next.js 정적 데이터 파일을 상세 ID로 오인하지 않는다", () => {
+  assert.deepEqual(plain(handler({ request: { uri: "/users/index.txt" } })), { uri: "/users/index.txt" });
+  assert.deepEqual(plain(handler({ request: { uri: "/inquiries/__next._tree.txt" } })), {
+    uri: "/inquiries/__next._tree.txt",
+  });
+});
+
 test("기존 콘솔 별칭을 새 정적 메뉴로 보낸다", () => {
   const result = handler({ request: { uri: "/cron" } });
   assert.equal("headers" in result ? result.headers.location.value : null, "/sync/?view=schedule");
