@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   DatabaseZap,
   Headphones,
   LayoutDashboard,
@@ -35,6 +36,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "축구 데이터",
     items: [
       { key: "squads", label: "선수 관리", href: "/squads", icon: UserRoundCog, description: "선수와 팀 소속 관리", requiredPermission: "data.read" },
+      { key: "schedules", label: "일정 관리", href: "/schedules", icon: CalendarDays, description: "경기 일정과 직관 인증 위치 관리", requiredPermission: "data.read" },
       { key: "standings", label: "팀 관리", href: "/standings", icon: Trophy, description: "리그 순위 비교와 보정", requiredPermission: "data.read" },
     ],
   },

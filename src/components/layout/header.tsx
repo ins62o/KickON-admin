@@ -72,7 +72,7 @@ export function Header({ admin, loading = false, switching = false }: {
                 aria-busy={switching}
               >
                 <span className={cn("size-2 shrink-0 rounded-full", isProduction ? "bg-emerald-500" : "bg-sky-500")} aria-hidden="true" />
-                <span className="hidden text-[13px] font-semibold md:inline">{currentLabel}</span>
+                <span className="hidden text-[13px] md:inline">{currentLabel}</span>
                 <ChevronDown className="hidden size-3.5 text-muted-foreground md:block" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>

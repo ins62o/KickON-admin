@@ -89,8 +89,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       authRequestRef.current += 1;
       lastSessionRef.current = null;
       activeEnvironmentRef.current = nextEnvironment;
-      setAdmin(null);
-      setLoading(true);
       setSwitching(true);
       setEnvironment(nextEnvironment);
     });

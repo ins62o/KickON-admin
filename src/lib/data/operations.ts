@@ -11,6 +11,7 @@ import type {
   FixtureStatus,
   PlayerRankingRecord,
   PlayerRecord,
+  StadiumRecord,
   StandingRecord,
 } from "./types";
 
@@ -43,6 +44,9 @@ type FixtureRow = {
   home_team_id: string;
   away_team_id: string;
   stadium_id: string;
+  attendance_latitude: number | null;
+  attendance_longitude: number | null;
+  attendance_radius_meters: number;
   kickoff_at: string;
   status: FixtureStatus;
   home_score: number | null;
@@ -104,6 +108,7 @@ export const getPlayersData = cache(async (): Promise<DataQueryResult<PlayerReco
     .select("season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at")
     .eq("season", 2026)
     .eq("league_id", "kleague")
+    .eq("in_squad", true)
     .order("team_id")
     .order("shirt_number", { nullsFirst: false })
     .range(0, 1999);
@@ -123,6 +128,7 @@ export const getTeamPlayersData = cache(async (teamId: string): Promise<DataQuer
     .eq("season", 2026)
     .eq("league_id", "kleague")
     .eq("team_id", teamId)
+    .eq("in_squad", true)
     .order("shirt_number", { nullsFirst: false })
     .order("player_name");
   return {
@@ -140,6 +146,7 @@ export const getPlayerData = cache(async (playerId: string): Promise<DataQueryRe
     .select("season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at")
     .eq("season", 2026)
     .eq("player_id", playerId)
+    .eq("in_squad", true)
     .maybeSingle();
   return {
     data: result.data ? mapPlayer(result.data as TeamPlayerRow) : null,
@@ -148,11 +155,26 @@ export const getPlayerData = cache(async (playerId: string): Promise<DataQueryRe
   };
 });
 
-async function getStadiumMap() {
+export const getStadiumsData = cache(async (): Promise<DataQueryResult<StadiumRecord[]>> => {
   const { client } = getSupabaseConnection();
-  if (!client) return new Map<string, string>();
-  const result = await client.from("stadiums").select("id,name");
-  return new Map((result.data ?? []).map((row) => [row.id, row.name]));
+  if (!client) return noConnection([]);
+  const result = await client.from("stadiums").select("id,name,name_ko,address,address_ko,latitude,longitude").order("name");
+  return {
+    data: (result.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name_ko ?? row.name,
+      address: row.address_ko ?? row.address,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+    })),
+    error: result.error?.message ?? null,
+    connected: !result.error,
+  };
+});
+
+async function getStadiumMap() {
+  const result = await getStadiumsData();
+  return new Map(result.data.map((stadium) => [stadium.id, stadium.name]));
 }
 
 function mapFixture(row: FixtureRow, stadiums: Map<string, string>): FixtureRecord {
@@ -171,6 +193,9 @@ function mapFixture(row: FixtureRow, stadiums: Map<string, string>): FixtureReco
     awayScore: row.away_score,
     stadiumId: row.stadium_id,
     stadiumName: stadiums.get(row.stadium_id) ?? row.stadium_id,
+    attendanceLatitude: row.attendance_latitude,
+    attendanceLongitude: row.attendance_longitude,
+    attendanceRadiusMeters: row.attendance_radius_meters,
     liveMinute: row.live_minute,
     livePeriod: row.live_period,
     updatedAt: row.updated_at,
@@ -184,7 +209,7 @@ export const getFixturesData = cache(async (): Promise<DataQueryResult<FixtureRe
   const [result, stadiums] = await Promise.all([
     client
       .from("fixtures")
-      .select("id,sportmonks_id,league_id,round,home_team_id,away_team_id,stadium_id,kickoff_at,status,home_score,away_score,live_minute,live_period,updated_at")
+      .select("id,sportmonks_id,league_id,round,home_team_id,away_team_id,stadium_id,attendance_latitude,attendance_longitude,attendance_radius_meters,kickoff_at,status,home_score,away_score,live_minute,live_period,updated_at")
       .gte("kickoff_at", "2026-01-01T00:00:00Z")
       .lt("kickoff_at", "2027-01-01T00:00:00Z")
       .order("kickoff_at", { ascending: false })
@@ -204,7 +229,7 @@ export const getFixtureData = cache(async (fixtureId: string): Promise<DataQuery
   const [fixtureResult, stadiums, lineupsResult, playersResult] = await Promise.all([
     client
       .from("fixtures")
-      .select("id,sportmonks_id,league_id,round,home_team_id,away_team_id,stadium_id,kickoff_at,status,home_score,away_score,live_minute,live_period,goal_events,updated_at")
+      .select("id,sportmonks_id,league_id,round,home_team_id,away_team_id,stadium_id,attendance_latitude,attendance_longitude,attendance_radius_meters,kickoff_at,status,home_score,away_score,live_minute,live_period,goal_events,updated_at")
       .eq("id", fixtureId)
       .maybeSingle(),
     getStadiumMap(),

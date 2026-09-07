@@ -96,10 +96,21 @@ export type FixtureRecord = {
   awayScore: number | null;
   stadiumId: string;
   stadiumName: string;
+  attendanceLatitude: number | null;
+  attendanceLongitude: number | null;
+  attendanceRadiusMeters: number;
   liveMinute: number | null;
   livePeriod: string | null;
   updatedAt: string;
   source: "SportsMonks";
+};
+
+export type StadiumRecord = {
+  id: string;
+  name: string;
+  address: string | null;
+  latitude: number;
+  longitude: number;
 };
 
 export type FixtureGoal = {

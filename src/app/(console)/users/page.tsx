@@ -300,7 +300,7 @@ export default function UsersPage() {
               </Select>
             </div>
             <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1">
-              <Button type="submit" className="h-11 flex-1 rounded-xl px-4 text-sm font-semibold">
+              <Button type="submit" className="h-11 flex-1 rounded-xl px-4 text-sm">
                 <Search className="size-4" aria-hidden="true" />
                 검색
               </Button>

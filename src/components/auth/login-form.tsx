@@ -51,7 +51,7 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
         </div>
       )}
 
-      <Button type="submit" size="lg" className="h-12 w-full font-bold" disabled={pending}>
+      <Button type="submit" size="lg" className="h-12 w-full" disabled={pending}>
         {pending ? "로그인 중" : "로그인"}
       </Button>
     </form>

@@ -240,6 +240,46 @@ export async function updatePlayerDetailsAction(_previous: OperationActionState,
   return { status: "success", message: Number(data) > 0 ? `${data}개 항목을 수정하고 자동 동기화 덮어쓰기를 잠갔습니다.` : "변경된 항목이 없습니다.", completedAt };
 }
 
+export async function deletePlayerAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const context = await getOperatorContext("data_editor");
+  if (context.error) return { status: "error", message: context.error, completedAt: null };
+  if (!hasAdminPermission(context.admin.role, "data.write")) return { status: "error", message: "선수를 삭제할 권한이 없습니다.", completedAt: null };
+
+  const playerId = String(formData.get("playerId") ?? "").trim();
+  const season = Number(String(formData.get("season") ?? ""));
+  const leagueId = String(formData.get("leagueId") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !entityIdPattern.test(leagueId)) {
+    return { status: "error", message: "삭제할 선수의 식별 정보가 올바르지 않습니다.", completedAt: null };
+  }
+  if (reason.length < 3 || reason.length > 1000) {
+    return { status: "error", message: "삭제 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
+  }
+
+  const { data, error } = await context.supabase.rpc("admin_delete_player", {
+    p_player_id: playerId,
+    p_season: season,
+    p_league_id: leagueId,
+    p_reason: reason,
+  });
+  if (error) {
+    const schemaMissing = isOperationsSchemaMissing(error.code);
+    return {
+      status: "error",
+      message: schemaMissing ? "선수 삭제 데이터베이스 기능이 아직 적용되지 않았습니다." : "선수를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      completedAt: null,
+    };
+  }
+  if (data !== true) {
+    return { status: "error", message: "선수를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.", completedAt: null };
+  }
+
+  const completedAt = new Date().toISOString();
+  invalidateAdminData();
+  return { status: "success", message: "선수가 삭제되었습니다.", completedAt };
+}
+
 export async function applyPlayerOverrideAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
   const context = await getOperatorContext("admin");
   if (context.error) return { status: "error", message: context.error, completedAt: null };
@@ -316,6 +356,54 @@ export async function applyFixtureOverrideAction(_previous: OperationActionState
   const completedAt = new Date().toISOString();
   invalidateAdminData();
   return { status: "success", message: "경기 수정값을 적용하고 다음 동기화의 덮어쓰기를 잠갔습니다.", completedAt };
+}
+
+export async function updateFixtureScheduleAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const context = await getOperatorContext("data_editor");
+  if (context.error) return { status: "error", message: context.error, completedAt: null };
+  if (!hasAdminPermission(context.admin.role, "data.write")) return { status: "error", message: "경기 일정을 수정할 권한이 없습니다.", completedAt: null };
+
+  const fixtureId = String(formData.get("fixtureId") ?? "").trim();
+  const kickoffRaw = String(formData.get("kickoffAt") ?? "").trim();
+  const zonedKickoff = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(kickoffRaw) ? `${kickoffRaw}:00+09:00` : kickoffRaw;
+  const kickoffDate = new Date(zonedKickoff);
+  const stadiumId = String(formData.get("stadiumId") ?? "").trim();
+  const latitude = Number(String(formData.get("latitude") ?? ""));
+  const longitude = Number(String(formData.get("longitude") ?? ""));
+  const radiusMeters = 300;
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!entityIdPattern.test(fixtureId) || !entityIdPattern.test(stadiumId)) {
+    return { status: "error", message: "경기 또는 경기장 정보가 올바르지 않습니다.", completedAt: null };
+  }
+  if (Number.isNaN(kickoffDate.getTime()) || kickoffDate.getUTCFullYear() < 2020 || kickoffDate.getUTCFullYear() > 2200) {
+    return { status: "error", message: "경기 날짜와 시간이 올바르지 않습니다.", completedAt: null };
+  }
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    return { status: "error", message: "직관 인증 좌표가 올바르지 않습니다.", completedAt: null };
+  }
+  if (reason.length < 3 || reason.length > 1000) {
+    return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
+  }
+
+  const { data, error } = await context.supabase.rpc("admin_update_fixture_schedule", {
+    p_fixture_id: fixtureId,
+    p_kickoff_at: kickoffDate.toISOString(),
+    p_stadium_id: stadiumId,
+    p_latitude: latitude,
+    p_longitude: longitude,
+    p_radius_meters: radiusMeters,
+    p_reason: reason,
+  });
+  if (error) {
+    const schemaMissing = isOperationsSchemaMissing(error.code);
+    return { status: "error", message: schemaMissing ? "경기 일정 데이터베이스 기능이 아직 적용되지 않았습니다." : "경기 일정을 수정하지 못했습니다.", completedAt: null };
+  }
+  if (data !== true) return { status: "error", message: "경기 일정을 수정하지 못했습니다.", completedAt: null };
+
+  const completedAt = new Date().toISOString();
+  invalidateAdminData();
+  return { status: "success", message: "경기 일시와 경기장, 직관 인증 위치를 변경했습니다.", completedAt };
 }
 
 function parseStandingOverrideValue(field: string, rawValue: string): { ok: true; value: number } | { ok: false; error: string } {

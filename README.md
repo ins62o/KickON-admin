@@ -80,15 +80,18 @@ set role = excluded.role,
 202609050009_admin_dashboard_summary.sql
   … 202609050012_exclude_admin_accounts_from_user_metrics.sql  집계·사용자 조회 보정
 202609050013_admin_usage_metrics.sql                      DB·Storage 사용량 집계
+202609070001_admin_delete_player.sql                      선수 삭제·동기화 복구 차단
+202609070002_fixture_attendance_location.sql              일정별 경기장·직관 인증 위치
+202609070003_fixture_schedule_edit.sql                     경기 일시·경기장·인증 위치 통합 수정
 ```
 
-이 순서는 역할·관리자 대시보드 집계·문의 답변·사용자 경고/정지·콘텐츠 숨김/복원·수동 선수·검증명·스토리지 집계·감사 로그 계약을 추가합니다. 모바일이 사용하는 기존 테이블과 `team_players.image_url`은 유지합니다.
+이 순서는 역할·관리자 대시보드 집계·문의 답변·사용자 경고/정지·콘텐츠 숨김/복원·수동 선수·검증명·스토리지 집계·선수 삭제·일정별 직관 인증 위치·감사 로그 계약을 추가합니다. 모바일이 사용하는 기존 테이블과 `team_players.image_url`은 유지합니다.
 
 마지막 `202609050013_admin_usage_metrics.sql`은 `system.read` 권한이 있는 로그인 관리자에게 객체 경로를 노출하지 않는 집계 RPC를 제공합니다. `admin_get_usage_snapshot()`은 DB 크기, 전체 Storage 객체/바이트, 측정 불가 객체와 서울 기준 이번 달 증가량을 반환하고, `admin_get_storage_usage()`는 같은 권한으로 버킷별 합계를 반환합니다. 따라서 DB·Storage 핵심 수치는 서버 secret 없이 선택된 Supabase에서 직접 읽을 수 있으며, 관리자 API의 Metrics/Storage secret 연동은 연결 수와 큰 파일 목록 같은 상세 정보에만 필요합니다.
 
 중요: 모바일 저장소와 이 관리자 저장소가 서로 다른 SQL에 동일한 `202608300001`~`202608300007` 버전을 사용한 이력이 있습니다. 이 저장소의 관리자 전용 SQL은 `202609050001`~`202609050013`으로 재조정했지만, 같은 Supabase 프로젝트에 적용하기 전에 원격 `supabase_migrations.schema_migrations`와 실제 스키마를 감사해야 합니다. 버전 기록만 믿고 기존 파일을 일괄 적용하면 안 됩니다.
 
-현재 작업에서는 원격 개발·운영 DB에 마이그레이션을 적용하지 않았습니다. 운영 적용 순서는 [배포 체크리스트](docs/deployment-checklist.md)를 따릅니다.
+`202609070001`~`202609070003`은 원격 개발·운영 DB의 실제 선행 객체를 감사한 뒤 SQL Editor로 적용하고 함수·컬럼·실행 권한을 검증했습니다. 전체 이력 감사와 나머지 운영 적용 순서는 [배포 체크리스트](docs/deployment-checklist.md)를 따릅니다.
 
 ## 정적 빌드와 서버 전용 비밀값
 

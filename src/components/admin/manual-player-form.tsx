@@ -55,7 +55,7 @@ export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: s
     <FormField label="한국 이름" htmlFor="manual-player-name-ko"><Input id="manual-player-name-ko" name="displayNameKo" maxLength={120} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
     <FormField label="등번호" htmlFor="manual-player-number" className="sm:col-span-2"><Input id="manual-player-number" name="shirtNumber" type="number" min={0} max={999} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
     <FormField label="등록 사유" htmlFor="manual-player-reason" className="sm:col-span-2"><Textarea id="manual-player-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></FormField>
-    <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-sm text-danger" : "text-sm text-success"}>{state.message}</p> : null}<div className="mt-4 flex justify-end"><ActionSubmit className="h-11 px-6 text-sm font-bold">선수 등록</ActionSubmit></div></div>
+    <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-sm text-danger" : "text-sm text-success"}>{state.message}</p> : null}<div className="mt-4 flex justify-end"><ActionSubmit className="h-11 px-6 text-sm">선수 등록</ActionSubmit></div></div>
   </form>;
 }
 
@@ -67,7 +67,7 @@ export function ManualPlayerDialog({ teams }: { teams: Array<{ id: string; name:
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="h-11 min-w-32 px-6 text-base font-bold">선수 등록</Button>
+        <Button className="h-11 min-w-32 px-6 text-base">선수 등록</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader className="gap-2 pb-1">

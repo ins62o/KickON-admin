@@ -15,6 +15,9 @@ export function getBrowserSupabaseClient(environment: ConsoleEnvironment = getAc
   if (!config) return null;
 
   const client = createBrowserClient(config.url, config.publishableKey, {
+    // This module caches one client per environment. The SSR library's default
+    // browser singleton would reuse the first environment's URL and session.
+    isSingleton: false,
     auth: {
       storageKey: `kickon-admin-auth-${environment}`,
     },
