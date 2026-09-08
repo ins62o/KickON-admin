@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Mail, Search, UsersRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mail, UsersRound } from "lucide-react";
 import { siApple } from "simple-icons";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { DataState } from "@/components/admin/data-state";
@@ -198,14 +198,14 @@ export default function UsersPage() {
                 role="listitem"
                 className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-lg border border-border/65 bg-background/35 p-3.5"
               >
-                <span className="flex size-10 items-center justify-center rounded-lg border border-border/60 bg-background/70 p-1.5">
+                <span className="relative flex size-10 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background/70">
                   {team.logoPath ? (
                     <Image
                       src={team.logoPath}
-                      width={30}
-                      height={30}
+                      fill
+                      sizes="40px"
                       alt=""
-                      className="object-contain"
+                      className="object-contain p-1.5"
                     />
                   ) : (
                     <UsersRound className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -256,7 +256,7 @@ export default function UsersPage() {
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+                <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
                   <SelectItem value="all" className="py-2 pr-8 pl-2.5">
                     <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden="true" />
                     계정 상태
@@ -281,7 +281,7 @@ export default function UsersPage() {
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+                <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
                   <SelectItem value="all" className="py-2 pr-8 pl-2.5">
                     <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true">
                       <UsersRound className="size-3" />
@@ -301,7 +301,6 @@ export default function UsersPage() {
             </div>
             <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1">
               <Button type="submit" className="h-11 flex-1 rounded-xl px-4 text-sm">
-                <Search className="size-4" aria-hidden="true" />
                 검색
               </Button>
               {hasFilters ? (
@@ -334,14 +333,14 @@ export default function UsersPage() {
                     aria-label={`${user.nickname} 사용자 정보 보기`}
                     className="grid cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 p-4 outline-none transition-colors hover:bg-primary/[0.06] focus-visible:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[40px_minmax(120px,1fr)_minmax(120px,0.8fr)_auto] sm:p-5"
                   >
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/70 p-1.5">
+                      <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background/70">
                         {teamLogoPath ? (
                           <Image
                             src={teamLogoPath}
-                            width={30}
-                            height={30}
+                            fill
+                            sizes="40px"
                             alt=""
-                            className="object-contain"
+                            className="object-contain p-1.5"
                           />
                         ) : (
                           <UsersRound className="size-4 text-muted-foreground" aria-hidden="true" />

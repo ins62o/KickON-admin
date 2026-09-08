@@ -3,6 +3,7 @@ import {
   DatabaseZap,
   Headphones,
   LayoutDashboard,
+  Megaphone,
   Trophy,
   UserRoundCog,
   UsersRound,
@@ -28,6 +29,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "운영",
     items: [
       { key: "dashboard", label: "대시보드", href: "/", icon: LayoutDashboard, description: "서비스 운영 현황", requiredPermission: "dashboard.read" },
+      { key: "community", label: "공지사항", href: "/community", icon: Megaphone, description: "커뮤니티 공지 등록 및 게시 관리", requiredPermission: "moderation.read" },
       { key: "users", label: "사용자", href: "/users", icon: UsersRound, description: "가입자와 계정 상태", requiredPermission: "users.read" },
       { key: "inquiries", label: "문의 신고", href: "/inquiries", icon: Headphones, description: "1:1 문의와 신고 내역", requiredPermission: "support.read", alternativePermissions: ["moderation.read"] },
     ],

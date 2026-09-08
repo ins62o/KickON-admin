@@ -17,6 +17,8 @@ type SyncActionResponse = {
   completedAt?: string | null;
 };
 
+const SYNC_ACTION_TIMEOUT_MS = 58_000;
+
 export async function runSyncAction(
   _previous: SyncActionState,
   formData: FormData,
@@ -24,7 +26,11 @@ export async function runSyncAction(
   const operation = String(formData.get("operation") ?? "") || null;
 
   try {
-    const result = await callAdminAction<SyncActionResponse>("runSync", formData);
+    const result = await callAdminAction<SyncActionResponse>(
+      "runSync",
+      formData,
+      SYNC_ACTION_TIMEOUT_MS,
+    );
     const state: SyncActionState = {
       status: result.status && result.status !== "idle" ? result.status : "success",
       message: result.message ?? "동기화 요청을 완료했습니다.",

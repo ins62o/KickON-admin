@@ -7,6 +7,8 @@ const migrationName = "202609070002_fixture_attendance_location.sql";
 const migration = readFileSync(new URL(migrationName, migrationsDirectory), "utf8");
 const scheduleMigrationName = "202609070003_fixture_schedule_edit.sql";
 const scheduleMigration = readFileSync(new URL(scheduleMigrationName, migrationsDirectory), "utf8");
+const fixedScheduleMigrationName = "202609080007_fix_fixture_schedule_changed_overrides.sql";
+const fixedScheduleMigration = readFileSync(new URL(fixedScheduleMigrationName, migrationsDirectory), "utf8");
 const stadiumLocalizationName = "202609070004_localize_remaining_stadiums.sql";
 const stadiumLocalization = readFileSync(new URL(stadiumLocalizationName, migrationsDirectory), "utf8");
 const operations = readFileSync(new URL("../src/lib/data/operations.ts", import.meta.url), "utf8");
@@ -51,6 +53,16 @@ test("일정 수정은 경기 일시와 인증 위치를 한 번에 잠그고 �
   assert.match(actions, /rpc\("admin_update_fixture_schedule"/);
 });
 
+test("일정 수정은 실제로 바뀐 필드만 보호하고 원본 복귀 시 잠금을 해제한다", () => {
+  const migrationNames = readdirSync(migrationsDirectory).filter((name) => name.endsWith(".sql")).sort();
+  assert.ok(migrationNames.indexOf(fixedScheduleMigrationName) > migrationNames.indexOf(scheduleMigrationName));
+  assert.match(fixedScheduleMigration, /change\.original_value is distinct from change\.override_value/);
+  assert.match(fixedScheduleMigration, /active_override\.original_value is not distinct from target\.target_value/);
+  assert.match(fixedScheduleMigration, /target_latitude := null/);
+  assert.match(fixedScheduleMigration, /FIXTURE_SCHEDULE_UNCHANGED/);
+  assert.match(actions, /변경된 일정 정보가 없습니다/);
+});
+
 test("남은 경기장 이름과 주소를 한국어로 고정한다", () => {
   const migrationNames = readdirSync(migrationsDirectory).filter((name) => name.endsWith(".sql")).sort();
   assert.ok(migrationNames.indexOf(stadiumLocalizationName) > migrationNames.indexOf(scheduleMigrationName));
@@ -64,6 +76,8 @@ test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제�
   assert.match(scheduleCards, /export function ScheduleCards/);
   assert.match(scheduleCards, /md:grid-cols-2 2xl:grid-cols-3/);
   assert.match(scheduleCards, /<ScheduleDateTimePicker/);
+  assert.match(scheduleCards, /showApplyTrigger=\{false\}/);
+  assert.match(scheduleCards, /overrides=\{overrides\.get\(fixture\.id\) \?\? \[\]\}/);
   assert.match(scheduleCards, /name="kickoffAt" value={`\$\{kickoffDate\}T\$\{kickoffTime\}`}/);
   assert.doesNotMatch(scheduleCards, /인증 반경 \(m\)/);
   assert.match(actions, /const radiusMeters = 300/);

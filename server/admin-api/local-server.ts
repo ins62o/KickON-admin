@@ -7,11 +7,14 @@ loadEnvConfig(process.cwd(), true);
 const origins = new Set((process.env.ADMIN_ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean));
 origins.add("http://localhost:3000");
 origins.add("http://127.0.0.1:3000");
+// Next.js automatically falls back to 3001 when 3000 is already occupied.
+origins.add("http://localhost:3001");
+origins.add("http://127.0.0.1:3001");
 process.env.ADMIN_ALLOWED_ORIGINS = [...origins].join(",");
 
 const maximumBodyBytes = 1024 * 1024;
-const parsedPort = Number(process.env.ADMIN_API_PORT ?? 3001);
-const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65535 ? parsedPort : 3001;
+const parsedPort = Number(process.env.ADMIN_API_PORT ?? 3002);
+const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65535 ? parsedPort : 3002;
 
 const server = createServer((request, response) => {
   const chunks: Buffer[] = [];

@@ -1,7 +1,3 @@
-const koreaTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
-  timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
-});
-
 const koreaFullTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
   year: "numeric",
@@ -12,8 +8,17 @@ const koreaFullTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   hourCycle: "h23",
 });
 
+const koreaReadableTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 export function formatKoreaDateTime(value: string | null) {
-  return value ? koreaTimeFormatter.format(new Date(value)) : "확인 불가";
+  return formatKoreaReadableDateTime(value);
 }
 
 export function formatKoreaFullDateTime(value: string | null) {
@@ -21,7 +26,15 @@ export function formatKoreaFullDateTime(value: string | null) {
   const parts = koreaFullTimeFormatter.formatToParts(new Date(value));
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
   const hour = Number(part("hour"));
-  return `${part("year")}년 ${Number(part("month"))}월 ${Number(part("day"))}일 ${hour < 12 ? "오전" : "오후"} ${part("hour")}:${part("minute")}`;
+  const displayHour = hour % 12 || 12;
+  return `${part("year")}년 ${Number(part("month"))}월 ${Number(part("day"))}일 ${hour < 12 ? "오전" : "오후"} ${displayHour}시 ${part("minute")}분`;
+}
+
+export function formatKoreaReadableDateTime(value: string | null) {
+  if (!value) return "확인 불가";
+  const parts = koreaReadableTimeFormatter.formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${Number(part("month"))}월 ${Number(part("day"))}일 ${part("dayPeriod")} ${Number(part("hour"))}시 ${part("minute")}분`;
 }
 
 export function formatRelativeTime(value: string | null) {

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, Headphones, Search, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Headphones, ShieldAlert } from "lucide-react";
 
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { DataState } from "@/components/admin/data-state";
@@ -24,7 +24,7 @@ import { reportTargetLabel } from "@/lib/admin/labels";
 import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
-import { formatKoreaDateTime, formatNumber } from "@/lib/format";
+import { formatKoreaReadableDateTime, formatNumber } from "@/lib/format";
 
 type InquiryHistorySearchParams = {
   tab?: string;
@@ -120,7 +120,7 @@ function InquiryHistoryPanel({
             <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="1:1 문의 상태">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+            <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
               <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">
                 <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden="true" />
                 모든 상태
@@ -139,7 +139,7 @@ function InquiryHistoryPanel({
             <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="문의 분류">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+            <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
               <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">분류</SelectItem>
               {inquiryCategories.map(([value, label]) => (
                 <SelectItem key={value} value={value} className="cursor-pointer py-2.5 pr-8 pl-2.5">
@@ -149,7 +149,6 @@ function InquiryHistoryPanel({
             </SelectContent>
           </Select>
           <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
-            <Search className="size-4" aria-hidden="true" />
             검색
           </Button>
         </form>
@@ -181,7 +180,7 @@ function InquiryHistoryPanel({
                     {inquiry.requester?.nickname ?? "알 수 없음"}
                   </TableCell>
                   <TableCell className="w-52 px-4 py-4 text-sm text-muted-foreground">
-                    {formatKoreaDateTime(inquiry.createdAt)}
+                    {formatKoreaReadableDateTime(inquiry.createdAt)}
                   </TableCell>
                 </TableRow>
               )) : (
@@ -265,7 +264,7 @@ function ReportHistoryPanel({
             <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="신고 상태">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+            <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
               <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">
                 <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden="true" />
                 모든 상태
@@ -284,7 +283,7 @@ function ReportHistoryPanel({
             <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="신고 분류">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent position="popper" align="start" className="rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+            <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
               <SelectItem value="all" className="cursor-pointer py-2.5 pr-8 pl-2.5">분류</SelectItem>
               <SelectItem value="POST" className="cursor-pointer py-2.5 pr-8 pl-2.5">게시글</SelectItem>
               <SelectItem value="COMMENT" className="cursor-pointer py-2.5 pr-8 pl-2.5">댓글</SelectItem>
@@ -292,7 +291,6 @@ function ReportHistoryPanel({
             </SelectContent>
           </Select>
           <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
-            <Search className="size-4" aria-hidden="true" />
             검색
           </Button>
         </form>
@@ -324,7 +322,7 @@ function ReportHistoryPanel({
                     {report.reporter?.nickname ?? "확인 불가"}
                   </TableCell>
                   <TableCell className="w-52 px-4 py-4 text-sm text-muted-foreground">
-                    {formatKoreaDateTime(report.createdAt)}
+                    {formatKoreaReadableDateTime(report.createdAt)}
                   </TableCell>
                 </TableRow>
               )) : (

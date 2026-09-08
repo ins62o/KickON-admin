@@ -5,16 +5,18 @@ KickON 운영자 전용 Next.js 정적 관리자 콘솔입니다. `output: "expo
 ## 로컬 실행
 
 ```bash
-cp .env.example .env.local
+cp .env.development.example .env.development.local
 npm install
 npm run dev
 ```
 
-`npm run dev`는 Next.js와 로컬 관리자 API를 함께 실행합니다. `.env*.local`의 서버 전용 Metrics 키는 로컬 API만 읽으며 브라우저 번들에는 포함하지 않습니다. 웹만 따로 실행하려면 `npm run dev:web`, API만 실행하려면 `npm run dev:admin-api`를 사용합니다.
+`npm run dev`는 Next.js와 로컬 관리자 API를 함께 실행합니다. 개발 값은 `.env.development.local`, 운영 빌드용 값은 `.env.production.local`에 각각 둡니다. 두 환경에 공통 적용되는 `.env.local`은 환경 간 secret이 섞일 수 있으므로 사용하지 않습니다. `.env*.local`의 서버 전용 Metrics 키는 로컬 API만 읽으며 브라우저 번들에는 포함하지 않습니다. 웹만 따로 실행하려면 `npm run dev:web`, API만 실행하려면 `npm run dev:admin-api`를 사용합니다.
+
+로컬에서 운영 빌드를 검증해야 할 때만 `cp .env.production.example .env.production.local`로 별도 파일을 만들고 실제 운영 값을 채웁니다. 운영 배포의 secret은 저장소 파일이 아니라 Lambda 등 각 런타임의 환경변수 저장소에서 관리합니다.
 
 개발 환경에서도 실제 쓰기 작업은 Supabase 로그인과 활성 관리자 계정이 있어야 합니다. 인증과 일반 조회·관리 RPC는 브라우저 Supabase 클라이언트와 RLS로 보호합니다. 동기화와 Metrics 연결 수·Storage 큰 파일처럼 비밀값이 필요한 상세 조회는 별도 관리자 API에서 다시 토큰과 역할을 검사합니다.
 
-헤더의 서버 전환 메뉴는 다른 사이트로 이동하거나 문서를 새로고침하지 않습니다. 한 정적 번들에 포함된 개발·운영 Supabase 공개 설정과 관리자 API 주소를 전환하고, 환경마다 분리된 인증 세션을 다시 검사합니다. 이때 헤더·푸터·레이아웃은 유지하고 본문만 로딩 상태로 바뀌므로 전체 화면 점멸과 레이아웃 이동을 줄입니다. 두 환경을 모두 사용하려면 `.env.example`의 `NEXT_PUBLIC_KICKON_{DEVELOPMENT,PRODUCTION}_SUPABASE_*`와 환경별 `..._ADMIN_API_BASE_URL`을 설정합니다.
+헤더의 서버 전환 메뉴는 다른 사이트로 이동하거나 문서를 새로고침하지 않습니다. 한 정적 번들에 포함된 개발·운영 Supabase 공개 설정과 관리자 API 주소를 전환하고, 환경마다 분리된 인증 세션을 다시 검사합니다. 이때 헤더·푸터·레이아웃은 유지하고 본문만 로딩 상태로 바뀌므로 전체 화면 점멸과 레이아웃 이동을 줄입니다. 두 환경을 모두 사용하려면 해당 환경의 example 파일에 있는 `NEXT_PUBLIC_KICKON_{DEVELOPMENT,PRODUCTION}_SUPABASE_*`와 환경별 `..._ADMIN_API_BASE_URL`을 설정합니다. 이 두 공개 설정 묶음만 화면 전환을 위해 양쪽 파일에 의도적으로 존재하며, 서버 secret은 절대 공유하지 않습니다.
 
 ## 9개 운영 메뉴
 
@@ -95,17 +97,15 @@ set role = excluded.role,
 
 ## 정적 빌드와 서버 전용 비밀값
 
-정적 번들에는 `.env.example`의 `NEXT_PUBLIC_*` 값만 넣습니다. 환경별 Supabase URL과 publishable key, 관리자 API 경로는 공개 설정이며 보안 경계는 Supabase RLS/RPC와 관리자 API의 토큰·역할 재검사입니다. 다음 값은 S3나 브라우저 번들에 넣지 않고 필요한 백엔드에만 설정합니다.
+정적 번들에는 `.env.development.example` 또는 `.env.production.example`에 정의된 `NEXT_PUBLIC_*` 값만 넣습니다. 환경별 Supabase URL과 publishable key, 관리자 API 경로는 공개 설정이며 보안 경계는 Supabase RLS/RPC와 관리자 API의 토큰·역할 재검사입니다. 다음 값은 S3나 브라우저 번들에 넣지 않고 필요한 백엔드에만 설정합니다.
 
-- `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_METRICS_SECRET_KEY`
-- `SUPABASE_MANAGEMENT_ACCESS_TOKEN`
-- `SPORTSMONKS_API_TOKEN`
 - `FOOTBALL_SYNC_SECRET`
 - `KICKON_PROVIDER_SNAPSHOT_SECRET`
 - `KICKON_ERROR_INGEST_SECRET`
+- `ERROR_HASH_SALT`
 
-DB와 파일 스토리지는 서로 다른 한도입니다. 공개 설정인 `NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB`, `NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB`는 표시용 한도이며 실제 Metrics secret과 Management token은 관리자 API만 사용합니다.
+DB와 파일 스토리지는 서로 다른 한도입니다. 서버 설정인 `SUPABASE_DATABASE_LIMIT_GB`, `SUPABASE_STORAGE_LIMIT_GB`는 빌드 때 표시용 공개 값으로 변환되며, 실제 Metrics secret은 관리자 API만 사용합니다.
 
 ## 운영 원칙
 

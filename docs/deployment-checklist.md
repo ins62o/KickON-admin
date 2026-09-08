@@ -27,11 +27,12 @@
 - Supabase Auth에서 관리자 사용자를 만든다.
 - 서비스 역할을 사용하는 서버/SQL 관리 경계에서 첫 `super_admin`을 `admin_users`에 등록한다.
 - 공개 회원가입이나 브라우저 publishable key로 관리자 역할을 부여하지 않는다.
-- `support`, `moderator`, `data_editor` 테스트 계정을 각각 만들고 메뉴와 RPC 권한을 검증한다.
+- 현재 운영 모델은 `super_admin` 단일 역할만 사용한다. 배포 검증을 위해 존재하지 않는 역할 계정을 새로 만들지 않는다.
+- 향후 제한 역할을 실제로 활성화할 때에만 해당 역할의 테스트 계정을 별도로 만들고 메뉴와 RPC 권한을 검증한다.
 
 ## 4. 환경 변수
 
-- `.env.example`의 서버 전용 값이 클라이언트 번들에 포함되지 않았는지 확인한다.
+- `.env.production.example`의 서버 전용 값이 클라이언트 번들에 포함되지 않았는지 확인한다.
 - DB와 Storage 한도를 각각 설정한다.
 - 하나의 정적 번들에 개발·운영 `NEXT_PUBLIC_KICKON_*_SUPABASE_*`와 환경별 `..._ADMIN_API_BASE_URL`이 모두 설정되었는지 확인한다. 환경 전환용 별도 관리자 사이트 URL은 사용하지 않는다.
 - GitHub `production` Environment의 공개 빌드 변수에 localhost 주소가 없는지 확인한다.

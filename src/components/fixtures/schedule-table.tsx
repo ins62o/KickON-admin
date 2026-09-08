@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, CircleCheck, MapPin, Navigation, Search, SlidersHorizontal, UsersRound } from "lucide-react";
 import { ScheduleDateTimePicker } from "@/components/fixtures/schedule-date-time-picker";
+import { EntityOverrideControl } from "@/components/operations/entity-override-control";
 import { StatusBadge } from "@/components/status-badge";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { fixtureStatusLabels, getTeamLogoPath } from "@/lib/data/catalog";
 import type { FixtureRecord, StadiumRecord } from "@/lib/data/types";
+import { fixtureComparableValue, type EntityOverrideRecord } from "@/lib/data/provider-diffs";
 import { updateFixtureScheduleAction, type OperationActionState } from "@/lib/operations/actions";
 
 const initialState: OperationActionState = { status: "idle", message: null, completedAt: null };
@@ -51,7 +53,7 @@ function fixtureDate(value: string) {
   };
 }
 
-export function ScheduleCards({ fixtures, stadiums, canEdit }: { fixtures: FixtureRecord[]; stadiums: StadiumRecord[]; canEdit: boolean }) {
+export function ScheduleCards({ fixtures, stadiums, overrides, canEdit }: { fixtures: FixtureRecord[]; stadiums: StadiumRecord[]; overrides: Map<string, EntityOverrideRecord[]>; canEdit: boolean }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [teamId, setTeamId] = useState("all");
@@ -108,7 +110,7 @@ export function ScheduleCards({ fixtures, stadiums, canEdit }: { fixtures: Fixtu
     </div>
 
     {visible.length ? <div className="grid gap-4 p-4 md:grid-cols-2 2xl:grid-cols-3">
-      {visible.map((fixture) => <ScheduleCard key={fixture.id} fixture={fixture} stadium={stadiumMap.get(fixture.stadiumId)} stadiums={stadiums} canEdit={canEdit} />)}
+      {visible.map((fixture) => <ScheduleCard key={fixture.id} fixture={fixture} stadium={stadiumMap.get(fixture.stadiumId)} stadiums={stadiums} overrides={overrides.get(fixture.id) ?? []} canEdit={canEdit} />)}
     </div> : <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center">
       <CalendarDays className="size-9 text-muted-foreground/50" />
       <p className="mt-3 text-sm font-semibold">조건에 맞는 경기 일정이 없습니다.</p>
@@ -123,7 +125,7 @@ export function ScheduleCards({ fixtures, stadiums, canEdit }: { fixtures: Fixtu
   </div>;
 }
 
-function ScheduleCard({ fixture, stadium, stadiums, canEdit }: { fixture: FixtureRecord; stadium: StadiumRecord | undefined; stadiums: StadiumRecord[]; canEdit: boolean }) {
+function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixture: FixtureRecord; stadium: StadiumRecord | undefined; stadiums: StadiumRecord[]; overrides: EntityOverrideRecord[]; canEdit: boolean }) {
   const date = fixtureDate(fixture.kickoffAt);
   const statusVisual = fixtureStatusVisual[fixture.status];
   return <article className="group flex min-h-96 flex-col overflow-hidden rounded-2xl border border-border/75 bg-background/55 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg hover:shadow-black/10">
@@ -145,6 +147,7 @@ function ScheduleCard({ fixture, stadium, stadiums, canEdit }: { fixture: Fixtur
         <div className="flex items-start gap-2.5"><Navigation className="mt-0.5 size-4 shrink-0 text-primary" /><p className="leading-relaxed text-muted-foreground">{stadium?.address ?? "주소 정보 없음"}</p></div>
       </div>
       <ScheduleEditDialog fixture={fixture} stadiums={stadiums} disabled={!canEdit} />
+      <EntityOverrideControl entityType="fixture" entityId={fixture.id} overrides={overrides} currentValues={fixtureComparableValue(fixture)} canEdit={canEdit} showApplyTrigger={false} showEmptyOverrides={false} />
     </div>
   </article>;
 }

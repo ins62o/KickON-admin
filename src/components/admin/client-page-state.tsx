@@ -18,12 +18,14 @@ import SyncLoading from "@/app/(console)/sync/loading";
 import UsageLoading from "@/app/(console)/usage/loading";
 import UsersLoading from "@/app/(console)/users/loading";
 import UserDetailLoading from "@/app/(console)/users/detail/loading";
+import CommunityNoticesLoading from "@/app/(console)/community/loading";
 
 export function ClientPageLoading({ label = "관리자 데이터를 불러오고 있습니다." }: { label?: string }) {
   const pathname = usePathname();
   let skeleton: React.ReactNode;
 
-  if (pathname.startsWith("/users/detail")) skeleton = <UserDetailLoading />;
+  if (pathname.startsWith("/community")) skeleton = <CommunityNoticesLoading />;
+  else if (pathname.startsWith("/users/detail")) skeleton = <UserDetailLoading />;
   else if (pathname.startsWith("/users")) skeleton = <UsersLoading />;
   else if (pathname.startsWith("/inquiries/detail")) skeleton = <InquiryDetailLoading />;
   else if (pathname.startsWith("/inquiries")) skeleton = <InquiriesLoading />;

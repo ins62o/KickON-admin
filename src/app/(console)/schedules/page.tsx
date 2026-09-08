@@ -9,12 +9,19 @@ import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
 import { getFixturesData, getStadiumsData } from "@/lib/data/operations";
+import { getProviderOverrideIndex } from "@/lib/data/provider-diffs";
 
 export default function SchedulesPage() {
   const admin = useRequiredAdminPermission("data.read");
   const { data, error, loading, reload } = useClientData(async () => {
-    const [fixtures, stadiums] = await Promise.all([getFixturesData(), getStadiumsData()]);
-    return { fixtures, stadiums };
+    const fixturesPromise = getFixturesData();
+    const stadiumsPromise = getStadiumsData();
+    const fixtures = await fixturesPromise;
+    const [stadiums, overrides] = await Promise.all([
+      stadiumsPromise,
+      getProviderOverrideIndex("fixture", fixtures.data.map((fixture) => fixture.id)),
+    ]);
+    return { fixtures, stadiums, overrides };
   });
   if (!admin || loading) return <ClientPageLoading />;
   if (error || !data) return <ClientPageError message={error ?? "경기 일정을 확인할 수 없습니다."} retry={reload} />;
@@ -29,7 +36,7 @@ export default function SchedulesPage() {
   const scheduledCount = fixtures.filter((fixture) => fixture.status === "SCHEDULED").length;
   const customLocationCount = fixtures.filter((fixture) => fixture.attendanceLatitude !== null).length;
   const canEdit = !admin.isDevelopmentBypass && hasAdminPermission(admin.role, "data.write");
-  const dataError = data.fixtures.error ?? data.stadiums.error;
+  const dataError = data.fixtures.error ?? data.stadiums.error ?? data.overrides.error;
 
   return <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
     <PageHeader title="일정 관리" description="경기 날짜와 경기장, 직관 인증 위치를 수정합니다. 저장한 기준은 다음 인증 요청부터 바로 적용됩니다." />
@@ -41,7 +48,7 @@ export default function SchedulesPage() {
     ]} />
     <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="schedule-list-title">
       <div className="border-b border-border/70 px-5 py-4"><h2 id="schedule-list-title" className="text-base font-semibold">경기 일정</h2><p className="mt-1 text-xs text-muted-foreground">날짜와 경기장 변경은 해당 경기만 적용되며 외부 데이터 동기화로 덮어쓰지 않습니다.</p></div>
-      <ScheduleCards fixtures={fixtures} stadiums={data.stadiums.data} canEdit={canEdit} />
+      <ScheduleCards fixtures={fixtures} stadiums={data.stadiums.data} overrides={data.overrides.overrides} canEdit={canEdit} />
     </section>
   </div>;
 }

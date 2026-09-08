@@ -44,6 +44,23 @@ test("unscoped 관리자 API 주소는 빌드 환경에만 fallback한다", () =
   }
 });
 
+test("개발 설정이 없으면 로컬 관리자 API를 사용한다", () => {
+  const snapshot = new Map(ENVIRONMENT_KEYS.map((key) => [key, process.env[key]]));
+
+  try {
+    mutableEnvironment.NODE_ENV = "development";
+    process.env.NEXT_PUBLIC_KICKON_ENVIRONMENT = "development";
+    delete process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_KICKON_PRODUCTION_ADMIN_API_BASE_URL;
+
+    assert.equal(resolveAdminApiBaseUrl("development"), "http://localhost:3001/api");
+    assert.equal(resolveAdminApiBaseUrl("production"), "");
+  } finally {
+    restoreEnvironment(snapshot);
+  }
+});
+
 test("환경별 관리자 API 주소가 unscoped 주소보다 우선한다", () => {
   const snapshot = new Map(ENVIRONMENT_KEYS.map((key) => [key, process.env[key]]));
 

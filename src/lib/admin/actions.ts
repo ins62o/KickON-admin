@@ -4,6 +4,10 @@ import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
 import { hasAdminPermission, type AdminPermission } from "@/lib/auth/permissions";
 import { invalidateAdminData } from "@/lib/client-data";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
+import {
+  buildCommunityNoticeRpcArgs,
+  communityNoticeErrorMessage,
+} from "@/lib/admin/community-notice-contract";
 
 export type AdminActionState = {
   status: "idle" | "success" | "error";
@@ -31,6 +35,56 @@ function safeFailure(message: string) {
   if (/permission|required|권한/i.test(message)) return "권한 또는 필수 입력값을 확인해 주세요.";
   if (/not.?found|찾/i.test(message)) return "대상을 찾을 수 없습니다. 목록을 새로고침해 주세요.";
   return "변경을 저장하지 못했습니다. 입력값과 관리자 마이그레이션 상태를 확인해 주세요.";
+}
+
+export async function createCommunityNoticeAction(
+  _state: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const context = await mutationContext("moderation.write");
+  if (context.error) return { status: "error", message: context.error };
+
+  const validation = buildCommunityNoticeRpcArgs({
+    board: textValue(formData, "board", 10) as "LEAGUE" | "TEAM",
+    teamId: textValue(formData, "teamId", 120),
+    title: textValue(formData, "title", 100),
+    content: textValue(formData, "content", 10_000),
+  });
+  if (!validation.ok) return { status: "error", message: validation.message };
+
+  const result = await context.supabase.rpc(
+    "admin_create_community_notice",
+    validation.args,
+  );
+  if (result.error) {
+    return { status: "error", message: communityNoticeErrorMessage(result.error) };
+  }
+
+  invalidateAdminData();
+  return { status: "success", message: "공지사항을 등록했습니다." };
+}
+
+export async function deleteCommunityNoticeAction(
+  _state: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const context = await mutationContext("moderation.write");
+  if (context.error) return { status: "error", message: context.error };
+
+  const noticeId = textValue(formData, "noticeId", 36);
+  if (!uuidPattern.test(noticeId)) {
+    return { status: "error", message: "공지사항 정보가 올바르지 않습니다." };
+  }
+
+  const result = await context.supabase.rpc("admin_delete_community_notice", {
+    p_notice_id: noticeId,
+  });
+  if (result.error) {
+    return { status: "error", message: communityNoticeErrorMessage(result.error) };
+  }
+
+  invalidateAdminData();
+  return { status: "success", message: "공지사항을 삭제했습니다." };
 }
 
 export async function updateSupportInquiryAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {

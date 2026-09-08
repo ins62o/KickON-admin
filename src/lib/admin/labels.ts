@@ -3,7 +3,7 @@ export function inquiryStatusLabel(status: string) {
 }
 
 export function reportStatusLabel(status: string) {
-  return ({ OPEN: "새 문의", REVIEWED: "새 문의", RESOLVED: "답변 완료", DISMISSED: "답변 완료" } as Record<string, string>)[status] ?? status;
+  return ({ OPEN: "신규 신고", REVIEWED: "확인 중", RESOLVED: "처리 완료", DISMISSED: "기각" } as Record<string, string>)[status] ?? status;
 }
 
 export function reportTargetLabel(target: string) {

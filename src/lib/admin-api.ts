@@ -16,6 +16,7 @@ export async function callAdminApi<T>(
   path: string,
   init: RequestInit = {},
   environment: ConsoleEnvironment = getActiveConsoleEnvironment(),
+  timeoutMs = ADMIN_API_TIMEOUT_MS,
 ): Promise<T> {
   const baseUrl = getAdminApiBaseUrl(environment);
   if (!baseUrl) throw new Error(`${environment === "production" ? "운영" : "개발"} 관리자 API 주소가 설정되지 않았습니다.`);
@@ -32,14 +33,14 @@ export async function callAdminApi<T>(
       ...init,
       headers,
       cache: "no-store",
-      signal: init.signal ?? AbortSignal.timeout(ADMIN_API_TIMEOUT_MS),
+      signal: init.signal ?? AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     const timedOut = error instanceof DOMException
       && (error.name === "TimeoutError" || error.name === "AbortError")
       && !init.signal;
     if (timedOut) {
-      throw new Error(`${environment === "production" ? "운영" : "개발"} 관리자 API 응답 시간이 12초를 초과했습니다.`);
+      throw new Error(`${environment === "production" ? "운영" : "개발"} 관리자 API 응답 시간이 ${Math.ceil(timeoutMs / 1_000)}초를 초과했습니다.`);
     }
     throw error;
   }
@@ -64,9 +65,13 @@ export function formDataPayload(formData: FormData) {
   );
 }
 
-export async function callAdminAction<T>(action: string, formData: FormData): Promise<T> {
+export async function callAdminAction<T>(
+  action: string,
+  formData: FormData,
+  timeoutMs = ADMIN_API_TIMEOUT_MS,
+): Promise<T> {
   return callAdminApi<T>("/admin/actions", {
     method: "POST",
     body: JSON.stringify({ action, payload: formDataPayload(formData) }),
-  });
+  }, undefined, timeoutMs);
 }

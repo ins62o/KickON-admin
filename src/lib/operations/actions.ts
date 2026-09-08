@@ -397,7 +397,8 @@ export async function updateFixtureScheduleAction(_previous: OperationActionStat
   });
   if (error) {
     const schemaMissing = isOperationsSchemaMissing(error.code);
-    return { status: "error", message: schemaMissing ? "경기 일정 데이터베이스 기능이 아직 적용되지 않았습니다." : "경기 일정을 수정하지 못했습니다.", completedAt: null };
+    const unchanged = /FIXTURE_SCHEDULE_UNCHANGED/i.test(error.message ?? "");
+    return { status: "error", message: schemaMissing ? "경기 일정 데이터베이스 기능이 아직 적용되지 않았습니다." : unchanged ? "변경된 일정 정보가 없습니다." : "경기 일정을 수정하지 못했습니다.", completedAt: null };
   }
   if (data !== true) return { status: "error", message: "경기 일정을 수정하지 못했습니다.", completedAt: null };
 

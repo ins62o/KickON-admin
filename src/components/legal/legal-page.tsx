@@ -18,7 +18,7 @@ export function LegalHeader() {
           aria-label="KICKON 홈"
         >
           <span className="flex h-9 w-11 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-[#08111e]">
-            <Image src="/branding/app-logo.png" alt="" width={40} height={30} priority className="h-8 w-10 object-contain" />
+            <Image src="/branding/app-logo.png" alt="" width={32} height={32} priority className="size-8 object-contain" />
           </span>
           <span className="text-base font-semibold tracking-tight">KICKON</span>
         </Link>

@@ -18,8 +18,8 @@ if (
   process.exit(1);
 }
 
-environment.NEXT_PUBLIC_ADMIN_API_BASE_URL ||= "http://127.0.0.1:3001/api";
-environment.ADMIN_ALLOWED_ORIGINS ||= "http://localhost:3000,http://127.0.0.1:3000";
+environment.NEXT_PUBLIC_ADMIN_API_BASE_URL ||= "http://127.0.0.1:3002/api";
+environment.ADMIN_ALLOWED_ORIGINS ||= "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001";
 environment.NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB ||= environment.SUPABASE_DATABASE_LIMIT_GB;
 environment.NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB ||= environment.SUPABASE_STORAGE_LIMIT_GB;
 environment.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE ||= environment.SPORTSMONKS_API_ALLOWANCE;

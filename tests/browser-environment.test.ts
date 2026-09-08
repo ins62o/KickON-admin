@@ -6,6 +6,7 @@ import type { getBrowserSupabaseClient } from "../src/lib/supabase/browser.ts";
 import type * as Environment from "../src/lib/environment.ts";
 import type { callAdminApi } from "../src/lib/admin-api.ts";
 import type { signInAction, signOutAction } from "../src/lib/auth/actions.ts";
+import type { runSyncAction } from "../src/lib/sync/actions.ts";
 
 // Run the actual browser bundle (including @supabase/ssr), so its default
 // singleton behavior is exercised rather than mocked out.
@@ -14,7 +15,8 @@ const bundle = buildSync({
     contents: `export * from "./src/lib/supabase/browser";
       export * from "./src/lib/environment";
       export * from "./src/lib/admin-api";
-      export * from "./src/lib/auth/actions";`,
+      export * from "./src/lib/auth/actions";
+      export * from "./src/lib/sync/actions";`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -38,6 +40,18 @@ function browser() {
   const cookies = new Map<string, string>();
   const storage = new Map<string, string>();
   const requests: { url: string; authorization: string | null }[] = [];
+  const timeouts: number[] = [];
+  const trackedAbortSignal = new Proxy(AbortSignal, {
+    get(target, property, receiver) {
+      if (property === "timeout") {
+        return (milliseconds: number) => {
+          timeouts.push(milliseconds);
+          return AbortSignal.timeout(milliseconds);
+        };
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
   const document = {
     visibilityState: "hidden",
     get cookie() { return [...cookies].map(([k, v]) => `${k}=${v}`).join("; "); },
@@ -58,8 +72,9 @@ function browser() {
   });
   const context = vm.createContext({
     window, document, navigator: {}, console,
-    URL, URLSearchParams, Headers, Request, Response, FormData, AbortController, AbortSignal, WebSocket,
+    URL, URLSearchParams, Headers, Request, Response, FormData, AbortController, WebSocket,
     Event, CustomEvent, TextEncoder, TextDecoder, atob, btoa,
+    AbortSignal: trackedAbortSignal,
     setTimeout, clearTimeout, setInterval, clearInterval,
     fetch: async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
@@ -83,8 +98,9 @@ function browser() {
     callAdminApi: typeof callAdminApi;
     signInAction: typeof signInAction;
     signOutAction: typeof signOutAction;
+    runSyncAction: typeof runSyncAction;
   };
-  return { app, cookies, requests, storage };
+  return { app, cookies, requests, storage, timeouts };
 }
 
 for (const order of [
@@ -129,3 +145,23 @@ for (const order of [
     await Promise.all(clients.map((client) => client.auth.stopAutoRefresh()));
   });
 }
+
+test("전체 동기화 요청은 Edge Function 완료를 기다릴 수 있는 전용 제한시간을 사용한다", async () => {
+  const { app, timeouts } = browser();
+  const credentials = new FormData();
+  credentials.set("email", "qa@example.invalid");
+  credentials.set("password", "test-only");
+  await app.signInAction({ error: null, email: "" }, credentials);
+
+  const formData = new FormData();
+  formData.set("operation", "full");
+  formData.set("reason", "브라우저 요청 제한시간 검증");
+  const before = timeouts.length;
+  const result = await app.runSyncAction(
+    { status: "idle", message: null, operation: null, completedAt: null },
+    formData,
+  );
+
+  assert.equal(result.status, "success");
+  assert.deepEqual(timeouts.slice(before), [58_000]);
+});
