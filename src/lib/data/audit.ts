@@ -20,7 +20,8 @@ export function auditActionLabel(value: string) {
   return ({
     INSERT: "새로 추가", UPDATE: "수정", DELETE: "삭제", RETENTION_CLEANUP: "보관 기한 정리",
     SUPPORT_INQUIRY_UPDATE: "문의 처리", SUPPORT_INQUIRY_NOTE_ADD: "문의 메모 추가",
-    USER_WARN: "사용자 경고", USER_SUSPEND: "사용자 정지", USER_UNSUSPEND: "사용자 정지 해제",
+    USER_WARN: "사용자 경고", USER_SUSPEND: "커뮤니티 활동 정지", USER_UNSUSPEND: "커뮤니티 활동 정지 해제",
+    USER_ACCOUNT_SUSPEND: "계정 정지", USER_ACCOUNT_UNSUSPEND: "계정 정지 해제",
     CONTENT_REPORT_STATUS_UPDATE: "신고 상태 변경", CONTENT_HIDE: "콘텐츠 숨김", CONTENT_RESTORE: "콘텐츠 복원",
     PLAYER_VERIFIED_NAME_SET: "선수 검증명 변경", MANUAL_PLAYER_CREATED: "수동 선수 등록",
     MANUAL_PLAYER_UPDATED: "수동 선수 수정", MANUAL_PLAYER_MERGED: "수동 선수 병합",

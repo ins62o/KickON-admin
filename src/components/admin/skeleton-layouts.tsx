@@ -151,15 +151,15 @@ export function TableSkeleton({ rows = 7, columns = 4, minWidth = "min-w-[760px]
   );
 }
 
-export function DetailHeaderSkeleton({ action = true }: { action?: boolean }) {
+export function DetailHeaderSkeleton({ action = true, context = true, description = true, metadata = true, identityIcon = false, status = true }: { action?: boolean; context?: boolean; description?: boolean; metadata?: boolean; identityIcon?: boolean; status?: boolean }) {
   return (
     <div>
-      <Skeleton className="mb-4 h-4 w-28" />
+      {context ? <Skeleton className="mb-4 h-4 w-28" /> : null}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><Skeleton className="h-8 w-52 max-w-full" /><Skeleton className="h-6 w-16 rounded-md" /></div>
-          <Skeleton className="mt-2 h-4 w-80 max-w-full" />
-          <div className="mt-3 flex gap-3"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-24" /></div>
+          <div className="flex flex-wrap items-center gap-2">{identityIcon ? <Skeleton className="mr-1 size-10 rounded-lg" /> : null}<Skeleton className="h-8 w-52 max-w-full" />{status ? <Skeleton className="h-6 w-16 rounded-md" /> : null}</div>
+          {description ? <Skeleton className="mt-2 h-4 w-80 max-w-full" /> : null}
+          {metadata ? <div className="mt-3 flex gap-3"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-24" /></div> : null}
         </div>
         {action ? <Skeleton className="h-9 w-28 rounded-lg" /> : null}
       </header>

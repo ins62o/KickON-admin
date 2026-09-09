@@ -17,6 +17,9 @@ type LambdaEvent = {
 type LambdaResponse = { statusCode: number; headers: Record<string, string>; body: string };
 type AdminContext = { client: SupabaseClient; userId: string; role: AdminRole };
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const allowedSuspensionDays = new Set([1, 3, 7, 30, 90, 365]);
+
 function header(event: LambdaEvent, name: string) {
   const entry = Object.entries(event.headers ?? {}).find(([key]) => key.toLowerCase() === name.toLowerCase());
   return entry?.[1]?.trim() ?? "";
@@ -142,6 +145,82 @@ function safeResult(value: unknown) {
     .filter(([key]) => !/token|secret|authorization|playerNames/i.test(key)).slice(0, 30));
 }
 
+function getSecretAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const secretKey = process.env.SUPABASE_ADMIN_SECRET_KEY?.trim()
+    || process.env.SUPABASE_METRICS_SECRET_KEY?.trim();
+  if (!url || !secretKey) throw new Error("계정 정지에 필요한 서버 전용 Supabase 설정이 없습니다.");
+  return createClient(url, secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
+function previousBanDuration(bannedUntil: string | undefined) {
+  const remainingMilliseconds = bannedUntil ? Date.parse(bannedUntil) - Date.now() : 0;
+  return Number.isFinite(remainingMilliseconds) && remainingMilliseconds > 0
+    ? `${Math.max(1, Math.ceil(remainingMilliseconds / 1_000))}s`
+    : "none";
+}
+
+async function runUserAccountAction(context: AdminContext, payload: Record<string, unknown>) {
+  if (!hasAdminPermission(context.role, "users.moderate")) throw new Error("사용자 조치 권한이 없습니다.");
+
+  const userId = String(payload.userId ?? "").trim();
+  const action = String(payload.action ?? "").trim().toUpperCase();
+  const reason = String(payload.reason ?? "").trim();
+  const reportId = String(payload.reportId ?? "").trim();
+  const suspensionDays = Number(payload.suspensionDays);
+  if (!uuidPattern.test(userId) || !["ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) {
+    throw new Error("사용자 또는 계정 조치 유형이 올바르지 않습니다.");
+  }
+  if (reason.length < 3 || reason.length > 1_000) throw new Error("조치 사유를 3자 이상 1,000자 이하로 입력해 주세요.");
+  if (reportId && !uuidPattern.test(reportId)) throw new Error("연결할 신고 ID가 올바르지 않습니다.");
+  if (action === "ACCOUNT_SUSPEND" && (!Number.isInteger(suspensionDays) || !allowedSuspensionDays.has(suspensionDays))) {
+    throw new Error("정지 기간을 선택해 주세요.");
+  }
+
+  const secretClient = getSecretAdminClient();
+  const [userResult, profileResult, adminMembershipResult] = await Promise.all([
+    secretClient.auth.admin.getUserById(userId),
+    secretClient.from("profiles").select("id").eq("id", userId).maybeSingle(),
+    secretClient.from("admin_users").select("is_active").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (userResult.error || !userResult.data.user) throw new Error("정지할 인증 계정을 찾을 수 없습니다.");
+  if (profileResult.error || !profileResult.data) throw new Error("정지할 사용자 프로필을 찾을 수 없습니다.");
+  if (adminMembershipResult.error) throw new Error("대상 사용자의 관리자 여부를 확인하지 못했습니다.");
+  if (adminMembershipResult.data?.is_active && !hasAdminPermission(context.role, "admins.manage")) {
+    throw new Error("활성 관리자 계정은 최고 관리자만 정지할 수 있습니다.");
+  }
+
+  const bannedUntil = userResult.data.user.banned_until;
+  const suspendedUntil = action === "ACCOUNT_SUSPEND"
+    ? new Date(Date.now() + suspensionDays * 86_400_000).toISOString()
+    : null;
+  const banDuration = action === "ACCOUNT_SUSPEND" ? `${suspensionDays * 24}h` : "none";
+  const authUpdate = await secretClient.auth.admin.updateUserById(userId, { ban_duration: banDuration });
+  if (authUpdate.error) throw new Error("Supabase 인증 계정의 정지 상태를 변경하지 못했습니다.");
+
+  const databaseUpdate = await context.client.rpc("admin_apply_user_action", {
+    p_user_id: userId,
+    p_action: action,
+    p_reason: reason,
+    p_suspended_until: suspendedUntil,
+    p_content_report_id: reportId || null,
+  });
+  if (databaseUpdate.error) {
+    const rollback = await secretClient.auth.admin.updateUserById(userId, {
+      ban_duration: previousBanDuration(bannedUntil),
+    });
+    if (rollback.error) throw new Error("계정 기록에 실패했고 인증 상태도 자동 복구하지 못했습니다. 즉시 관리자 확인이 필요합니다.");
+    throw new Error("계정 상태를 기록하지 못해 인증 변경을 되돌렸습니다.");
+  }
+
+  return {
+    status: "success",
+    message: action === "ACCOUNT_SUSPEND" ? "계정 전체 이용을 정지했습니다." : "계정 정지를 해제했습니다.",
+  };
+}
+
 async function runSync(context: AdminContext, payload: Record<string, unknown>) {
   if (!hasAdminPermission(context.role, "sync.run")) throw new Error("동기화 실행 권한이 없습니다.");
   const operationKey = String(payload.operation ?? "");
@@ -264,8 +343,10 @@ export async function handler(event: LambdaEvent): Promise<LambdaResponse> {
       const body = parseBody(event);
       if (!body || typeof body !== "object" || Array.isArray(body)) return response(event, 400, { error: "JSON 요청 본문이 필요합니다." });
       const record = body as { action?: unknown; payload?: unknown };
-      if (record.action !== "runSync" || !record.payload || typeof record.payload !== "object" || Array.isArray(record.payload)) return response(event, 400, { error: "지원하지 않는 관리자 작업입니다." });
-      return response(event, 200, await runSync(admin, record.payload as Record<string, unknown>));
+      if (!record.payload || typeof record.payload !== "object" || Array.isArray(record.payload)) return response(event, 400, { error: "지원하지 않는 관리자 작업입니다." });
+      if (record.action === "runSync") return response(event, 200, await runSync(admin, record.payload as Record<string, unknown>));
+      if (record.action === "applyUserAccountAction") return response(event, 200, await runUserAccountAction(admin, record.payload as Record<string, unknown>));
+      return response(event, 400, { error: "지원하지 않는 관리자 작업입니다." });
     }
     return response(event, 404, { error: "관리자 API 경로를 찾을 수 없습니다." });
   } catch (error) {

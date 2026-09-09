@@ -126,7 +126,7 @@ export default function UsersPage() {
     page: searchParams.get("page") ?? undefined,
   };
   const keyword = query.q?.trim().toLocaleLowerCase("ko-KR") ?? "";
-  const accountStatusFilter = query.status === "ACTIVE" || query.status === "SUSPENDED"
+  const accountStatusFilter = ["ACTIVE", "SUSPENDED", "COMMUNITY_SUSPENDED", "ACCOUNT_SUSPENDED"].includes(query.status ?? "")
     ? query.status
     : "all";
   const teamFilter = query.team && (USER_TEAM_IDS as readonly string[]).includes(query.team)
@@ -134,7 +134,9 @@ export default function UsersPage() {
     : "all";
   const rows = data.users.filter((user) => {
     if (keyword && ![user.nickname, user.id, user.teamName].filter(Boolean).some((value) => String(value).toLocaleLowerCase("ko-KR").includes(keyword))) return false;
-    if (accountStatusFilter !== "all" && (user.accountStatus ?? "ACTIVE") !== accountStatusFilter) return false;
+    const userStatus = user.accountStatus ?? "ACTIVE";
+    if (accountStatusFilter === "COMMUNITY_SUSPENDED" && !["COMMUNITY_SUSPENDED", "SUSPENDED"].includes(userStatus)) return false;
+    if (accountStatusFilter !== "all" && accountStatusFilter !== "COMMUNITY_SUSPENDED" && userStatus !== accountStatusFilter) return false;
     if (teamFilter !== "all" && user.teamId !== teamFilter) return false;
     return true;
   });
@@ -265,9 +267,13 @@ export default function UsersPage() {
                     <span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />
                     정상
                   </SelectItem>
-                  <SelectItem value="SUSPENDED" className="py-2 pr-8 pl-2.5">
+                  <SelectItem value="COMMUNITY_SUSPENDED" className="py-2 pr-8 pl-2.5">
                     <span className="size-2 rounded-full bg-amber-500" aria-hidden="true" />
-                    정지
+                    커뮤니티 정지
+                  </SelectItem>
+                  <SelectItem value="ACCOUNT_SUSPENDED" className="py-2 pr-8 pl-2.5">
+                    <span className="size-2 rounded-full bg-red-500" aria-hidden="true" />
+                    계정 정지
                   </SelectItem>
                 </SelectContent>
               </Select>

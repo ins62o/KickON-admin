@@ -4,6 +4,7 @@ import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
 import { hasAdminPermission, type AdminPermission } from "@/lib/auth/permissions";
 import { invalidateAdminData } from "@/lib/client-data";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { callAdminAction } from "@/lib/admin-api";
 import {
   buildCommunityNoticeRpcArgs,
   communityNoticeErrorMessage,
@@ -17,6 +18,7 @@ export type AdminActionState = {
 export const initialAdminActionState: AdminActionState = { status: "idle", message: null };
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const allowedSuspensionDays = new Set([1, 3, 7, 30, 90, 365]);
 
 async function mutationContext(permission: AdminPermission) {
   const admin = await getCurrentBrowserAdmin();
@@ -111,17 +113,28 @@ export async function applyUserModerationAction(_state: AdminActionState, formDa
   const userId = textValue(formData, "userId", 36);
   const action = textValue(formData, "action", 20).toUpperCase();
   const reason = textValue(formData, "reason", 1000);
-  const suspendedUntilInput = textValue(formData, "suspendedUntil", 80);
+  const suspensionDays = Number(textValue(formData, "suspensionDays", 3));
   const reportIdInput = textValue(formData, "reportId", 36);
-  if (!uuidPattern.test(userId) || !["WARN", "SUSPEND", "UNSUSPEND"].includes(action)) return { status: "error", message: "사용자 또는 조치 유형이 올바르지 않습니다." };
+  if (!uuidPattern.test(userId) || !["WARN", "SUSPEND", "UNSUSPEND", "ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) return { status: "error", message: "사용자 또는 조치 유형이 올바르지 않습니다." };
   if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "조치 사유를 3자 이상 1,000자 이하로 입력해 주세요." };
   let suspendedUntil: string | null = null;
-  if (action === "SUSPEND") {
-    const parsed = new Date(suspendedUntilInput);
-    if (!suspendedUntilInput || !Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now() || parsed.getTime() > Date.now() + 365 * 86_400_000) return { status: "error", message: "정지 종료 시각은 지금부터 365일 이내로 선택해 주세요." };
-    suspendedUntil = parsed.toISOString();
+  if (["SUSPEND", "ACCOUNT_SUSPEND"].includes(action)) {
+    if (!Number.isInteger(suspensionDays) || !allowedSuspensionDays.has(suspensionDays)) return { status: "error", message: "정지 기간을 선택해 주세요." };
+    suspendedUntil = new Date(Date.now() + suspensionDays * 86_400_000).toISOString();
   }
   if (reportIdInput && !uuidPattern.test(reportIdInput)) return { status: "error", message: "연결할 신고 ID가 올바르지 않습니다." };
+  if (["ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) {
+    try {
+      const result = await callAdminAction<AdminActionState>("applyUserAccountAction", formData);
+      if (result.status === "success") invalidateAdminData();
+      return result;
+    } catch (error) {
+      return {
+        status: "error",
+        message: error instanceof Error ? error.message : "계정 정지 상태를 저장하지 못했습니다.",
+      };
+    }
+  }
   const result = await context.supabase.rpc("admin_apply_user_action", { p_user_id: userId, p_action: action, p_reason: reason, p_suspended_until: suspendedUntil, p_content_report_id: reportIdInput || null });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();

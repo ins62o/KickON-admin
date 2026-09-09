@@ -126,10 +126,11 @@ test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 �
   assert.match(actions, /invalidateAdminData\(\)/);
 });
 
-test("사용자·문의 검색 버튼과 접수 날짜, 드롭다운 너비를 요청한 형식으로 표시한다", () => {
+test("사용자·문의 검색 버튼과 접수 날짜, 드롭다운 너비와 정지 기간을 요청한 형식으로 표시한다", () => {
   const users = fs.readFileSync(path.join(root, "src/app/(console)/users/page.tsx"), "utf8");
   const inquiries = fs.readFileSync(path.join(root, "src/app/(console)/inquiries/page.tsx"), "utf8");
   const moderationForm = fs.readFileSync(path.join(root, "src/components/admin/user-moderation-form.tsx"), "utf8");
+  const adminActions = fs.readFileSync(path.join(root, "src/lib/admin/actions.ts"), "utf8");
   assert.doesNotMatch(users, /<Search className=/);
   assert.doesNotMatch(inquiries, /<Search className=/);
   assert.doesNotMatch(users, /\bSearch\b/);
@@ -140,7 +141,11 @@ test("사용자·문의 검색 버튼과 접수 날짜, 드롭다운 너비를 �
   assert.equal((users.match(/w-\(--radix-select-trigger-width\)/g) ?? []).length, 2);
   assert.equal((inquiries.match(/w-\(--radix-select-trigger-width\)/g) ?? []).length, 4);
   assert.match(moderationForm, /value=\{selectedAction\}/);
-  assert.match(moderationForm, /disabled=\{selectedAction !== "SUSPEND"\}/);
+  assert.match(moderationForm, /\[1, 3, 7, 30, 90, 365\]/);
+  assert.match(moderationForm, /name="suspensionDays"/);
+  assert.match(moderationForm, /disabled=\{!suspensionEnabled\}/);
+  assert.match(adminActions, /allowedSuspensionDays = new Set\(\[1, 3, 7, 30, 90, 365\]\)/);
+  assert.match(adminActions, /suspensionDays \* 86_400_000/);
   assert.match(moderationForm, /onReset=\{\(event\) => event\.preventDefault\(\)\}/);
 });
 
