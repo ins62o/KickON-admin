@@ -84,6 +84,117 @@ jobs:
           test -s out/login/index.html
           test -s dist/admin-api/index.js
 
+  deploy-development-api:
+    name: Deploy development admin API
+    needs: verify
+    if: >-
+      github.ref == 'refs/heads/Dev' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # AWS OIDC trust and deployment variables currently belong to this environment.
+    # The guards below restrict this job to the separately configured development Lambda.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_PAGER: ""
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+      DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME: ${{ vars.AWS_DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME }}
+      PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME: ${{ vars.AWS_PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate development deployment target
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            AWS_ACCOUNT_ID
+            AWS_REGION
+            AWS_ROLE_TO_ASSUME
+            DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME
+            PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME
+          )
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "Missing deployment variable: $variable" >&2
+              exit 1
+            fi
+          done
+
+          if [[ "$DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME" == "$PRODUCTION_ADMIN_API_LAMBDA_FUNCTION_NAME" ]]; then
+            echo "Development and production Lambda names must be different." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies and build development admin API
+        run: |
+          npm ci
+          npm run build:admin-api
+          test -s dist/admin-api/index.js
+          (cd dist/admin-api && zip -q -9 ../admin-api.zip index.js)
+          sha256sum dist/admin-api.zip
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          role-session-name: kickon-admin-development-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Validate and deploy development Lambda
+        shell: bash
+        run: |
+          set -euo pipefail
+          function_name="$DEVELOPMENT_ADMIN_API_LAMBDA_FUNCTION_NAME"
+          configuration="$(aws lambda get-function-configuration \
+            --function-name "$function_name" \
+            --output json)"
+
+          if ! jq -e '
+            .Runtime == "nodejs22.x"
+            and .Handler == "index.handler"
+            and (.Timeout >= 60)
+            and .Environment.Variables.KICKON_ENVIRONMENT == "development"
+          ' <<< "$configuration" >/dev/null; then
+            echo "Refusing deployment: target is not the configured development Lambda." >&2
+            exit 1
+          fi
+
+          version="$(aws lambda update-function-code \
+            --function-name "$function_name" \
+            --zip-file fileb://dist/admin-api.zip \
+            --publish \
+            --query 'Version' \
+            --output text)"
+          aws lambda wait function-updated-v2 --function-name "$function_name"
+          update_status="$(aws lambda get-function-configuration \
+            --function-name "$function_name" \
+            --query 'LastUpdateStatus' \
+            --output text)"
+          if [[ "$update_status" != "Successful" ]]; then
+            echo "Development Lambda update failed: $update_status" >&2
+            exit 1
+          fi
+
+          echo "### Development deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Admin API: $function_name (version $version)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production Lambda, S3, and CloudFront: unchanged" >> "$GITHUB_STEP_SUMMARY"
+
   deploy-production:
     name: Deploy production
     needs: verify
