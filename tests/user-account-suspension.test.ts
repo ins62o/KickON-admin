@@ -21,6 +21,8 @@ test("사용자 조치 화면은 커뮤니티 정지와 계정 정지를 구분�
   assert.match(form, /\["SUSPEND", "ACCOUNT_SUSPEND"\]\.includes\(selectedAction\)/);
   assert.match(form, /role="group" aria-labelledby="suspension-duration-label"/);
   assert.match(form, /pendingLabel="실행 중…"[\s\S]*>실행<\/ActionSubmit>/);
+  assert.match(form, /className="min-w-28 px-6"/);
+  assert.match(form, /className="min-h-28 px-4 py-3\.5 text-sm"/);
   assert.match(detail, /관련 신고<\/Link>/);
   assert.match(detail, /variant="outline" size="default"/);
 });

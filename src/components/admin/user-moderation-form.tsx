@@ -58,9 +58,9 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
     </div>
     <div className="space-y-2">
       <label htmlFor="user-moderation-reason" className="block text-sm font-medium">조치 사유</label>
-      <Textarea id="user-moderation-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
+      <Textarea id="user-moderation-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 px-4 py-3.5 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
     </div>
     {state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}
-    <div className="flex justify-end"><ActionSubmit pendingLabel="실행 중…" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>실행</ActionSubmit></div>
+    <div className="flex justify-end"><ActionSubmit pendingLabel="실행 중…" className="min-w-28 px-6" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>실행</ActionSubmit></div>
   </form>;
 }
