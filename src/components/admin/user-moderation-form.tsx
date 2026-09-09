@@ -32,8 +32,9 @@ function initialAction(accountStatus: string | null) {
 
 export function UserModerationForm({ userId, nickname, accountStatus, reportId }: UserModerationFormProps) {
   const [state, action] = useActionState(applyUserModerationAction, initialAdminActionState);
-  const [selectedAction, setSelectedAction] = useState(initialAction(accountStatus));
+  const [actionSelection, setActionSelection] = useState(() => ({ accountStatus, action: initialAction(accountStatus) }));
   const [suspensionDays, setSuspensionDays] = useState("7");
+  const selectedAction = actionSelection.accountStatus === accountStatus ? actionSelection.action : initialAction(accountStatus);
   const suspensionEnabled = ["SUSPEND", "ACCOUNT_SUSPEND"].includes(selectedAction);
   const communitySuspended = ["COMMUNITY_SUSPENDED", "SUSPENDED"].includes(accountStatus ?? "");
   const accountSuspended = accountStatus === "ACCOUNT_SUSPENDED";
@@ -52,7 +53,7 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
       </div>
       <div className="space-y-2">
         <label htmlFor="user-moderation-action" className="block text-sm font-medium">조치</label>
-        <Select name="action" value={selectedAction} onValueChange={setSelectedAction}>
+        <Select name="action" value={selectedAction} onValueChange={(nextAction) => setActionSelection({ accountStatus, action: nextAction })}>
           <SelectTrigger id="user-moderation-action" className="h-11! w-full cursor-pointer rounded-lg border-border/80 bg-muted/35 px-3.5 text-sm font-medium hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50">
             <SelectValue />
           </SelectTrigger>
@@ -96,7 +97,7 @@ export function UserModerationDialog({ userId, accountStatus, nickname }: UserMo
       <DialogHeader className="gap-0 pr-9">
         <DialogTitle className="text-xl leading-7">사용자 조치</DialogTitle>
       </DialogHeader>
-      <UserModerationForm key={`${userId}:${accountStatus}`} userId={userId} nickname={nickname} accountStatus={accountStatus} />
+      <UserModerationForm userId={userId} nickname={nickname} accountStatus={accountStatus} />
     </DialogContent>
   </Dialog>;
 }
