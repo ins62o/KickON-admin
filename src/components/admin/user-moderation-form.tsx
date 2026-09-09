@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Ban } from "lucide-react";
 import { ActionSubmit } from "@/components/admin/action-submit";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +19,7 @@ const suspensionDayOptions = [1, 3, 7, 30, 90, 365] as const;
 
 type UserModerationFormProps = {
   userId: string;
+  nickname: string;
   accountStatus: string | null;
   reportId?: string;
 };
@@ -30,7 +30,7 @@ function initialAction(accountStatus: string | null) {
   return "SUSPEND";
 }
 
-export function UserModerationForm({ userId, accountStatus, reportId }: UserModerationFormProps) {
+export function UserModerationForm({ userId, nickname, accountStatus, reportId }: UserModerationFormProps) {
   const [state, action] = useActionState(applyUserModerationAction, initialAdminActionState);
   const [selectedAction, setSelectedAction] = useState(initialAction(accountStatus));
   const [suspensionDays, setSuspensionDays] = useState("7");
@@ -43,7 +43,18 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
     <input type="hidden" name="userId" value={userId} />
     <input type="hidden" name="suspensionDays" value={suspensionEnabled ? suspensionDays : ""} />
     {reportId ? <input type="hidden" name="reportId" value={reportId} /> : null}
-    <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+    <div className="grid gap-5 md:grid-cols-3">
+      <div className="space-y-2">
+        <label htmlFor="user-moderation-nickname" className="block text-sm font-medium">닉네임</label>
+        <Select value={userId}>
+          <SelectTrigger id="user-moderation-nickname" className="h-11! w-full cursor-pointer rounded-lg border-border/80 bg-muted/35 px-3.5 text-sm font-medium hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-lg border border-border/80 bg-popover p-1 shadow-2xl">
+            <SelectItem value={userId} className="cursor-pointer py-2.5 pr-8 pl-2.5">{nickname}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="space-y-2">
         <label htmlFor="user-moderation-action" className="block text-sm font-medium">조치</label>
         <Select name="action" value={selectedAction} onValueChange={setSelectedAction}>
@@ -59,10 +70,15 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
         </Select>
       </div>
       <div className={cn("space-y-2", !suspensionEnabled && "opacity-55")}>
-        <span id="suspension-duration-label" className="block text-sm font-medium">정지 기간</span>
-        <div role="group" aria-labelledby="suspension-duration-label" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {suspensionDayOptions.map((days) => <button key={days} type="button" disabled={!suspensionEnabled} aria-pressed={suspensionDays === String(days)} onClick={() => setSuspensionDays(String(days))} className={cn("h-11 rounded-lg border border-border/80 bg-muted/30 px-3 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:hover:border-border/80 disabled:hover:bg-muted/30", suspensionDays === String(days) && suspensionEnabled && "border-primary bg-primary/10 text-primary")}>{days}일</button>)}
-        </div>
+        <label htmlFor="user-moderation-duration" className="block text-sm font-medium">정지 기간</label>
+        <Select value={suspensionEnabled ? suspensionDays : ""} onValueChange={setSuspensionDays} disabled={!suspensionEnabled}>
+          <SelectTrigger id="user-moderation-duration" className="h-11! w-full cursor-pointer rounded-lg border-border/80 bg-muted/35 px-3.5 text-sm font-medium hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 disabled:cursor-not-allowed dark:bg-muted/35 dark:hover:bg-muted/50">
+            <SelectValue placeholder="해당 없음" />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-lg border border-border/80 bg-popover p-1 shadow-2xl">
+            {suspensionDayOptions.map((days) => <SelectItem key={days} value={String(days)} className="cursor-pointer py-2.5 pr-8 pl-2.5">{days}일</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
     </div>
     <div className="space-y-2">
@@ -74,19 +90,18 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
   </form>;
 }
 
-export function UserModerationDialog({ userId, accountStatus, nickname }: UserModerationFormProps & { nickname: string }) {
+export function UserModerationDialog({ userId, accountStatus, nickname }: UserModerationFormProps) {
   return <Dialog>
     <DialogTrigger asChild>
       <Button type="button" variant="destructive" size="default" className="min-w-24 px-5">
-        <Ban className="size-4" aria-hidden="true" />
         정지
       </Button>
     </DialogTrigger>
     <DialogContent className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto rounded-2xl p-5 sm:max-w-3xl sm:p-6" aria-describedby={undefined}>
       <DialogHeader className="gap-0 pr-9">
-        <DialogTitle className="text-xl leading-7">사용자 조치 · {nickname}</DialogTitle>
+        <DialogTitle className="text-xl leading-7">사용자 조치</DialogTitle>
       </DialogHeader>
-      <UserModerationForm key={`${userId}:${accountStatus}`} userId={userId} accountStatus={accountStatus} />
+      <UserModerationForm key={`${userId}:${accountStatus}`} userId={userId} nickname={nickname} accountStatus={accountStatus} />
     </DialogContent>
   </Dialog>;
 }
