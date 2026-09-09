@@ -17,9 +17,19 @@ test("사용자 조치 화면은 커뮤니티 정지와 계정 정지를 구분�
   assert.match(form, /value="ACCOUNT_SUSPEND"[^>]*>계정 전체 정지/);
   assert.match(form, /value="UNSUSPEND"[^>]*>커뮤니티 정지 해제/);
   assert.match(form, /value="ACCOUNT_UNSUSPEND"[^>]*>계정 정지 해제/);
+  assert.doesNotMatch(form, /value="WARN"/);
   assert.match(form, /\["SUSPEND", "ACCOUNT_SUSPEND"\]\.includes\(selectedAction\)/);
+  assert.match(form, /role="group" aria-labelledby="suspension-duration-label"/);
+  assert.match(form, /pendingLabel="실행 중…"[\s\S]*>실행<\/ActionSubmit>/);
   assert.match(detail, /관련 신고<\/Link>/);
   assert.match(detail, /variant="outline" size="default"/);
+});
+
+test("사용자 조치 입력은 정지와 해제 유형만 허용한다", () => {
+  const actions = source("src/lib/admin/actions.ts");
+
+  assert.match(actions, /\["SUSPEND", "UNSUSPEND", "ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"\]\.includes\(action\)/);
+  assert.doesNotMatch(actions, /\["WARN", "SUSPEND"/);
 });
 
 test("계정 정지는 브라우저 RPC가 아니라 서버 전용 관리자 API를 사용한다", () => {

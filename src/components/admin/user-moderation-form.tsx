@@ -18,7 +18,7 @@ type UserModerationFormProps = {
 function initialAction(accountStatus: string | null) {
   if (accountStatus === "ACCOUNT_SUSPENDED") return "ACCOUNT_UNSUSPEND";
   if (["COMMUNITY_SUSPENDED", "SUSPENDED"].includes(accountStatus ?? "")) return "UNSUSPEND";
-  return "WARN";
+  return "SUSPEND";
 }
 
 export function UserModerationForm({ userId, accountStatus, reportId }: UserModerationFormProps) {
@@ -34,7 +34,7 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
     <input type="hidden" name="userId" value={userId} />
     <input type="hidden" name="suspensionDays" value={suspensionEnabled ? suspensionDays : ""} />
     {reportId ? <input type="hidden" name="reportId" value={reportId} /> : null}
-    <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end">
+    <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
       <div className="space-y-2">
         <label htmlFor="user-moderation-action" className="block text-sm font-medium">조치</label>
         <Select name="action" value={selectedAction} onValueChange={setSelectedAction}>
@@ -42,7 +42,6 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-lg border border-border/80 bg-popover p-1 shadow-2xl">
-            <SelectItem value="WARN" className="cursor-pointer py-2.5 pr-8 pl-2.5">경고 기록</SelectItem>
             <SelectItem value="SUSPEND" className="cursor-pointer py-2.5 pr-8 pl-2.5">커뮤니티 활동 정지</SelectItem>
             <SelectItem value="ACCOUNT_SUSPEND" className="cursor-pointer py-2.5 pr-8 pl-2.5 text-danger focus:text-danger">계정 전체 정지</SelectItem>
             {communitySuspended ? <SelectItem value="UNSUSPEND" className="cursor-pointer py-2.5 pr-8 pl-2.5">커뮤니티 정지 해제</SelectItem> : null}
@@ -50,18 +49,18 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
           </SelectContent>
         </Select>
       </div>
-      <fieldset className={cn("space-y-2", !suspensionEnabled && "opacity-55")}>
-        <legend className="text-sm font-medium">정지 기간</legend>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      <div className={cn("space-y-2", !suspensionEnabled && "opacity-55")}>
+        <span id="suspension-duration-label" className="block text-sm font-medium">정지 기간</span>
+        <div role="group" aria-labelledby="suspension-duration-label" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {suspensionDayOptions.map((days) => <button key={days} type="button" disabled={!suspensionEnabled} aria-pressed={suspensionDays === String(days)} onClick={() => setSuspensionDays(String(days))} className={cn("h-11 rounded-lg border border-border/80 bg-muted/30 px-3 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:hover:border-border/80 disabled:hover:bg-muted/30", suspensionDays === String(days) && suspensionEnabled && "border-primary bg-primary/10 text-primary")}>{days}일</button>)}
         </div>
-      </fieldset>
+      </div>
     </div>
     <div className="space-y-2">
       <label htmlFor="user-moderation-reason" className="block text-sm font-medium">조치 사유</label>
       <Textarea id="user-moderation-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
     </div>
     {state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}
-    <div className="flex justify-end"><ActionSubmit variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>사용자 조치 저장</ActionSubmit></div>
+    <div className="flex justify-end"><ActionSubmit pendingLabel="실행 중…" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>실행</ActionSubmit></div>
   </form>;
 }

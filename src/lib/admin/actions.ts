@@ -115,7 +115,7 @@ export async function applyUserModerationAction(_state: AdminActionState, formDa
   const reason = textValue(formData, "reason", 1000);
   const suspensionDays = Number(textValue(formData, "suspensionDays", 3));
   const reportIdInput = textValue(formData, "reportId", 36);
-  if (!uuidPattern.test(userId) || !["WARN", "SUSPEND", "UNSUSPEND", "ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) return { status: "error", message: "사용자 또는 조치 유형이 올바르지 않습니다." };
+  if (!uuidPattern.test(userId) || !["SUSPEND", "UNSUSPEND", "ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) return { status: "error", message: "사용자 또는 조치 유형이 올바르지 않습니다." };
   if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "조치 사유를 3자 이상 1,000자 이하로 입력해 주세요." };
   let suspendedUntil: string | null = null;
   if (["SUSPEND", "ACCOUNT_SUSPEND"].includes(action)) {
@@ -138,7 +138,7 @@ export async function applyUserModerationAction(_state: AdminActionState, formDa
   const result = await context.supabase.rpc("admin_apply_user_action", { p_user_id: userId, p_action: action, p_reason: reason, p_suspended_until: suspendedUntil, p_content_report_id: reportIdInput || null });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
-  return { status: "success", message: action === "WARN" ? "사용자 경고를 기록했습니다." : action === "SUSPEND" ? "커뮤니티 활동을 일시 정지했습니다." : "커뮤니티 활동 정지를 해제했습니다." };
+  return { status: "success", message: action === "SUSPEND" ? "커뮤니티 활동을 일시 정지했습니다." : "커뮤니티 활동 정지를 해제했습니다." };
 }
 
 export async function updateContentReportAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
