@@ -23,8 +23,14 @@ test("사용자 조치 화면은 커뮤니티 정지와 계정 정지를 구분�
   assert.match(form, /pendingLabel="실행 중…"[\s\S]*>실행<\/ActionSubmit>/);
   assert.match(form, /className="min-w-28 px-6"/);
   assert.match(form, /className="min-h-28 px-4 py-3\.5 text-sm"/);
+  assert.match(form, /export function UserModerationDialog/);
+  assert.match(form, /<DialogTrigger asChild>/);
+  assert.match(form, />\s*정지\s*<\/Button>/);
+  assert.match(form, /사용자 조치 · \{nickname\}/);
   assert.match(detail, /관련 신고<\/Link>/);
   assert.match(detail, /variant="outline" size="default"/);
+  assert.match(detail, /<UserModerationDialog userId=\{user\.id\}/);
+  assert.doesNotMatch(detail, /id="moderate-user-title"/);
 });
 
 test("사용자 조치 입력은 정지와 해제 유형만 허용한다", () => {

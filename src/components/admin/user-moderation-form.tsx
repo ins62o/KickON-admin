@@ -1,7 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Ban } from "lucide-react";
 import { ActionSubmit } from "@/components/admin/action-submit";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { applyUserModerationAction, initialAdminActionState } from "@/lib/admin/actions";
@@ -63,4 +72,21 @@ export function UserModerationForm({ userId, accountStatus, reportId }: UserMode
     {state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}
     <div className="flex justify-end"><ActionSubmit pendingLabel="실행 중…" className="min-w-28 px-6" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>실행</ActionSubmit></div>
   </form>;
+}
+
+export function UserModerationDialog({ userId, accountStatus, nickname }: UserModerationFormProps & { nickname: string }) {
+  return <Dialog>
+    <DialogTrigger asChild>
+      <Button type="button" variant="destructive" size="default" className="min-w-24 px-5">
+        <Ban className="size-4" aria-hidden="true" />
+        정지
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto rounded-2xl p-5 sm:max-w-3xl sm:p-6" aria-describedby={undefined}>
+      <DialogHeader className="gap-0 pr-9">
+        <DialogTitle className="text-xl leading-7">사용자 조치 · {nickname}</DialogTitle>
+      </DialogHeader>
+      <UserModerationForm key={`${userId}:${accountStatus}`} userId={userId} accountStatus={accountStatus} />
+    </DialogContent>
+  </Dialog>;
 }
