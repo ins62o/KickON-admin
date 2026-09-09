@@ -91,12 +91,13 @@
 | QA-13 | 두 저장소의 migration 누락과 `202609080005` 번호 충돌 | 적용 파일 상호 미러링, 팬 활동 migration을 `202609080008`로 이동, 수동 적용된 6개 이력을 객체 검증 후 repair | 양쪽 `migration list --linked` 및 `db push --dry-run` 완전 일치. 외부 동시 적용된 `080008`도 DB 객체·권한·레벨 계산 검증 |
 | QA-14 | 전체 동기화는 실제로 성공하지만 브라우저 공통 API 제한이 12초라 먼저 실패 표시 | 일반 조회는 12초를 유지하고 동기화 작업만 58초 제한을 사용하도록 `callAdminAction`에 전용 제한시간 전달 | 재현 실행은 DB에서 50.8초 뒤 `succeeded`였고 UI만 12초 오류. 수정 후 종료 경기 보강은 약 4.7초 뒤 UI 성공, 새로고침 상태 정상·오류 없음, DB `succeeded` 확인. 브라우저 번들 테스트 추가 |
 | QA-15 | 개발용 `127.0.0.1:3001` fallback 문자열이 운영 정적 청크에 남아 CI 산출물 검사를 실패시킴 | 개발 기본 fallback을 동등한 `localhost:3001/api`로 변경하고 무설정 fallback 회귀 테스트 추가 | 테스트 50/50 통과. CI와 동일한 공개 placeholder 환경으로 다시 빌드해 정적 24개 경로 생성, 금지 로컬 주소 0건·서버 비밀값 0건 확인 |
+| QA-16 | GitHub Actions Linux에서 `Intl.DateTimeFormat("ko-KR")`의 day period가 `오후` 대신 `PM`으로 나와 날짜 테스트 2건 실패 | 서울 시간의 24시간 값을 기준으로 오전/오후와 12시간 표기를 코드에서 결정하도록 공통·공지 포맷터 수정 | `LANG=C`, `LC_ALL=C`에서 테스트 50/50, 타입·린트·정적/API 빌드 통과. 실제 브라우저의 운영 조회 모드에서 `오전/오후` 표시 확인. 첫 실행 #9는 verify 실패로 운영 배포가 자동 생략됨 |
 
 ## 자동 검사
 
 | 검사 | 결과 |
 |---|---|
-| `npm test` | **50/50 통과**, fail/skip 0 |
+| `npm test` | **50/50 통과**, fail/skip 0 (`LANG=C`, `LC_ALL=C` 포함) |
 | `npm run typecheck` | 통과 |
 | `npm run lint` | 통과 |
 | `npm run build:static` | 통과 — CI와 동일한 공개 설정, Next.js 16.3.3, 정적 24개 경로 생성, `127.0.0.1:3001`·서버 비밀값 0건 |

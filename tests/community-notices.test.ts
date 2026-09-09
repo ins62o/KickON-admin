@@ -109,13 +109,15 @@ test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 �
   assert.match(component, /w-64 px-8">등록 시각/);
   assert.match(component, /items-center justify-center gap-2/);
   assert.match(component, /formatNoticeDateTime/);
-  assert.match(component, /월 \$\{part\("day"\)\}일/);
-  assert.match(component, /\$\{part\("hour"\)\}:\$\{part\("minute"\)\}분/);
+  assert.match(component, /월 \$\{Number\(part\("day"\)\)\}일/);
+  assert.match(component, /\$\{displayHour\}:\$\{part\("minute"\)\}분/);
   assert.doesNotMatch(component, /노출 중 \{visibleCount\}건/);
   assert.match(component, /등록된 \$\{noticeScope === "LEAGUE" \? "전체" : "팀별"\} 공지가 없습니다/);
   assert.match(component, /deleteCommunityNoticeAction/);
   assert.match(component, /pendingLabel="삭제 중…"/);
   assert.match(component, /3_000/);
+  assert.match(component, /hourCycle: "h23"/);
+  assert.match(component, /hour < 12 \? "오전" : "오후"/);
   assert.match(component, /aria-label=\{`\$\{notice\.title\} 상세 보기`\}/);
   assert.match(component, /event\.key === "Enter" \|\| event\.key === " "/);
   assert.doesNotMatch(component, />작성 관리자<\/TableHead>/);

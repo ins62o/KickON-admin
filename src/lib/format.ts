@@ -8,13 +8,13 @@ const koreaFullTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   hourCycle: "h23",
 });
 
-const koreaReadableTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+const koreaReadableTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
-  month: "numeric",
-  day: "numeric",
-  hour: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
   minute: "2-digit",
-  hour12: true,
+  hourCycle: "h23",
 });
 
 export function formatKoreaDateTime(value: string | null) {
@@ -34,7 +34,9 @@ export function formatKoreaReadableDateTime(value: string | null) {
   if (!value) return "확인 불가";
   const parts = koreaReadableTimeFormatter.formatToParts(new Date(value));
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${Number(part("month"))}월 ${Number(part("day"))}일 ${part("dayPeriod")} ${Number(part("hour"))}시 ${part("minute")}분`;
+  const hour = Number(part("hour"));
+  const displayHour = hour % 12 || 12;
+  return `${Number(part("month"))}월 ${Number(part("day"))}일 ${hour < 12 ? "오전" : "오후"} ${displayHour}시 ${part("minute")}분`;
 }
 
 export function formatRelativeTime(value: string | null) {

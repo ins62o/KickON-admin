@@ -47,12 +47,13 @@ import { hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
 import { getTeamLogoPath } from "@/lib/data/catalog";
 
-const noticeDateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+const noticeDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
-  month: "numeric",
-  day: "numeric",
+  month: "2-digit",
+  day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+  hourCycle: "h23",
 });
 
 const K_LEAGUE_1_TEAM_IDS = new Set([
@@ -63,7 +64,9 @@ const K_LEAGUE_1_TEAM_IDS = new Set([
 function formatNoticeDateTime(value: string) {
   const parts = noticeDateTimeFormatter.formatToParts(new Date(value));
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("month")}월 ${part("day")}일 ${part("dayPeriod")} ${part("hour")}:${part("minute")}분`;
+  const hour = Number(part("hour"));
+  const displayHour = String(hour % 12 || 12).padStart(2, "0");
+  return `${Number(part("month"))}월 ${Number(part("day"))}일 ${hour < 12 ? "오전" : "오후"} ${displayHour}:${part("minute")}분`;
 }
 
 function ActionMessage({ state }: { state: { status: string; message: string | null } }) {
