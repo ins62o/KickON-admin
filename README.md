@@ -131,3 +131,5 @@ npm run build:admin-api
 `npm test`는 역할별 최소 권한 계약을 검증합니다. 문의·제재·숨김·선수명 전파·수동 선수 보호·순위 잠금·감사 로그 같은 DB 통합 흐름은 마이그레이션을 감사한 뒤 개발 Supabase에서 별도로 실행해야 합니다.
 
 세부 구조는 [아키텍처](docs/architecture.md), 운영 UI 원칙은 [운영자 UX](docs/operator-ux.md), 명세 상태는 [요구사항 상태](docs/requirements-status.md)를 참고하세요.
+
+신규 가입자와 1:1 문의의 Discord 운영 알림 설정은 [Discord 운영 알림](docs/discord-admin-notifications.md)을 참고하세요. Webhook URL은 `.env`가 아니라 Supabase Vault의 `discord_admin_notifications_webhook_url`에 저장합니다.
