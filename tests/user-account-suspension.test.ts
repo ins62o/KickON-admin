@@ -19,12 +19,13 @@ test("사용자 조치 화면은 커뮤니티 정지와 계정 정지를 구분�
   assert.match(form, /value="ACCOUNT_UNSUSPEND"[^>]*>계정 정지 해제/);
   assert.doesNotMatch(form, /value="WARN"/);
   assert.match(form, /\["SUSPEND", "ACCOUNT_SUSPEND"\]\.includes\(selectedAction\)/);
-  assert.match(form, /htmlFor="user-moderation-nickname"[^>]*>닉네임/);
-  assert.match(form, /<Select value=\{userId\}>/);
+  assert.match(form, /id="user-moderation-nickname-label"[^>]*>닉네임/);
+  assert.match(form, /aria-labelledby="user-moderation-nickname-label"/);
+  assert.doesNotMatch(form, /<Select value=\{userId\}>/);
   assert.match(form, /id="user-moderation-duration"/);
   assert.match(form, /suspensionDayOptions\.map\(\(days\) => <SelectItem/);
-  assert.match(form, /pendingLabel="실행 중…"[\s\S]*>실행<\/ActionSubmit>/);
-  assert.match(form, /className="min-w-28 px-6"/);
+  assert.match(form, /pendingLabel="적용 중…"[\s\S]*>적용<\/ActionSubmit>/);
+  assert.match(form, /className="inline-flex h-12! min-w-32 items-center justify-center px-6 text-base leading-none"/);
   assert.match(form, /className="min-h-28 px-4 py-3\.5 text-sm"/);
   assert.match(form, /export function UserModerationDialog/);
   assert.match(form, /<DialogTrigger asChild>/);

@@ -45,15 +45,10 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
     {reportId ? <input type="hidden" name="reportId" value={reportId} /> : null}
     <div className="grid gap-5 md:grid-cols-3">
       <div className="space-y-2">
-        <label htmlFor="user-moderation-nickname" className="block text-sm font-medium">닉네임</label>
-        <Select value={userId}>
-          <SelectTrigger id="user-moderation-nickname" className="h-11! w-full cursor-pointer rounded-lg border-border/80 bg-muted/35 px-3.5 text-sm font-medium hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-lg border border-border/80 bg-popover p-1 shadow-2xl">
-            <SelectItem value={userId} className="cursor-pointer py-2.5 pr-8 pl-2.5">{nickname}</SelectItem>
-          </SelectContent>
-        </Select>
+        <span id="user-moderation-nickname-label" className="block text-sm font-medium">닉네임</span>
+        <div aria-labelledby="user-moderation-nickname-label" className="flex h-11 w-full items-center rounded-lg border border-border/80 bg-muted/25 px-3.5 text-sm font-medium text-foreground">
+          <span className="truncate">{nickname}</span>
+        </div>
       </div>
       <div className="space-y-2">
         <label htmlFor="user-moderation-action" className="block text-sm font-medium">조치</label>
@@ -86,7 +81,7 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
       <Textarea id="user-moderation-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 px-4 py-3.5 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
     </div>
     {state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}
-    <div className="flex justify-end"><ActionSubmit pendingLabel="실행 중…" className="min-w-28 px-6" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>실행</ActionSubmit></div>
+    <div className="flex justify-end"><ActionSubmit pendingLabel="적용 중…" className="inline-flex h-12! min-w-32 items-center justify-center px-6 text-base leading-none" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>적용</ActionSubmit></div>
   </form>;
 }
 
