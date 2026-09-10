@@ -25,7 +25,7 @@ type UserSearchParams = {
   page?: string;
 };
 
-const USERS_PER_PAGE = 8;
+const USERS_PER_PAGE = 9;
 
 const USER_TEAM_IDS = [
   "incheon",

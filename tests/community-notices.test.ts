@@ -58,16 +58,29 @@ test("공지 생성·삭제 RPC는 관리자 권한과 감사 로그를 강제�
   assert.match(migration, /grant execute on function public\.admin_delete_community_notice/);
 });
 
-test("전체 공지는 대상 팀 입력 없이 저장용 팀을 내부에서 결정한다", () => {
+test("전체 공지는 nullable 대신 인천을 내부 저장용 팀으로 사용한다", () => {
   const migration = fs.readFileSync(
-    path.join(root, "supabase/migrations/202609080006_fix_league_notice_team_fallback.sql"),
+    path.join(root, "supabase/migrations/202609100003_use_incheon_for_league_notice_storage.sql"),
     "utf8",
   );
   assert.match(migration, /if normalized_board = 'TEAM' then/);
   assert.match(migration, /resolved_team_id := normalized_team_id/);
+  assert.match(migration, /resolved_team_id := 'incheon'/);
   assert.match(migration, /from public\.teams team/);
-  assert.match(migration, /case when team\.id = actor_team_id then 0 else 1 end/);
+  assert.doesNotMatch(migration, /actor_team_id/);
   assert.match(migration, /case when normalized_board = 'TEAM' then resolved_team_id else null end/);
+});
+
+test("공지는 실제 작업자 대신 인천 관리자 공식 프로필을 작성자로 사용한다", () => {
+  const migration = fs.readFileSync(
+    path.join(root, "supabase/migrations/202609100004_use_official_notice_author_profile.sql"),
+    "utf8",
+  );
+  assert.match(migration, /where profile\.nickname = '관리자'/);
+  assert.match(migration, /profile\.team_id = 'incheon'/);
+  assert.match(migration, /normalized_content, notice_author_id/);
+  assert.match(migration, /OFFICIAL_NOTICE_AUTHOR_REQUIRED/);
+  assert.match(migration, /data_center_write_audit/);
 });
 
 test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 갱신한다", () => {

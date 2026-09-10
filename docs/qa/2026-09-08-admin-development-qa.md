@@ -7,7 +7,7 @@
 - 개발 Supabase project ref: `uvsmyftwwucrvoteajpi`
 - 운영 관리자/Supabase: `https://admin.kickon.kr`, `smihjaucucffmsbktnmp`
 - 공식 배포: `.github/workflows/deploy.yml`의 `Prod` push → S3/CloudFront 정적 배포 + Lambda
-- 판정: **배포 준비 완료**. 기능 QA와 필수 자동 검사, 운영 DB 선행 객체 확인을 모두 통과했고 배포 후보 범위를 확정했다. 운영 배포 및 배포 후 확인 결과는 실행 뒤 이 문서에 추가한다.
+- 판정: **운영 배포 및 사후 확인 완료**. 기능 QA와 필수 자동 검사, 운영 DB 선행 객체 확인을 통과했고 공식 배포 워크플로가 성공했다. 공개·인증 경로, 주요 관리자 화면, 정적 자산과 관리자 API 경계를 실제 운영에서 확인했다.
 
 ## 요약
 
@@ -140,7 +140,21 @@ React 최종 검토에서는 effect 내 동기 setState를 제거하고 prop 상
 
 운영 DB에는 최신 공유 이력 `202609080001`~`202609080008`과 이번 관리자 코드가 사용하는 핵심 객체가 이미 존재하므로 이번 코드 배포를 위해 추가 migration을 실행할 필요가 없다.
 
-운영 커밋·배포 식별자·완료 시각과 배포 후 읽기 검증 결과는 배포 완료 뒤 기록한다.
+## 운영 배포 및 사후 확인
+
+- 최종 배포 커밋: `175c09faa55f7b99f7dc8f96460fe22146702f5e`
+- GitHub Actions: `Verify and deploy admin console` 실행 #10, run `34295059906`, **성공**, 총 3분 35초
+- 배포 job: 2분 11초, 2026-09-09 오전 9시 30분경(Asia/Seoul) 완료
+- Lambda: development `kickon-admin-api-development` version 7, production `kickon-admin-api-production` version 6
+- CloudFront invalidation: `I6FO8AYULS7WW1VLXGT36FN9KX`
+- CI 사후 스모크: 정적 사이트와 개발·운영 인증 관리자 API 경계 통과
+- 실제 운영 주소: `https://admin.kickon.kr`
+- 공개 확인: 메인 진입 후 무인증 로그인 이동, `/community/` 직접 접근의 `/login/?next=%2Fcommunity%2F` 차단, 개인정보·계정삭제 페이지, 브라우저 오류 0건
+- 정적 자산: 운영 공지 청크 HTTP 200, `전체 공지`·`팀별 공지`와 결정적 `h23`/`padStart` 날짜 포맷 코드 표식 확인
+- 인증 확인: 사용자가 운영 비밀번호를 직접 입력해 새 세션으로 로그인했다. 대시보드에서 가입자 2명과 DB·Storage·SportsMonks 사용량, 동기화 상태, 운영 알림을 확인했다.
+- 주요 화면: 공지 화면의 작성 버튼·전체/팀별 탭·목록 테이블, 데이터 관리의 사용량·동기화·관리자 로그, 사용자 목록을 읽기 중심으로 확인했다.
+- API·오류: GitHub Actions의 개발·운영 인증 API 경계 스모크가 통과했고, 새 운영 세션의 데이터 관리 응답이 정상 표시됐다. 확인한 운영 화면의 브라우저 오류 로그는 0건이었다.
+- 이미지: 운영 사용자 화면의 이미지 16개가 모두 로드됐고 `naturalWidth=0`인 깨진 이미지는 0개였다.
 
 ## 배포 전후 확인 및 롤백
 
