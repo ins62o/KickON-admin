@@ -916,7 +916,7 @@ async function apiGetAll<T>(
   }
 }
 
-Deno.serve(async request => {
+async function handleSyncRequest(request: Request) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -1963,4 +1963,117 @@ Deno.serve(async request => {
     console.error(message);
     return Response.json({ error: message }, { status: 500 });
   }
+}
+
+type BackgroundSyncResult = {
+  ok: boolean;
+  status: number;
+  error: string | null;
+};
+
+function backgroundRuntime() {
+  return (globalThis as typeof globalThis & {
+    EdgeRuntime?: { waitUntil: (promise: Promise<unknown>) => void };
+  }).EdgeRuntime;
+}
+
+async function runBackgroundSync(
+  request: Request,
+  requests: Record<string, unknown>[],
+  syncRunId: string | null,
+) {
+  const results: BackgroundSyncResult[] = await Promise.all(
+    requests.map(async payload => {
+      try {
+        const response = await handleSyncRequest(
+          new Request(request.url, {
+            method: 'POST',
+            headers: request.headers,
+            body: JSON.stringify(payload),
+          }),
+        );
+        const body = await response.clone().json().catch(() => ({}));
+        const error = body && typeof body === 'object' && !Array.isArray(body) &&
+            typeof (body as { error?: unknown }).error === 'string'
+          ? (body as { error: string }).error
+          : null;
+        return { ok: response.ok, status: response.status, error };
+      } catch (error) {
+        return { ok: false, status: 500, error: getErrorMessage(error) };
+      }
+    }),
+  );
+
+  if (!syncRunId) return;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('Background sync could not finalize its sync run');
+    return;
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const failures = results.filter(result => !result.ok);
+  const status = failures.length === 0
+    ? 'succeeded'
+    : failures.length === results.length
+    ? 'failed'
+    : 'partial';
+  const errorMessage = failures
+    .map(result => result.error ?? `HTTP ${result.status}`)
+    .join(' | ')
+    .slice(0, 1_000) || null;
+  const { error } = await admin
+    .from('sync_runs')
+    .update({
+      status,
+      finished_at: new Date().toISOString(),
+      failed_count: failures.length,
+      error_code: failures.length ? 'sync_failure' : null,
+      error_message: errorMessage,
+    })
+    .eq('id', syncRunId)
+    .eq('status', 'running');
+  if (error) console.error(`Background sync run finalization failed: ${error.message}`);
+}
+
+Deno.serve(async request => {
+  if (request.method !== 'POST') return handleSyncRequest(request);
+  const body = await request.clone().json().catch(() => ({}));
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      (body as { background?: unknown }).background !== true) {
+    return handleSyncRequest(request);
+  }
+
+  const suppliedSecret = request.headers.get('x-sync-secret') ?? '';
+  const expectedSecret = Deno.env.get('FOOTBALL_SYNC_SECRET');
+  if (!expectedSecret || suppliedSecret !== expectedSecret) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+  const requests = (body as { requests?: unknown }).requests;
+  if (!Array.isArray(requests) || requests.length < 1 || requests.length > 2 ||
+      requests.some(payload => !payload || typeof payload !== 'object' || Array.isArray(payload))) {
+    return Response.json({ error: 'One or two sync requests are required' }, { status: 400 });
+  }
+  const runtime = backgroundRuntime();
+  if (!runtime) {
+    return Response.json({ error: 'Background execution is unavailable' }, { status: 503 });
+  }
+  const syncRunIdValue = (body as { syncRunId?: unknown }).syncRunId;
+  const syncRunId = typeof syncRunIdValue === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(syncRunIdValue)
+    ? syncRunIdValue
+    : null;
+  runtime.waitUntil(
+    runBackgroundSync(
+      request,
+      requests as Record<string, unknown>[],
+      syncRunId,
+    ).catch(error => console.error(`Background sync failed: ${getErrorMessage(error)}`)),
+  );
+  return Response.json(
+    { status: 'accepted', requests: requests.length },
+    { status: 202 },
+  );
 });

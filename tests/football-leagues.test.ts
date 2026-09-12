@@ -93,6 +93,9 @@ test('deployed full sync accepts K League 2 and writes every scoped row to K Lea
   assert.match(source,/league_id: internalLeagueId/g);
   assert.doesNotMatch(source,/Only K League 1 seasons 2024 through 2026 are enabled/);
   assert.match(source,/nameKo: '안산 와스타디움'/);
+  assert.match(source,/EdgeRuntime\?: \{ waitUntil:/);
+  assert.match(source,/status: 'accepted'/);
+  assert.match(source,/runBackgroundSync/);
 });
 
 test('production bootstrap contains all 17 K League 2 provider team identities',()=>{
@@ -102,9 +105,9 @@ test('production bootstrap contains all 17 K League 2 provider team identities',
   assert.match(migration,/1362,[\s\S]*27443/);
 });
 test('admin API infers a K2 target and carries scope through snapshots, invoke and sync audit',async()=>{
-  const savedFetch=globalThis.fetch; const keys=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SPORTSMONKS_API_ALLOWANCE'];
+  const savedFetch=globalThis.fetch; const keys=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SPORTSMONKS_API_ALLOWANCE','FOOTBALL_SYNC_SECRET'];
   const previous=keys.map(key=>process.env[key]);
-  process.env.NEXT_PUBLIC_SUPABASE_URL='https://example.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='test-key';delete process.env.SPORTSMONKS_API_ALLOWANCE;
+  process.env.NEXT_PUBLIC_SUPABASE_URL='https://example.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='test-key';process.env.FOOTBALL_SYNC_SECRET='test-secret';delete process.env.SPORTSMONKS_API_ALLOWANCE;
   const requests:Array<{url:URL;body:Record<string,unknown>}> = [];
   globalThis.fetch=async(input,init)=>{
     const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
@@ -116,6 +119,7 @@ test('admin API infers a K2 target and carries scope through snapshots, invoke a
     else if(url.pathname.endsWith('/sync_runs')) payload=[{id:'22222222-2222-4222-8222-222222222222'}];
     else if(url.pathname.endsWith('/sync-team-squad')) payload={status:'succeeded'};
     else if(url.pathname.endsWith('/sync-team-metrics')) payload={status:'succeeded'};
+    else if(url.pathname.endsWith('/sync-football-data')) payload={status:'accepted'};
     else if(url.pathname.includes('/rpc/')) payload=url.pathname.endsWith('/get_admin_provider_usage')?[]:1;
     else throw new Error(`unexpected mock request ${url.pathname}`);
     return new Response(JSON.stringify(payload),{status:200,headers:{'content-type':'application/json'}});
@@ -134,5 +138,12 @@ test('admin API infers a K2 target and carries scope through snapshots, invoke a
     const allInvokes=requests.filter(r=>r.url.pathname.endsWith('/sync-team-metrics'));
     assert.deepEqual(allInvokes.map(r=>r.body.leagueId).sort(),['kleague','kleague2']);
     for(const run of requests.filter(r=>r.url.pathname.endsWith('/sync_runs')))assert.equal((run.body.metadata as Record<string,unknown>).leagueId,'all');
+    requests.length=0;
+    const full=await request({operation:'full',season:2026,reason:'refresh full league data'});assert.equal(full.statusCode,200,full.body);
+    const fullInvoke=requests.find(r=>r.url.pathname.endsWith('/sync-football-data'))!;
+    assert.equal(fullInvoke.body.background,true);
+    assert.equal(typeof fullInvoke.body.syncRunId,'string');
+    assert.deepEqual((fullInvoke.body.requests as Array<Record<string,unknown>>).map(body=>body.leagueId),SUPPORTED_LEAGUES.map(league=>league.providerLeagueId));
+    assert.equal(requests.filter(r=>r.url.pathname.endsWith('/sync_runs')).length,1);
   } finally {globalThis.fetch=savedFetch;keys.forEach((key,i)=>{if(previous[i]===undefined)delete process.env[key];else process.env[key]=previous[i];});}
 });

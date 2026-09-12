@@ -328,7 +328,10 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
       const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
       if (!syncSecret || !projectUrl) throw new Error("관리자 API의 동기화 비밀값 설정이 필요합니다.");
       const bodies = secretOperationBodies(operation.key, leagueId, season);
-      const results = await Promise.all(bodies.map(async (body, index) => {
+      const invocationBodies = operation.key === "full"
+        ? [{ background: true, syncRunId: runId, requests: bodies }]
+        : bodies;
+      const results = await Promise.all(invocationBodies.map(async (body, index) => {
         const result = await fetch(`${projectUrl}/functions/v1/${operation.functionName}`, {
           method: "POST",
           headers: { "content-type": "application/json", "x-sync-secret": syncSecret },
@@ -344,7 +347,7 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
             : "";
           throw new Error(`${scopeLabel} 동기화 함수가 HTTP ${result.status}로 응답했습니다.${providerMessage ? ` ${providerMessage}` : ""}`);
         }
-        return { leagueId: configs[index]?.id ?? "all", result: responseBody };
+        return { leagueId: invocationBodies.length === 1 && bodies.length > 1 ? "all" : configs[index]?.id ?? "all", result: responseBody };
       }));
       if (results.length === 1) {
         resultPayload = results[0].result;
@@ -390,6 +393,14 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
     }
     const completedAt = new Date().toISOString();
     const finalStatus = (resultPayload as { status?: unknown } | null)?.status;
+    if (finalStatus === "accepted") {
+      return {
+        status: "success",
+        message: `${operation.label} 동기화를 시작했습니다. 완료 상태는 데이터 관리에서 확인할 수 있습니다.`,
+        operation: operation.key,
+        completedAt: startedAt,
+      };
+    }
     const finalization = await context.client.from("sync_runs").update({ status: finalStatus === "pending" || finalStatus === "already-running" ? "partial" : "succeeded", finished_at: completedAt, metadata: { ...safeResult(resultPayload), operationKey: operation.key, providerQuota: quotaMetadata, ...scopeMetadata } }).eq("id", runId);
     if (finalization.error) {
       return { status: "warning", message: `${operation.label} 동기화는 완료됐지만 실행 기록을 마무리하지 못했습니다. 중복 실행하지 말고 기록을 확인해 주세요.`, operation: operation.key, completedAt };
