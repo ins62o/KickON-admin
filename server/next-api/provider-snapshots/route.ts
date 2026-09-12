@@ -1,3 +1,4 @@
+import { isLeagueId } from "@/lib/football/config";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseConnection } from "@/lib/data/supabase";
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
   const rawSeason = Number(body.season);
   const season = Number.isInteger(rawSeason) && rawSeason >= 2000 && rawSeason <= 2200 ? rawSeason : null;
   const leagueId = text(body.leagueId, 80);
-  if ((entityType === "fixture" || entityType === "standing") && (!season || !leagueId)) {
+  if (entityType !== "team" && (!season || !isLeagueId(leagueId))) {
     return NextResponse.json({ error: "SEASON_AND_LEAGUE_REQUIRED" }, { status: 400 });
   }
   const fetchedAt = typeof body.fetchedAt === "string" && !Number.isNaN(Date.parse(body.fetchedAt)) ? new Date(body.fetchedAt).toISOString() : new Date().toISOString();

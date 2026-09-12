@@ -1,4 +1,5 @@
 "use client";
+import { CURRENT_SEASON, SUPPORTED_LEAGUE_IDS, playerHref, playerKey } from "@/lib/football/config";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasAdminPermission, type AdminRole } from "@/lib/auth/permissions";
@@ -26,8 +27,16 @@ function compact(value: unknown, fallback: string) {
 }
 
 async function searchUsers(client: SupabaseClient, query: string, searchPattern: string, teamNames: Map<string, string>): Promise<SearchBucket> {
-  const requests = [client.from("profiles").select("id,nickname,team_id").ilike("nickname", searchPattern).limit(LIMIT)];
-  if (uuidPattern.test(query)) requests.push(client.from("profiles").select("id,nickname,team_id").eq("id", query).limit(1));
+  const completedProfiles = () => client
+    .from("profiles")
+    .select("id,nickname,team_id")
+    .not("registration_completed_at", "is", null);
+  const requests = [
+    completedProfiles().ilike("nickname", searchPattern).limit(LIMIT),
+  ];
+  if (uuidPattern.test(query)) {
+    requests.push(completedProfiles().eq("id", query).limit(1));
+  }
   const results = await Promise.all(requests);
   const rows = unique(results.flatMap((result) => result.data ?? []), (row) => String(row.id)).slice(0, LIMIT);
   return {
@@ -74,19 +83,19 @@ async function searchModeration(client: SupabaseClient, query: string, searchPat
 }
 
 async function searchPlayers(client: SupabaseClient, searchPattern: string, teamNames: Map<string, string>): Promise<SearchBucket> {
-  const select = "player_id,player_name,display_name,display_name_ko,team_id,shirt_number,position";
-  const base = () => client.from("team_players").select(select).eq("season", 2026).eq("in_squad", true);
+  const select = "season,league_id,player_id,player_name,display_name,display_name_ko,team_id,shirt_number,position";
+  const base = () => client.from("team_players").select(select).eq("season", CURRENT_SEASON).in("league_id", SUPPORTED_LEAGUE_IDS).eq("in_squad", true).order("league_id").order("team_id").order("player_id");
   const results = await Promise.all([
     base().ilike("player_name", searchPattern).limit(LIMIT),
     base().ilike("display_name", searchPattern).limit(LIMIT),
     base().ilike("display_name_ko", searchPattern).limit(LIMIT),
   ]);
-  const rows = unique(results.flatMap((result) => result.data ?? []), (row) => String(row.player_id)).slice(0, LIMIT);
+  const rows = unique(results.flatMap((result) => result.data ?? []), (row) => playerKey({ id: String(row.player_id), leagueId: row.league_id, season: row.season })).slice(0, LIMIT);
   return {
     items: rows.map((row) => {
       const id = String(row.player_id);
       const team = teamNames.get(String(row.team_id)) ?? String(row.team_id);
-      return { id: `player-${id}`, type: "player", label: compact(row.display_name_ko || row.display_name || row.player_name, "이름 미확인"), description: `${team}${row.shirt_number !== null ? ` · ${row.shirt_number}번` : ""} · ${row.position ?? "포지션 미확인"}`, keywords: `${id} ${row.player_name ?? ""} ${row.display_name ?? ""} ${row.display_name_ko ?? ""} ${team}`, href: `/squads/detail/?playerId=${encodeURIComponent(id)}` };
+      return { id: `player-${playerKey({ id, leagueId: row.league_id, season: row.season })}`, type: "player", label: compact(row.display_name_ko || row.display_name || row.player_name, "이름 미확인"), description: `${team}${row.shirt_number !== null ? ` · ${row.shirt_number}번` : ""} · ${row.position ?? "포지션 미확인"}`, keywords: `${id} ${row.player_name ?? ""} ${row.display_name ?? ""} ${row.display_name_ko ?? ""} ${team}`, href: playerHref({ id, leagueId: row.league_id, season: row.season }) };
     }),
     failed: results.some((result) => Boolean(result.error)),
   };

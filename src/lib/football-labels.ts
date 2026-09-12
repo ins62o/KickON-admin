@@ -1,3 +1,4 @@
+import { leagueLabel } from "./football/config";
 export function positionLabel(value: string | null) {
   if (!value) return "확인 불가";
   const normalized = value.toLowerCase();
@@ -9,5 +10,5 @@ export function positionLabel(value: string | null) {
 }
 
 export function koreanLeagueLabel(value: string) {
-  return value === "kleague" ? "K리그" : value;
+  return leagueLabel(value);
 }

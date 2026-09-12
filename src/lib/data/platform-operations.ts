@@ -1,5 +1,6 @@
 "use client";
 
+import { CURRENT_SEASON } from "@/lib/football/config";
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
@@ -185,8 +186,8 @@ export type OperationalDashboardSnapshot = {
 
 const CRON_CATALOG = [
   { key: "kickon-live-football-sync", name: "실시간 경기 동기화", role: "라이브 스코어·이벤트·라인업 갱신", expression: "* * * * *", syncKey: "sportmonks-live" },
-  { key: "kickon-post-match-football-sync", name: "경기 종료 후 동기화", role: "종료 경기 기록과 순위 보강", expression: "*/5 * * * *", syncKey: "sportmonks-post-match-2026" },
-  { key: "kickon-initial-football-history-backfill", name: "과거 시즌 초기 적재", role: "2024~2026 시즌 누락 데이터 재시도", expression: "*/5 * * * *", syncKey: "sportmonks-history-2024-2026" },
+  { key: "kickon-post-match-football-sync", name: "경기 종료 후 동기화", role: "종료 경기 기록과 순위 보강", expression: "*/5 * * * *", syncKey: `sportmonks-post-match-${CURRENT_SEASON}` },
+  { key: "kickon-initial-football-history-backfill", name: "과거 시즌 초기 적재", role: `2024~${CURRENT_SEASON} 시즌 누락 데이터 재시도`, expression: "*/5 * * * *", syncKey: `sportmonks-history-2024-${CURRENT_SEASON}` },
   { key: "kickon-football-provider-usage-retention", name: "API 사용 기록 정리", role: "60일이 지난 SportsMonks 호출 기록 삭제", expression: "17 3 * * *", syncKey: null },
   { key: "kickon-fixture-cheer-retention", name: "경기 응원 메시지 정리", role: "48시간이 지난 경기 응원 메시지 삭제", expression: "43 3 * * *", syncKey: null },
 ] as const;

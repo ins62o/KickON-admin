@@ -1,3 +1,4 @@
+import { CURRENT_SEASON, SUPPORTED_LEAGUE_IDS, playerHref, playerKey } from "@/lib/football/config";
 import type { SupabaseClient } from "@supabase/supabase-js";
 // Legacy Next.js Route Handler retained for migration to the CloudFront API origin.
 import { NextResponse } from "next/server";
@@ -40,6 +41,8 @@ type PostTargetRow = { id: string; title: string };
 type CommentTargetRow = { id: string };
 type CheerTargetRow = { id: string };
 type PlayerRow = {
+  season: number;
+  league_id: string;
   player_id: string;
   player_name: string;
   display_name: string | null;
@@ -259,8 +262,8 @@ async function searchPlayers(
   teams: TeamRow[],
   matchingTeamIds: string[],
 ): Promise<SearchBucket> {
-  const select = "player_id,player_name,display_name,display_name_ko,team_id,shirt_number,position";
-  const base = () => client.from("team_players").select(select).eq("season", 2026).eq("in_squad", true);
+  const select = "season,league_id,player_id,player_name,display_name,display_name_ko,team_id,shirt_number,position";
+  const base = () => client.from("team_players").select(select).eq("season", CURRENT_SEASON).in("league_id", SUPPORTED_LEAGUE_IDS).eq("in_squad", true);
   const requests = [
     base().ilike("player_name", pattern).order("player_name", { ascending: true }).limit(PER_TYPE_LIMIT),
     base().ilike("display_name", pattern).order("player_name", { ascending: true }).limit(PER_TYPE_LIMIT),
@@ -274,7 +277,7 @@ async function searchPlayers(
   const results = await Promise.all(requests);
   const rows = uniqueRows(
     results.flatMap((result) => (result.data ?? []) as PlayerRow[]),
-    (row) => row.player_id,
+    (row) => playerKey({ id: row.player_id, leagueId: row.league_id, season: row.season }),
   ).slice(0, PER_TYPE_LIMIT);
   const teamNames = new Map(teams.map((team) => [team.id, team.name]));
 
@@ -282,12 +285,12 @@ async function searchPlayers(
     items: rows.map((row) => {
       const teamName = teamNames.get(row.team_id) ?? row.team_id;
       return {
-        id: `player-${row.player_id}`,
+        id: `player-${playerKey({ id: row.player_id, leagueId: row.league_id, season: row.season })}`,
         type: "player",
         label: row.display_name_ko || row.display_name || row.player_name,
         description: `${teamName}${row.shirt_number !== null ? ` · ${row.shirt_number}번` : ""} · ${row.position ?? "포지션 미확인"}`,
         keywords: `${row.player_id} ${row.player_name} ${row.display_name ?? ""} ${row.display_name_ko ?? ""} ${teamName} ${row.position ?? ""}`,
-        href: `/squads/detail/?playerId=${encodeURIComponent(row.player_id)}`,
+        href: playerHref({ id: row.player_id, leagueId: row.league_id, season: row.season }),
       } satisfies GlobalSearchItem;
     }),
     failed: hasQueryError(results),

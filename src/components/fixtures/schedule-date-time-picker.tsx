@@ -1,5 +1,6 @@
 "use client";
 
+import { CURRENT_SEASON } from "@/lib/football/config";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 import { Popover as PopoverPrimitive } from "radix-ui";
@@ -26,7 +27,7 @@ function toDateValue(year: number, month: number, day: number) {
 }
 
 function parseDate(value: string) {
-  const [year = 2026, month = 1, day = 1] = value.split("-").map(Number);
+  const [year = CURRENT_SEASON, month = 1, day = 1] = value.split("-").map(Number);
   return { year, month: month - 1, day };
 }
 

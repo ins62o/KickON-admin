@@ -20,7 +20,7 @@ import {
   type AdminModerationData,
   type AdminSupportInquiryData,
 } from "@/lib/admin/console-data";
-import { reportTargetLabel } from "@/lib/admin/labels";
+import { inquiryCategoryLabels, reportTargetLabel } from "@/lib/admin/labels";
 import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
@@ -38,16 +38,6 @@ type HistoryStatus = "all" | "new" | "answered";
 
 const inquiryAnsweredStatuses = new Set(["ANSWERED", "CLOSED"]);
 const reportAnsweredStatuses = new Set(["RESOLVED", "DISMISSED"]);
-const inquiryCategoryLabels = {
-  APP_ERROR: "앱 오류",
-  DATA_ERROR: "데이터 오류",
-  ACCOUNT: "계정",
-  NOTIFICATION: "알림",
-  ATTENDANCE: "직관 인증",
-  COMMUNITY: "커뮤니티",
-  SUGGESTION: "기능 제안",
-  OTHER: "기타",
-} as const;
 const inquiryCategories = Object.entries(inquiryCategoryLabels);
 
 function normalizedHistoryStatus(status: string | undefined): HistoryStatus {
@@ -171,7 +161,7 @@ function InquiryHistoryPanel({
                   <TableCell className="max-w-xl px-4 py-4">
                     <Link
                       href={`/inquiries/detail/?inquiryId=${encodeURIComponent(inquiry.id)}`}
-                      className="block cursor-pointer truncate text-sm font-semibold text-foreground hover:text-primary hover:underline"
+                      className="block cursor-pointer truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
                     >
                       {inquiry.subject}
                     </Link>
@@ -313,7 +303,7 @@ function ReportHistoryPanel({
                   <TableCell className="max-w-xl px-4 py-4">
                     <Link
                       href={`/moderation/detail/?reportId=${encodeURIComponent(report.id)}`}
-                      className="block cursor-pointer truncate text-sm font-semibold text-foreground hover:text-primary hover:underline"
+                      className="block cursor-pointer truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
                     >
                       {report.target?.title || report.target?.content || report.target?.emoticonKey || "원문을 찾을 수 없음"}
                     </Link>

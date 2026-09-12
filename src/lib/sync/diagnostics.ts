@@ -124,12 +124,12 @@ export function syncEntityLink(entityType: string | null, entityId: string | nul
   if (!entityType || !entityId || entityId.length > 200) return null;
   const normalizedType = entityType.toLowerCase();
   const definition = ({
-    team: { prefix: "/clubs/", label: "관련 구단 열기" },
-    club: { prefix: "/clubs/", label: "관련 구단 열기" },
-    player: { prefix: "/players/", label: "관련 선수 열기" },
-    fixture: { prefix: "/fixtures/", label: "관련 경기 열기" },
-    standing: { prefix: "/standings/", label: "관련 순위 열기" },
-    ranking: { prefix: "/players/", label: "관련 선수 열기" },
+    team: { prefix: "/standings/detail/?teamId=", label: "관련 구단 열기" },
+    club: { prefix: "/standings/detail/?teamId=", label: "관련 구단 열기" },
+    player: { prefix: "/squads/detail/?playerId=", label: "관련 선수 열기" },
+    fixture: { prefix: "/schedules/detail/?fixtureId=", label: "관련 경기 열기" },
+    standing: { prefix: "/standings/detail/?teamId=", label: "관련 순위 열기" },
+    ranking: { prefix: "/squads/detail/?playerId=", label: "관련 선수 열기" },
   } as Record<string, { prefix: string; label: string }>)[normalizedType];
   return definition ? { href: `${definition.prefix}${encodeURIComponent(entityId)}`, label: definition.label } : null;
 }

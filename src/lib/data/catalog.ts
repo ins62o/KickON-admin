@@ -15,19 +15,49 @@ export const teamNames: Record<string, string> = {
   "suwon-fc": "수원 FC",
   "seoul-eland": "서울 이랜드 FC",
   "chungnam-asan": "충남 아산 FC",
+  "chungbuk-cheongju": "충북청주 FC",
+  jeonnam: "전남 드래곤즈",
+  yongin: "용인 FC",
+  paju: "파주 프론티어",
+  "cheonan-city": "천안시티 FC",
+  "suwon-bluewings": "수원 삼성 블루윙즈",
+  seongnam: "성남 FC",
+  gyeongnam: "경남 FC",
+  "ansan-greeners": "안산 그리너스",
+  "busan-ipark": "부산 아이파크",
+  gimpo: "김포 FC",
+  hwaseong: "화성 FC",
+  gimhae: "김해 FC",
 };
 
-const logoTeamIds = new Set([
+export const KLEAGUE_ONE_TEAM_IDS = [
   "incheon", "seoul", "jeonbuk", "ulsan", "daejeon", "pohang",
   "anyang", "bucheon", "gangwon", "jeju", "gwangju", "gimcheon",
-]);
+] as const;
+
+export const KLEAGUE_TWO_TEAM_IDS = [
+  "daegu", "suwon-fc", "seoul-eland", "chungnam-asan",
+  "chungbuk-cheongju", "jeonnam", "yongin", "paju", "cheonan-city",
+  "suwon-bluewings", "seongnam", "gyeongnam", "ansan-greeners",
+  "busan-ipark", "gimpo", "hwaseong", "gimhae",
+] as const;
+
+export const TEAM_IDS_BY_LEAGUE = {
+  kleague: KLEAGUE_ONE_TEAM_IDS,
+  kleague2: KLEAGUE_TWO_TEAM_IDS,
+} as const;
+
+export const SUPPORTED_TEAM_IDS = [
+  ...KLEAGUE_ONE_TEAM_IDS,
+  ...KLEAGUE_TWO_TEAM_IDS,
+] as const;
 
 export function getTeamName(teamId: string) {
   return teamNames[teamId] ?? teamId;
 }
 
 export function getTeamLogoPath(teamId: string) {
-  return logoTeamIds.has(teamId) ? `/teams/${teamId}.webp` : null;
+  return teamNames[teamId] ? `/teams/${teamId}.webp` : null;
 }
 
 export const fixtureStatusLabels = {

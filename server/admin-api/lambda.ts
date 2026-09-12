@@ -1,3 +1,4 @@
+import { CURRENT_SEASON, isLeagueId, SUPPORTED_LEAGUES, seasonBounds, type LeagueId } from "../../src/lib/football/config.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { hasAdminPermission, isAdminRole, type AdminRole } from "../../src/lib/auth/permissions.ts";
 import { getSyncOperation } from "../../src/lib/sync/catalog.ts";
@@ -87,11 +88,34 @@ function safeMessage(error: unknown) {
   return message.replace(/Bearer\s+\S+|token|secret|authorization/gi, "[REDACTED]").slice(0, 1_000);
 }
 
-function secretOperationBody(operationKey: string) {
-  if (operationKey === "live") return { mode: "live", pollCount: 0 };
-  if (operationKey === "post-match") return { leagueId: 1034, seasonId: 26894, season: 2026, postMatch: true, syncLineups: false, lineupFixtureLimit: 0 };
-  if (operationKey === "history-backfill") return { mode: "backfill-history" };
-  return { leagueId: 1034, seasonId: 26894, season: 2026, syncLineups: true };
+export function secretOperationBody(operationKey: string, leagueId: LeagueId, season: number) {
+  const config = SUPPORTED_LEAGUES.find((league) => league.id === leagueId);
+  if (!config || season !== CURRENT_SEASON) throw new Error("지원하지 않는 리그 또는 시즌입니다.");
+  const providerScope = { leagueId: config.providerLeagueId, seasonId: config.seasons[CURRENT_SEASON], season };
+  if (operationKey === "live") {
+    return {
+      leagueId,
+      providerLeagueId: config.providerLeagueId,
+      seasonId: config.seasons[CURRENT_SEASON],
+      season,
+      mode: "live",
+      pollCount: 0,
+    };
+  }
+  const scope = providerScope;
+  if (operationKey === "post-match") return { ...scope, postMatch: true, syncLineups: false, lineupFixtureLimit: 0 };
+  if (operationKey === "history-backfill") return { ...scope, mode: "backfill-history" };
+  return { ...scope, syncLineups: true };
+}
+
+export function secretOperationBodies(operationKey: string, leagueId: LeagueId | "all", season: number) {
+  if (season !== CURRENT_SEASON) throw new Error("지원하지 않는 시즌입니다.");
+  if (operationKey === "live") return [{ mode: "live", pollCount: 0 }];
+  const leagues = leagueId === "all"
+    ? SUPPORTED_LEAGUES
+    : SUPPORTED_LEAGUES.filter((league) => league.id === leagueId);
+  if (!leagues.length) throw new Error("지원하지 않는 리그입니다.");
+  return leagues.map((league) => secretOperationBody(operationKey, league.id, season));
 }
 
 function positiveNumber(value: string | undefined) {
@@ -126,17 +150,22 @@ async function providerQuota(client: SupabaseClient) {
   return null;
 }
 
-async function validateTarget(client: SupabaseClient, target: "none" | "team" | "fixture", targetId: string | null) {
-  if (target === "none") return null;
-  if (!targetId) return target === "team" ? "대상 구단을 선택해 주세요." : "대상 경기를 선택해 주세요.";
+async function resolveTargetLeague(client: SupabaseClient, target: "none" | "team" | "fixture", targetId: string | null, season: number): Promise<LeagueId | "all"> {
+  if (target === "none") return "all";
+  if (!targetId) throw new Error(target === "team" ? "대상 구단을 선택해 주세요." : "대상 경기를 선택해 주세요.");
   if (target === "team") {
-    const result = await client.from("teams").select("id").eq("id", targetId).maybeSingle();
-    return result.error ? "대상 구단을 확인할 수 없습니다." : result.data ? null : "존재하지 않는 구단입니다.";
+    const result = await client.from("league_standings").select("team_id,league_id")
+      .eq("team_id", targetId).eq("season", season)
+      .in("league_id", SUPPORTED_LEAGUES.map((league) => league.id)).limit(2);
+    if (result.error) throw new Error("대상 구단을 확인할 수 없습니다.");
+    const leagues = Array.from(new Set((result.data ?? []).map((row) => row.league_id).filter(isLeagueId)));
+    if (leagues.length !== 1) throw new Error("현재 시즌에 등록된 대상 구단을 찾을 수 없습니다.");
+    return leagues[0];
   }
-  const result = await client.from("fixtures").select("id,league_id").eq("id", targetId).maybeSingle();
-  if (result.error) return "대상 경기를 확인할 수 없습니다.";
-  if (!result.data) return "존재하지 않는 경기입니다.";
-  return result.data.league_id === "kleague" ? null : "현재 킥온 리그 범위의 경기만 동기화할 수 있습니다.";
+  const result = await client.from("fixtures").select("id,league_id").eq("id", targetId).gte("kickoff_at", seasonBounds(season).start).lt("kickoff_at", seasonBounds(season).end).maybeSingle();
+  if (result.error) throw new Error("대상 경기를 확인할 수 없습니다.");
+  if (!result.data || !isLeagueId(result.data.league_id)) throw new Error("현재 시즌에 등록된 대상 경기를 찾을 수 없습니다.");
+  return result.data.league_id;
 }
 
 function safeResult(value: unknown) {
@@ -221,8 +250,16 @@ async function runUserAccountAction(context: AdminContext, payload: Record<strin
   };
 }
 
+async function requireSyncRpc(client: SupabaseClient, name: string, args: Record<string, unknown>) {
+  const result = await client.rpc(name, args);
+  if (result.error) throw new Error("선수단 스냅샷 또는 변경 감지 처리에 실패했습니다. 실행 기록을 확인해 주세요.");
+  return result.data;
+}
+
 async function runSync(context: AdminContext, payload: Record<string, unknown>) {
   if (!hasAdminPermission(context.role, "sync.run")) throw new Error("동기화 실행 권한이 없습니다.");
+  const season = Number(payload.season);
+  if (season !== CURRENT_SEASON) throw new Error("동기화할 시즌을 확인해 주세요.");
   const operationKey = String(payload.operation ?? "");
   const operation = getSyncOperation(operationKey);
   const reason = String(payload.reason ?? "").trim();
@@ -232,8 +269,23 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
   if (!operation) throw new Error("지원하지 않는 동기화 작업입니다.");
   if (reason.length < 3 || reason.length > 500) throw new Error("실행 이유를 3자 이상 500자 이하로 입력해 주세요.");
   const targetId = operation.target === "team" ? teamId : operation.target === "fixture" ? fixtureId : null;
-  const targetError = await validateTarget(context.client, operation.target, targetId);
-  if (targetError) throw new Error(targetError);
+  const leagueId = await resolveTargetLeague(context.client, operation.target, targetId, season);
+  const configs = leagueId === "all"
+    ? [...SUPPORTED_LEAGUES]
+    : SUPPORTED_LEAGUES.filter((league) => league.id === leagueId);
+  const targetLeagueId = leagueId === "all" ? null : leagueId;
+  const scopeMetadata = leagueId === "all"
+    ? {
+        leagueId: "all",
+        season,
+        leagues: configs.map((config) => ({ leagueId: config.id, providerLeagueId: config.providerLeagueId, providerSeasonId: config.seasons[CURRENT_SEASON] })),
+      }
+    : {
+        leagueId,
+        season,
+        providerLeagueId: configs[0].providerLeagueId,
+        providerSeasonId: configs[0].seasons[CURRENT_SEASON],
+      };
 
   const quota = await providerQuota(context.client);
   const allowance = positiveNumber(process.env.SPORTSMONKS_API_ALLOWANCE);
@@ -259,14 +311,15 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
     requested_by: context.userId,
     reason,
     started_at: startedAt,
-    metadata: { operationKey: operation.key, providerQuota: quotaMetadata },
+    metadata: { operationKey: operation.key, providerQuota: quotaMetadata, ...scopeMetadata },
   }).select("id").maybeSingle();
   const runId = runResult.data?.id ? String(runResult.data.id) : null;
   if (runResult.error || !runId) throw new Error("실행 기록을 만들지 못해 동기화를 시작하지 않았습니다.");
 
   try {
     if (operation.key === "team-squad") {
-      await context.client.rpc("capture_player_squad_snapshot", { p_team_id: teamId, p_season: 2026, p_league_id: "kleague", p_source: "동기화 전", p_sync_run_id: runId });
+      if (!targetLeagueId) throw new Error("대상 구단의 리그를 확인할 수 없습니다.");
+      await requireSyncRpc(context.client, "capture_player_squad_snapshot", { p_team_id: teamId, p_season: season, p_league_id: targetLeagueId, p_source: "동기화 전", p_sync_run_id: runId });
     }
 
     let resultPayload: unknown;
@@ -274,28 +327,64 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
       const syncSecret = process.env.FOOTBALL_SYNC_SECRET?.trim();
       const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
       if (!syncSecret || !projectUrl) throw new Error("관리자 API의 동기화 비밀값 설정이 필요합니다.");
-      const result = await fetch(`${projectUrl}/functions/v1/${operation.functionName}`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-sync-secret": syncSecret },
-        body: JSON.stringify(secretOperationBody(operation.key)),
-        signal: AbortSignal.timeout(55_000),
-      });
-      resultPayload = await result.json().catch(() => ({}));
-      if (!result.ok) throw new Error(`동기화 함수가 HTTP ${result.status}로 응답했습니다.`);
+      const bodies = secretOperationBodies(operation.key, leagueId, season);
+      const results = await Promise.all(bodies.map(async (body, index) => {
+        const result = await fetch(`${projectUrl}/functions/v1/${operation.functionName}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-sync-secret": syncSecret },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(55_000),
+        });
+        const responseBody = await result.json().catch(() => ({}));
+        const scopeLabel = leagueId === "all" && bodies.length === 1 ? "전체 리그" : configs[index]?.label ?? "전체 리그";
+        if (!result.ok) throw new Error(`${scopeLabel} 동기화 함수가 HTTP ${result.status}로 응답했습니다.`);
+        return { leagueId: configs[index]?.id ?? "all", result: responseBody };
+      }));
+      if (results.length === 1) {
+        resultPayload = results[0].result;
+      } else {
+        const statuses = results.map(({ result }) => (result as { status?: unknown } | null)?.status);
+        resultPayload = {
+          status: statuses.some((status) => status === "pending" || status === "already-running")
+            ? "pending"
+            : statuses.every((status) => status === "cached") ? "cached" : "succeeded",
+          leagues: results.map(({ leagueId: resultLeagueId, result }) => ({
+            leagueId: resultLeagueId,
+            status: (result as { status?: unknown } | null)?.status ?? "succeeded",
+          })),
+        };
+      }
     } else {
-      const body = operation.target === "team" ? { teamId } : operation.target === "fixture" ? { fixtureId } : {};
-      const result = await context.client.functions.invoke(operation.functionName, { body });
-      if (result.error) throw result.error;
-      resultPayload = result.data;
+      const results = await Promise.all(configs.map(async (config) => {
+        const body = {
+          leagueId: config.id,
+          providerLeagueId: config.providerLeagueId,
+          providerSeasonId: config.seasons[CURRENT_SEASON],
+          seasonId: config.seasons[CURRENT_SEASON],
+          season,
+          ...(operation.target === "team" ? { teamId } : operation.target === "fixture" ? { fixtureId } : {}),
+        };
+        const result = await context.client.functions.invoke(operation.functionName, { body });
+        if (result.error) throw result.error;
+        return { leagueId: config.id, result: result.data };
+      }));
+      resultPayload = results.length === 1 ? results[0].result : {
+        status: "succeeded",
+        leagues: results.map(({ leagueId: resultLeagueId, result }) => ({
+          leagueId: resultLeagueId,
+          status: (result as { status?: unknown } | null)?.status ?? "succeeded",
+        })),
+      };
     }
 
     if (operation.key === "team-squad") {
-      await context.client.rpc("capture_player_squad_snapshot", { p_team_id: teamId, p_season: 2026, p_league_id: "kleague", p_source: "SportsMonks 동기화 후", p_sync_run_id: runId });
-      await context.client.rpc("reconcile_provider_player_change_candidates", { p_team_id: teamId, p_season: 2026, p_league_id: "kleague", p_sync_run_id: runId });
+      if (!targetLeagueId) throw new Error("대상 구단의 리그를 확인할 수 없습니다.");
+      await requireSyncRpc(context.client, "capture_player_squad_snapshot", { p_team_id: teamId, p_season: season, p_league_id: targetLeagueId, p_source: "SportsMonks 동기화 후", p_sync_run_id: runId });
+      await requireSyncRpc(context.client, "reconcile_provider_player_change_candidates", { p_team_id: teamId, p_season: season, p_league_id: targetLeagueId, p_sync_run_id: runId });
     }
     const completedAt = new Date().toISOString();
     const finalStatus = (resultPayload as { status?: unknown } | null)?.status;
-    const finalization = await context.client.from("sync_runs").update({ status: finalStatus === "pending" || finalStatus === "already-running" ? "partial" : "succeeded", finished_at: completedAt, metadata: { operationKey: operation.key, providerQuota: quotaMetadata, ...safeResult(resultPayload) } }).eq("id", runId);
+    const finalization = await context.client.from("sync_runs").update({ status: finalStatus === "pending" || finalStatus === "already-running" ? "partial" : "succeeded", finished_at: completedAt, metadata: { ...safeResult(resultPayload), operationKey: operation.key, providerQuota: quotaMetadata, ...scopeMetadata } }).eq("id", runId);
     if (finalization.error) {
       return { status: "warning", message: `${operation.label} 동기화는 완료됐지만 실행 기록을 마무리하지 못했습니다. 중복 실행하지 말고 기록을 확인해 주세요.`, operation: operation.key, completedAt };
     }
@@ -308,7 +397,7 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
   } catch (error) {
     const completedAt = new Date().toISOString();
     const message = safeMessage(error);
-    await context.client.from("sync_runs").update({ status: "failed", finished_at: completedAt, failed_count: 1, error_code: "sync_failure", error_message: message, metadata: { operationKey: operation.key, providerQuota: quotaMetadata } }).eq("id", runId);
+    await context.client.from("sync_runs").update({ status: "failed", finished_at: completedAt, failed_count: 1, error_code: "sync_failure", error_message: message, metadata: { operationKey: operation.key, providerQuota: quotaMetadata, ...scopeMetadata } }).eq("id", runId);
     throw new Error(message);
   }
 }

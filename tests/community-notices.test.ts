@@ -92,9 +92,8 @@ test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 �
   assert.match(component, /\[\["LEAGUE", "전체 공지"\], \["TEAM", "팀별 공지"\]\]/);
   assert.doesNotMatch(component, /min-h-\[72px\]/);
   assert.match(component, /board === "LEAGUE" \? "min-h-\[308px\] resize-y" : "min-h-\[216px\] resize-y"/);
-  assert.match(component, /className="block text-sm font-semibold">기준 팀 \(K리그 1\)/);
-  assert.match(component, /기준 팀 \(K리그 1\)/);
-  assert.match(component, /K_LEAGUE_1_TEAM_IDS\.has\(team\.id\)/);
+  assert.match(component, /className="block text-sm font-semibold">기준 팀<\/label>/);
+  assert.match(component, /<TeamSelectOptions teams=\{teams\}/);
   assert.match(component, /getTeamLogoPath/);
   assert.match(component, />공지 작성</);
   assert.doesNotMatch(component, /새 공지 작성/);
@@ -117,7 +116,7 @@ test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 �
   assert.match(component, /if \(nextBoard === "LEAGUE"\) setTeamId\(""\)/);
   assert.match(component, /onChangeCapture=\{\(\) => \{/);
   assert.match(component, /SelectItem value="__all" className="min-h-11/);
-  assert.match(component, /SelectItem key=\{team\.id\} value=\{team\.id\} className="min-h-11/);
+  assert.equal((component.match(/<TeamSelectOptions teams=\{teams\}/g) ?? []).length, 2);
   assert.match(component, /w-72 px-8 text-center">대상 팀/);
   assert.match(component, /w-64 px-8">등록 시각/);
   assert.match(component, /items-center justify-center gap-2/);
@@ -151,7 +150,7 @@ test("사용자·문의 검색 버튼과 접수 날짜, 드롭다운 너비와 �
   assert.equal(formatKoreaReadableDateTime("2026-09-06T13:13:00.000Z"), "9월 6일 오후 10시 13분");
   assert.match(inquiries, /formatKoreaReadableDateTime\(inquiry\.createdAt\)/);
   assert.match(inquiries, /formatKoreaReadableDateTime\(report\.createdAt\)/);
-  assert.equal((users.match(/w-\(--radix-select-trigger-width\)/g) ?? []).length, 2);
+  assert.equal((users.match(/w-\(--radix-select-trigger-width\)/g) ?? []).length, 3);
   assert.equal((inquiries.match(/w-\(--radix-select-trigger-width\)/g) ?? []).length, 4);
   assert.match(moderationForm, /value=\{selectedAction\}/);
   assert.match(moderationForm, /\[1, 3, 7, 30, 90, 365\]/);
@@ -170,6 +169,50 @@ test("관리자 화면 날짜는 12시간제 한국어 형식을 일관되게 �
   const playerDetail = fs.readFileSync(path.join(root, "src/app/(console)/squads/detail/page.tsx"), "utf8");
   assert.match(playerDetail, /formatKoreaFullDateTime\(player\.updatedAt\)/);
   assert.doesNotMatch(playerDetail, /hourCycle: "h23"/);
+  assert.doesNotMatch(playerDetail, /검증 한글명 등록|VerifiedPlayerNameForm/);
+  assert.doesNotMatch(playerDetail, /leagueLabel\(player\.leagueId\)/);
+  assert.match(playerDetail, /공급자 선수와 병합/);
+});
+
+test("문의 상세 헤더는 이전 링크 없이 상태를 우측에 표시하고 답변 폼은 전체 폭을 사용한다", () => {
+  const detail = fs.readFileSync(path.join(root, "src/app/(console)/inquiries/detail/page.tsx"), "utf8");
+  assert.doesNotMatch(detail, /문의 내역|ArrowLeft|context=\{/);
+  assert.match(detail, /actions=\{<AdminStatusBadge/);
+  assert.match(detail, /className="sm:items-start"/);
+  assert.match(detail, /max-w-\[1720px\]/);
+  assert.doesNotMatch(detail, /mt-5 max-w-3xl/);
+  assert.match(detail, /요청 내용/);
+  assert.match(detail, /문의 종류/);
+  assert.match(detail, /접수 시간/);
+  assert.doesNotMatch(detail, /사용자 ID/);
+  assert.match(detail, /inquiryCategoryLabel\(inquiry\.category\)/);
+  assert.doesNotMatch(detail, /문의 원문|현재 처리 내용|<aside/);
+});
+
+test("문의와 신고 제목 링크는 호버 시 밑줄을 표시하지 않는다", () => {
+  const inquiries = fs.readFileSync(path.join(root, "src/app/(console)/inquiries/page.tsx"), "utf8");
+  assert.doesNotMatch(inquiries, /hover:underline/);
+  assert.equal((inquiries.match(/transition-colors hover:text-primary/g) ?? []).length, 2);
+});
+
+test("문의 답변은 답변만 입력받고 저장 시 답변 완료로 전환한다", () => {
+  const form = fs.readFileSync(path.join(root, "src/components/admin/inquiry-action-form.tsx"), "utf8");
+  const actions = fs.readFileSync(path.join(root, "src/lib/admin/actions.ts"), "utf8");
+  assert.match(form, /name="answer" required/);
+  assert.doesNotMatch(form, /name="status"|name="note"|name="reason"/);
+  assert.match(actions, /p_status: "ANSWERED"/);
+  assert.match(actions, /p_internal_note: null/);
+  assert.match(actions, /p_reason: "사용자 문의 답변 등록"/);
+});
+
+test("관리자 버튼은 전역 크기 체계에 따라 과도한 높이를 사용하지 않는다", () => {
+  const button = fs.readFileSync(path.join(root, "src/components/ui/button.tsx"), "utf8");
+  const actionSubmit = fs.readFileSync(path.join(root, "src/components/admin/action-submit.tsx"), "utf8");
+  assert.match(button, /default:\s*\n\s*"h-9 gap-2/);
+  assert.match(button, /sm: "h-8 gap-1/);
+  assert.match(button, /lg: "h-10 gap-2/);
+  assert.doesNotMatch(button, /default: "h-12!/);
+  assert.doesNotMatch(actionSubmit, /size="sm"/);
 });
 
 test("신고 처리 화면은 문의 용어를 섞지 않고 오류 뒤 입력을 유지한다", () => {
@@ -187,7 +230,7 @@ test("신고 처리 화면은 문의 용어를 섞지 않고 오류 뒤 입력�
 
 test("팀 상세는 활성 수동 수정값을 조회해 보호 해제 기능에 연결한다", () => {
   const detail = fs.readFileSync(path.join(root, "src/app/(console)/standings/detail/page.tsx"), "utf8");
-  assert.match(detail, /getEntityProviderOperations\("standing", teamId\)/);
+  assert.match(detail, /getEntityProviderOperations\("standing", teamId, season, actualLeague\)/);
   assert.match(detail, /overrides=\{operations\.overrides\}/);
   assert.doesNotMatch(detail, /showActiveOverrides=\{false\}/);
   assert.match(detail, /showEmptyOverrides=\{false\}/);

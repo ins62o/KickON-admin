@@ -5,8 +5,8 @@ import type { ClubSummary, DashboardData, HealthStatus, Metric, SyncState } from
 import { getTeamLogoPath, getTeamName } from "./catalog";
 import { getOperationsClient } from "./operations-client";
 
-const CURRENT_LEAGUE_ID = "kleague";
-const CURRENT_DIVISION: ClubSummary["division"] = "K리그1";
+import { CURRENT_SEASON, leagueIds, leagueLabel, seasonBounds, type LeagueFilter } from "@/lib/football/config";
+import { fetchAllRows } from "./pagination";
 
 function startAndEndOfKoreaToday() {
   const date = new Intl.DateTimeFormat("en-CA", {
@@ -61,7 +61,7 @@ function unavailableMetrics(): Metric[] {
   }));
 }
 
-export const getDashboardData = cache(async (): Promise<DashboardData> => {
+export const getDashboardData = cache(async (league: LeagueFilter = "all", season = CURRENT_SEASON): Promise<DashboardData> => {
   const { client, hasServiceRole, environment } = getSupabaseConnection();
   const generatedAt = new Date().toISOString();
 
@@ -81,21 +81,21 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
   const reportsPromise = (async () => {
     const operationsClient = await operationsClientPromise;
     if (!operationsClient) return { data: null, error: null };
-    return operationsClient.from("user_data_reports").select("entity_type,entity_id,status").in("status", ["open", "in_review", "on_hold"]).range(0, 1999);
+    return fetchAllRows((from, to) => operationsClient.from("user_data_reports").select("entity_type,entity_id,status").in("status", ["open", "in_review", "on_hold"]).order("id").range(from, to));
   })();
   const changesPromise = (async () => {
     const operationsClient = await operationsClientPromise;
     if (!operationsClient) return { data: null, error: null };
-    return operationsClient.from("player_change_events").select("from_team_id,to_team_id,review_status,detected_at").gte("detected_at", new Date(Date.now() - 30 * 86_400_000).toISOString()).range(0, 1999);
+    return fetchAllRows((from, to) => operationsClient.from("player_change_events").select("from_team_id,to_team_id,review_status,detected_at").eq("season", season).in("league_id", leagueIds(league)).gte("detected_at", new Date(Date.now() - 30 * 86_400_000).toISOString()).order("detected_at").order("id").range(from, to));
   })();
   const [teamsResult, playerCountResult, todayFixturesResult, liveFixturesResult, standingsResult, playersResult, fixturesResult, syncResult, usageResult, reportsResult, changesResult] = await Promise.all([
     client.from("teams").select("id,name,short_name,code").order("name"),
-    client.from("team_players").select("player_id", { count: "exact", head: true }).eq("league_id", CURRENT_LEAGUE_ID).eq("season", 2026).eq("in_squad", true),
-    client.from("fixtures").select("id", { count: "exact", head: true }).eq("league_id", CURRENT_LEAGUE_ID).gte("kickoff_at", start).lte("kickoff_at", end),
-    client.from("fixtures").select("id", { count: "exact", head: true }).eq("league_id", CURRENT_LEAGUE_ID).eq("status", "LIVE"),
-    client.from("league_standings").select("team_id,rank,points,season,updated_at").eq("league_id", CURRENT_LEAGUE_ID).eq("season", 2026),
-    client.from("team_players").select("player_id,team_id,updated_at").eq("league_id", CURRENT_LEAGUE_ID).eq("season", 2026).eq("in_squad", true),
-    client.from("fixtures").select("id,home_team_id,away_team_id,kickoff_at,status,home_score,away_score,updated_at").eq("league_id", CURRENT_LEAGUE_ID).order("kickoff_at", { ascending: false }).limit(160),
+    client.from("team_players").select("player_id", { count: "exact", head: true }).in("league_id", leagueIds(league)).eq("season", season).eq("in_squad", true),
+    client.from("fixtures").select("id", { count: "exact", head: true }).in("league_id", leagueIds(league)).gte("kickoff_at", start).lte("kickoff_at", end),
+    client.from("fixtures").select("id", { count: "exact", head: true }).in("league_id", leagueIds(league)).eq("status", "LIVE").gte("kickoff_at", seasonBounds(season).start).lt("kickoff_at", seasonBounds(season).end),
+    client.from("league_standings").select("league_id,team_id,rank,points,season,updated_at").in("league_id", leagueIds(league)).eq("season", season),
+    fetchAllRows((from, to) => client.from("team_players").select("league_id,player_id,team_id,updated_at").in("league_id", leagueIds(league)).eq("season", season).eq("in_squad", true).order("league_id").order("team_id").order("player_id").range(from, to)),
+    fetchAllRows((from, to) => client.from("fixtures").select("id,league_id,home_team_id,away_team_id,kickoff_at,status,home_score,away_score,updated_at").in("league_id", leagueIds(league)).gte("kickoff_at", seasonBounds(season).start).lt("kickoff_at", seasonBounds(season).end).order("kickoff_at", { ascending: false }).order("id").range(from, to)),
     client.from("football_sync_state").select("sync_key,last_attempted_at,last_succeeded_at,last_error").order("last_attempted_at", { ascending: false }).limit(12),
     hasServiceRole
       ? client.from("football_provider_usage").select("remaining,observed_at,status_code,requested_entity").order("observed_at", { ascending: false }).limit(1)
@@ -104,8 +104,15 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
     changesPromise,
   ]);
 
-  const coreError = teamsResult.error || playerCountResult.error || todayFixturesResult.error || liveFixturesResult.error;
-  const teams = teamsResult.data ?? [];
+  const coreError = teamsResult.error || playerCountResult.error || todayFixturesResult.error || liveFixturesResult.error || standingsResult.error || playersResult.error || fixturesResult.error;
+  const membership = new Map<string, string>();
+  for (const row of fixturesResult.data ?? []) {
+    membership.set(row.home_team_id, row.league_id);
+    membership.set(row.away_team_id, row.league_id);
+  }
+  for (const row of playersResult.data ?? []) membership.set(row.team_id, row.league_id);
+  for (const row of standingsResult.data ?? []) membership.set(row.team_id, row.league_id);
+  const teams = (teamsResult.data ?? []).filter((team) => membership.has(team.id));
   const standings = standingsResult.data ?? [];
   const players = playersResult.data ?? [];
   const fixtures = fixturesResult.data ?? [];
@@ -113,7 +120,14 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
   const latestSync = syncRows.find((row) => row.last_succeeded_at)?.last_succeeded_at ?? null;
   const failedSyncCount = syncResult.error ? null : syncRows.filter((row) => row.last_error).length;
   const latestUsage = usageResult.data?.[0] ?? null;
-  const playerTeamById = new Map(players.map((player) => [player.player_id, player.team_id]));
+  // Legacy reports have no league/season: never attribute an ambiguous player ID.
+  const playerTeamById = new Map<string, string>();
+  const ambiguousPlayerIds = new Set<string>();
+  for (const player of players) {
+    if (playerTeamById.has(player.player_id)) ambiguousPlayerIds.add(player.player_id);
+    else playerTeamById.set(player.player_id, player.team_id);
+  }
+  for (const id of ambiguousPlayerIds) playerTeamById.delete(id);
   const reportCounts = new Map<string, number>();
   for (const report of reportsResult.data ?? []) {
     const teamId = report.entity_type === "team" ? report.entity_id : report.entity_type === "player" && report.entity_id ? playerTeamById.get(report.entity_id) : null;
@@ -134,14 +148,14 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
     {
       label: "등록 구단 수",
       value: formatNumber(teamsResult.error ? null : teams.length),
-      detail: teamsResult.error ? "teams 조회 권한을 확인하세요" : "Supabase teams 기준",
+      detail: teamsResult.error ? "teams 조회 권한을 확인하세요" : `${season} ${leagueLabel(league)} 등록 구단`,
       status: teamsResult.error ? "unknown" : "normal",
       availability: teamsResult.error ? "error" : "available",
     },
     {
       label: "등록 선수 수",
       value: formatNumber(playerCountResult.error ? null : playerCountResult.count ?? 0),
-      detail: playerCountResult.error ? "team_players 조회 권한을 확인하세요" : "현재 선수단 등록 기준",
+      detail: playerCountResult.error ? "team_players 조회 권한을 확인하세요" : `${season} ${leagueLabel(league)} 현재 선수단 등록 기준`,
       status: playerCountResult.error ? "unknown" : "normal",
       availability: playerCountResult.error ? "error" : "available",
     },
@@ -166,14 +180,14 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
     {
       label: "마지막 데이터 동기화",
       value: latestSync ? formatRelativeTime(latestSync) : "연동 필요",
-      detail: syncResult.error ? "인증된 운영자 권한이 필요합니다" : "football_sync_state 기준",
+      detail: syncResult.error ? "인증된 운영자 권한이 필요합니다" : "전체 리그 동기화 상태 · 리그 미지정 작업 포함",
       status: syncResult.error ? "unknown" : syncHealth(latestSync, null),
       availability: syncResult.error ? "unavailable" : "available",
     },
     {
       label: "동기화 실패",
       value: failedSyncCount === null ? "연동 필요" : `${failedSyncCount}건`,
-      detail: syncResult.error ? "인증된 운영자 권한이 필요합니다" : "최근 동기화 상태 기준",
+      detail: syncResult.error ? "인증된 운영자 권한이 필요합니다" : "전체 리그 최근 동기화 상태 기준",
       status: failedSyncCount === null ? "unknown" : failedSyncCount > 0 ? "danger" : "normal",
       availability: failedSyncCount === null ? "unavailable" : "available",
     },
@@ -229,6 +243,7 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
     const hasCoreDataError = Boolean(standingsResult.error || fixturesResult.error || playersResult.error);
 
     return {
+      leagueId: membership.get(team.id) ?? null,
       id: team.id,
       name: getTeamName(team.id) === team.id ? team.name : getTeamName(team.id),
       shortName: team.short_name,
@@ -256,7 +271,7 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
       reportCount,
       changeCount,
       latestChangeAt: changesResult.error ? null : latestChanges.get(team.id) ?? null,
-      division: standing || clubPlayers.length > 0 || clubFixtures.length > 0 ? CURRENT_DIVISION : null,
+      division: membership.has(team.id) ? leagueLabel(membership.get(team.id)!) as ClubSummary["division"] : null,
       status: hasCoreDataError ? "unknown" : combinedClubHealth([playerStatus, fixtureStatus, standingStatus], hasOperationalIssue),
     };
   });

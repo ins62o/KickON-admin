@@ -19,6 +19,7 @@ export type SyncState = {
 };
 
 export type ClubSummary = {
+  leagueId: string | null;
   id: string;
   name: string;
   shortName: string;
@@ -145,6 +146,8 @@ export type FixtureDetail = FixtureRecord & {
 };
 
 export type StandingRecord = {
+  season: number;
+  leagueId: string;
   teamId: string;
   teamName: string;
   logoPath: string | null;
@@ -163,6 +166,8 @@ export type StandingRecord = {
 };
 
 export type PlayerRankingRecord = {
+  season: number;
+  leagueId: string;
   playerId: string;
   playerName: string;
   koreanName: string | null;

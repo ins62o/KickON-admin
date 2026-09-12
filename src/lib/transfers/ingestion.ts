@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isLeagueId } from "@/lib/football/config";
 import { createHash } from "node:crypto";
 import { getSupabaseConnection } from "@/lib/data/supabase";
 import { sanitizeErrorContext, sanitizeErrorText } from "@/lib/errors/ingestion";
@@ -30,6 +31,8 @@ export type ProviderPlayerChangeIngestResult =
   | { ok: false; code: "INGEST_NOT_CONFIGURED" | "INVALID_CANDIDATES" | "ENTITY_NOT_FOUND" | "INGEST_FAILED" };
 
 type CandidatePayload = {
+  season?: unknown;
+  leagueId?: unknown;
   sourceEventId?: unknown;
   playerId?: unknown;
   playerName?: unknown;
@@ -45,6 +48,8 @@ type CandidatePayload = {
 };
 
 type NormalizedCandidate = {
+  season: number;
+  leagueId: string;
   dedupeKey: string;
   playerId: string;
   playerName: string;
@@ -131,6 +136,9 @@ export async function ingestProviderPlayerChanges(payload: ProviderPlayerChangeP
 function normalizeCandidate(value: unknown, provider: string, now: Date): NormalizedCandidate | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value as CandidatePayload;
+  const season = Number(candidate.season);
+  const leagueId = candidate.leagueId;
+  if (!isLeagueId(leagueId) || !Number.isInteger(season) || season < 2000 || season > 2200) return null;
   const playerId = nullableText(candidate.playerId, 160);
   const playerName = nullableText(candidate.playerName, 200);
   if (!playerId || !playerIdPattern.test(playerId) || !playerName) return null;
@@ -162,10 +170,12 @@ function normalizeCandidate(value: unknown, provider: string, now: Date): Normal
   const dedupeInput = sourceEventId
     ? [provider, "event", sourceEventId]
     : [provider, "candidate", playerId, fromTeamId ?? normalizedName(fromTeamName), toTeamId ?? normalizedName(toTeamName), changeType, movementDate ?? ""];
-  const dedupeKey = createHash("sha256").update(dedupeInput.join("|")).digest("hex");
+  const dedupeKey = createHash("sha256").update([season, leagueId, ...dedupeInput].join("|")).digest("hex");
 
   return {
     dedupeKey,
+    season,
+    leagueId,
     playerId,
     playerName,
     fromTeamId,

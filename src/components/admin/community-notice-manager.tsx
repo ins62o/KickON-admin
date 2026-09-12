@@ -9,6 +9,7 @@ import { ClientPageError, ClientPageLoading } from "@/components/admin/client-pa
 import { DataState } from "@/components/admin/data-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { AdminStatusBadge } from "@/components/admin/status-badge";
+import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -55,11 +56,6 @@ const noticeDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   minute: "2-digit",
   hourCycle: "h23",
 });
-
-const K_LEAGUE_1_TEAM_IDS = new Set([
-  "incheon", "seoul", "jeonbuk", "ulsan", "daejeon", "pohang",
-  "anyang", "bucheon", "gangwon", "jeju", "gwangju", "gimcheon",
-]);
 
 function formatNoticeDateTime(value: string) {
   const parts = noticeDateTimeFormatter.formatToParts(new Date(value));
@@ -123,7 +119,7 @@ function NoticeCreateForm({ teams, onSuccess }: { teams: CommunityNoticeTeam[]; 
 
       {board === "TEAM" ? (
         <div className="space-y-2">
-          <label htmlFor="notice-team" className="block text-sm font-semibold">기준 팀 (K리그 1)</label>
+          <label htmlFor="notice-team" className="block text-sm font-semibold">기준 팀</label>
           <Select name="teamId" value={teamId} onValueChange={setTeamId} disabled={pending} required>
               <SelectTrigger
                 id="notice-team"
@@ -142,21 +138,7 @@ function NoticeCreateForm({ teams, onSuccess }: { teams: CommunityNoticeTeam[]; 
                 </span>
               </SelectTrigger>
               <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
-                {teams.map((team) => {
-                  const logoPath = getTeamLogoPath(team.id);
-                  return (
-                    <SelectItem key={team.id} value={team.id} className="min-h-11 cursor-pointer py-2.5 pr-8 pl-2.5">
-                      {logoPath ? (
-                        <Image src={logoPath} width={22} height={22} alt="" className="size-[22px] shrink-0 object-contain" />
-                      ) : (
-                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true">
-                          <UsersRound className="size-3.5" />
-                        </span>
-                      )}
-                      <span className="truncate">{team.name}</span>
-                    </SelectItem>
-                  );
-                })}
+                <TeamSelectOptions teams={teams} itemClassName="min-h-11 py-2.5" />
               </SelectContent>
           </Select>
         </div>
@@ -251,11 +233,11 @@ export function CommunityNoticeManager() {
   const [noticeScope, setNoticeScope] = useState<"LEAGUE" | "TEAM">("LEAGUE");
   const [teamFilter, setTeamFilter] = useState("__all");
   const canWrite = Boolean(admin && hasAdminPermission(admin.role, "moderation.write"));
-  const kLeagueOneTeams = data?.teams.filter((team) => K_LEAGUE_1_TEAM_IDS.has(team.id)) ?? [];
-  const activeTeamFilter = teamFilter === "__all" || kLeagueOneTeams.some((team) => team.id === teamFilter)
+  const teams = data?.teams ?? [];
+  const activeTeamFilter = teamFilter === "__all" || teams.some((team) => team.id === teamFilter)
     ? teamFilter
     : "__all";
-  const selectedFilterTeam = kLeagueOneTeams.find((team) => team.id === activeTeamFilter);
+  const selectedFilterTeam = teams.find((team) => team.id === activeTeamFilter);
   const selectedFilterTeamLogo = selectedFilterTeam ? getTeamLogoPath(selectedFilterTeam.id) : null;
   const filteredNotices = data?.notices.filter((notice) => (
     notice.board === noticeScope
@@ -335,21 +317,7 @@ export function CommunityNoticeManager() {
                   </span>
                   <span>전체 팀</span>
                 </SelectItem>
-                {kLeagueOneTeams.map((team) => {
-                  const logoPath = getTeamLogoPath(team.id);
-                  return (
-                    <SelectItem key={team.id} value={team.id} className="min-h-11 cursor-pointer py-2.5 pr-8 pl-2.5">
-                      {logoPath ? (
-                        <Image src={logoPath} width={20} height={20} alt="" className="size-5 shrink-0 object-contain" />
-                      ) : (
-                        <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true">
-                          <UsersRound className="size-3" />
-                        </span>
-                      )}
-                      <span>{team.name}</span>
-                    </SelectItem>
-                  );
-                })}
+                <TeamSelectOptions teams={teams} itemClassName="min-h-11 py-2.5" />
               </SelectContent>
             </Select>
           </div>
@@ -405,7 +373,7 @@ export function CommunityNoticeManager() {
       <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader><DialogTitle>공지 작성</DialogTitle></DialogHeader>
-          <NoticeCreateForm key={createVersion} teams={kLeagueOneTeams} onSuccess={handleSuccess} />
+          <NoticeCreateForm key={createVersion} teams={teams} onSuccess={handleSuccess} />
         </DialogContent>
       </Dialog>
 

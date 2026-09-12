@@ -1,4 +1,6 @@
+import { CURRENT_SEASON, type LeagueFilter } from "@/lib/football/config";
 import { cache } from "react";
+import { fetchAllRows } from "./pagination";
 
 import { formatRelativeTime } from "@/lib/format";
 import {
@@ -18,18 +20,21 @@ type SyncRunHistoryRow = {
 
 type SyncStateHistoryRow = {
   sync_key: string;
+  season?: number | null;
+  league_id?: string | null;
   last_succeeded_at: string | null;
 };
 
 const syncStateOperation: Record<string, SyncOperation> = {
   "sportmonks-live": "live",
-  "sportmonks-post-match-2026": "post-match",
-  "sportmonks-history-2024-2026": "history-backfill",
-  "team-metrics-2026-v2": "team-metrics",
+  [`sportmonks-post-match-${CURRENT_SEASON}`]: "post-match",
+  [`sportmonks-history-2024-${CURRENT_SEASON}`]: "history-backfill",
+  [`team-metrics-${CURRENT_SEASON}-v2`]: "team-metrics",
 };
 
-function operationFromSyncState(syncKey: string) {
-  if (syncKey.startsWith("team-squad-2026-")) return "team-squad";
+function operationFromSyncState(scopedKey: string) {
+  const syncKey = scopedKey.replace(/:\d{4}:kleague2?$/, "");
+  if (syncKey.startsWith(`team-squad-${CURRENT_SEASON}-`)) return "team-squad";
   return syncStateOperation[syncKey] ?? null;
 }
 
@@ -57,7 +62,7 @@ function latestTimestamp(current: string | null, candidate: string | null) {
   return Date.parse(candidate) > Date.parse(current) ? candidate : current;
 }
 
-export const getSyncOperationHistory = cache(async (): Promise<SyncOperationLastSyncMap> => {
+export const getSyncOperationHistory = cache(async (league: LeagueFilter = "all"): Promise<SyncOperationLastSyncMap> => {
   const client = await getOperationsClient();
   if (!client) {
     return Object.fromEntries(syncOperations.map((operation) => [
@@ -66,18 +71,13 @@ export const getSyncOperationHistory = cache(async (): Promise<SyncOperationLast
     ])) as SyncOperationLastSyncMap;
   }
 
+  let runsQuery = client.from("sync_runs").select("job_key,finished_at,metadata")
+    .in("status", ["succeeded", "partial"]).not("finished_at", "is", null);
+  if (league !== "all") runsQuery = runsQuery.contains("metadata", { leagueId: league, season: CURRENT_SEASON });
   const [runsResult, statesResult] = await Promise.all([
-    client
-      .from("sync_runs")
-      .select("job_key,finished_at,metadata")
-      .in("status", ["succeeded", "partial"])
-      .not("finished_at", "is", null)
-      .order("finished_at", { ascending: false })
-      .limit(200),
-    client
-      .from("football_sync_state")
-      .select("sync_key,last_succeeded_at")
-      .not("last_succeeded_at", "is", null),
+    runsQuery.order("finished_at", { ascending: false }).order("id").limit(200),
+    fetchAllRows((from, to) => client.from("football_sync_state").select("*")
+      .not("last_succeeded_at", "is", null).order("sync_key").range(from, to)),
   ]);
 
   const timestamps = Object.fromEntries(
@@ -89,6 +89,7 @@ export const getSyncOperationHistory = cache(async (): Promise<SyncOperationLast
 
   if (!runsResult.error) {
     for (const row of (runsResult.data ?? []) as SyncRunHistoryRow[]) {
+      if (league !== "all" && (row.metadata as Record<string, unknown> | null)?.leagueId !== league) continue;
       const operation = operationFromRun(row);
       if (operation) timestamps[operation] = latestTimestamp(timestamps[operation], row.finished_at);
     }
@@ -99,6 +100,7 @@ export const getSyncOperationHistory = cache(async (): Promise<SyncOperationLast
       available[operation] = true;
     }
     for (const row of (statesResult.data ?? []) as SyncStateHistoryRow[]) {
+      if (league !== "all" && (row.league_id !== league || row.season !== CURRENT_SEASON)) continue;
       const operation = operationFromSyncState(row.sync_key);
       if (!operation) continue;
       available[operation] = true;

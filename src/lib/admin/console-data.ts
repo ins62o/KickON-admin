@@ -203,6 +203,7 @@ type BasicProfileRow = {
   team_id: string | null;
   created_at: string;
   updated_at: string;
+  registration_completed_at: string;
 };
 
 type EnhancedProfileRow = BasicProfileRow & {
@@ -606,8 +607,9 @@ async function loadBasicProfiles(client: SupabaseClient) {
   return collectRows<BasicProfileRow>(async (from, to) => {
     const result = await client
       .from("profiles")
-      .select("id,nickname,team_id,created_at,updated_at")
-      .order("created_at", { ascending: false })
+      .select("id,nickname,team_id,created_at,updated_at,registration_completed_at")
+      .not("registration_completed_at", "is", null)
+      .order("registration_completed_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, to);
     return { data: result.data, error: result.error };
@@ -618,8 +620,9 @@ async function loadProfilesWithAccountState(client: SupabaseClient) {
   const enhanced = await collectRows<EnhancedProfileRow>(async (from, to) => {
     const result = await client
       .from("profiles")
-      .select("id,nickname,team_id,created_at,updated_at,account_status,suspended_until")
-      .order("created_at", { ascending: false })
+      .select("id,nickname,team_id,created_at,updated_at,registration_completed_at,account_status,suspended_until")
+      .not("registration_completed_at", "is", null)
+      .order("registration_completed_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, to);
     return { data: result.data, error: result.error };
@@ -724,7 +727,10 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
   }
 
   const [profilesResult, failedSyncResult] = await Promise.all([
-    client.from("profiles").select("id", { count: "exact", head: true }),
+    client
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .not("registration_completed_at", "is", null),
     client
       .from("sync_runs")
       .select("id", { count: "exact", head: true })
@@ -891,10 +897,17 @@ export const getAdminDashboardData = cache(async (
     syncFreshnessResult,
   ] = await Promise.all([
     loadTeams(client),
-    client.from("profiles").select("id", { count: "exact", head: true }),
-    client.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", boundaries.today),
-    client.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", boundaries.sevenDays),
-    client.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", boundaries.month),
+    client.from("profiles").select("id", { count: "exact", head: true })
+      .not("registration_completed_at", "is", null),
+    client.from("profiles").select("id", { count: "exact", head: true })
+      .not("registration_completed_at", "is", null)
+      .gte("registration_completed_at", boundaries.today),
+    client.from("profiles").select("id", { count: "exact", head: true })
+      .not("registration_completed_at", "is", null)
+      .gte("registration_completed_at", boundaries.sevenDays),
+    client.from("profiles").select("id", { count: "exact", head: true })
+      .not("registration_completed_at", "is", null)
+      .gte("registration_completed_at", boundaries.month),
     client.from("posts").select("id", { count: "exact", head: true }),
     client.from("comments").select("id", { count: "exact", head: true }),
     client.from("attendances").select("id", { count: "exact", head: true }),
@@ -936,32 +949,26 @@ export const getAdminDashboardData = cache(async (
 
   const teamDistribution: AdminTeamDistributionRecord[] = [];
   if (!teamsResult.error) {
-    const distributionResults = await Promise.all([
-      ...teamsResult.rows.map(async (team) => ({
+    const distributionResults = await Promise.all(
+      teamsResult.rows.map(async (team) => ({
         team,
         result: await client
           .from("profiles")
           .select("id", { count: "exact", head: true })
+          .not("registration_completed_at", "is", null)
           .eq("team_id", team.id),
       })),
-      (async () => ({
-        team: null,
-        result: await client
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .is("team_id", null),
-      }))(),
-    ]);
+    );
 
     for (const item of distributionResults) {
       addIssue(
         issues,
-        item.team ? `profiles.team.${item.team.id}` : "profiles.team.unselected",
+        `profiles.team.${item.team.id}`,
         item.result.error,
       );
       teamDistribution.push({
-        teamId: item.team?.id ?? null,
-        teamName: item.team?.name ?? "응원 팀 미선택",
+        teamId: item.team.id,
+        teamName: item.team.name,
         memberCount: countValue(item.result),
       });
     }
@@ -1141,7 +1148,8 @@ async function countExistingProfiles(
   const result = await client
     .from("profiles")
     .select("id", { count: "exact", head: true })
-    .in("id", [...profileIds]);
+    .in("id", [...profileIds])
+    .not("registration_completed_at", "is", null);
   return result.error ? null : result.count ?? 0;
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { fixtureHref } from "@/lib/football/config";
 import Link from "next/link";
 import type { LegacyColumnDef, LegacyRow } from "@tanstack/react-table/legacy";
 import { ArrowUpRight } from "lucide-react";
@@ -52,7 +53,7 @@ const columns: LegacyColumnDef<FixtureRecord>[] = [
     cell: ({ row }) => {
       const fixture = row.original;
       return (
-        <Link href={`/fixtures/${fixture.id}`} className="group grid min-w-80 grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href={fixtureHref(fixture)} className="group grid min-w-80 grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span className="truncate text-right font-medium group-hover:text-primary">{fixture.homeTeamName}</span>
           <span className="tabular min-w-14 rounded-md bg-muted px-2 py-1 text-center font-mono text-sm font-semibold">
             {fixture.status === "SCHEDULED" ? "vs" : `${fixture.homeScore ?? "-"} : ${fixture.awayScore ?? "-"}`}

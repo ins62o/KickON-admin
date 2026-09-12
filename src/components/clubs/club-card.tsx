@@ -1,3 +1,4 @@
+import { CURRENT_SEASON } from "@/lib/football/config";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, CalendarClock, GitCompareArrows, RefreshCcw, Trophy, UsersRound } from "lucide-react";
@@ -7,10 +8,10 @@ import { formatKoreaDateTime, formatRelativeTime } from "@/lib/format";
 
 export function ClubCard({ club }: { club: ClubSummary }) {
   return (
-    <Link href={`/clubs/${club.id}`} className="group block rounded-xl border border-border/80 bg-card/45 p-4 transition-colors hover:border-primary/30 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={`/standings/detail/?teamId=${encodeURIComponent(club.id)}&leagueId=${encodeURIComponent(club.leagueId ?? "all")}&season=${CURRENT_SEASON}`} className="group block rounded-xl border border-border/80 bg-card/45 p-4 transition-colors hover:border-primary/30 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <div className="flex items-start gap-3">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-white p-1.5">
-          {club.logoPath ? <Image src={club.logoPath} alt={`${club.name} 로고`} width={34} height={34} className="size-8 object-contain" /> : <span className="text-xs font-bold text-zinc-700">{club.code.slice(0, 2)}</span>}
+        <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-white">
+          {club.logoPath ? <Image src={club.logoPath} alt={`${club.name} 로고`} fill sizes="44px" className="object-contain p-1.5" /> : <span className="text-xs font-bold text-zinc-700">{club.code.slice(0, 2)}</span>}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

@@ -135,15 +135,18 @@ function mapAuditRecord(row: Record<string, unknown>): AuditLogRecord {
   };
 }
 
-export const getAuditLogList = cache(async () => {
+export const getAuditLogList = cache(async (page = 1, pageSize = 200) => {
   const client = await getOperationsClient();
   const empty = { logs: [] as AuditLogRecord[], total: null as number | null, schemaReady: false, error: "Supabase 환경 변수가 설정되지 않았습니다." as string | null };
   if (!client) return empty;
+  const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+  const safePageSize = Number.isInteger(pageSize) && pageSize > 0 && pageSize <= 200 ? pageSize : 200;
+  const from = (safePage - 1) * safePageSize;
   const result = await client
     .from("admin_audit_logs")
     .select("id,actor_id,actor_role,action,entity_type,entity_id,reason,before_value,after_value,request_id,created_at", { count: "exact" })
     .order("created_at", { ascending: false })
-    .range(0, 199);
+    .range(from, from + safePageSize - 1);
   if (result.error) {
     const missing = isOperationsSchemaMissing(result.error.code);
     return { ...empty, schemaReady: !missing, error: missing ? "운영 변경 기록 스키마 적용이 필요합니다." : "관리자 변경 기록을 조회할 수 없습니다." };
@@ -195,12 +198,17 @@ export function auditChangeSummary(log: AuditLogRecord) {
 
 export function auditEntityHref(log: AuditLogRecord) {
   const value = log.afterValue ?? log.beforeValue;
+  const scope = new URLSearchParams();
+  const leagueId = value?.league_id ?? value?.leagueId;
+  if (typeof leagueId === "string") scope.set("leagueId", leagueId);
+  if (typeof value?.season === "number") scope.set("season", String(value.season));
+  const suffix = scope.size ? `&${scope}` : "";
   const nestedType = typeof value?.entity_type === "string" ? value.entity_type : null;
   const nestedId = typeof value?.entity_id === "string" ? value.entity_id : log.entityId;
   if (log.entityType === "manual_overrides" && nestedType && nestedId) {
-    if (nestedType === "player") return `/squads/detail/?playerId=${encodeURIComponent(nestedId)}`;
-    if (nestedType === "fixture") return `/fixtures/${nestedId}`;
-    if (nestedType === "standing") return `/standings/detail/?teamId=${encodeURIComponent(nestedId)}`;
+    if (nestedType === "player") return `/squads/detail/?playerId=${encodeURIComponent(nestedId)}${suffix}`;
+    if (nestedType === "fixture") return `/schedules/detail/?fixtureId=${encodeURIComponent(nestedId)}${suffix}`;
+    if (nestedType === "standing") return `/standings/detail/?teamId=${encodeURIComponent(nestedId)}${suffix}`;
   }
   return null;
 }

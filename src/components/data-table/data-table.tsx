@@ -20,7 +20,7 @@ import {
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ export type DataTableFilter = {
   label: string;
   allLabel?: string;
   allIcon?: ReactNode;
-  options: Array<{ label: string; value: string; icon?: ReactNode }>;
+  options: Array<{ label: string; value: string; icon?: ReactNode; group?: string }>;
 };
 
 type DataTableProps<TData extends RowData> = {
@@ -46,6 +46,7 @@ type DataTableProps<TData extends RowData> = {
   emptyState?: ReactNode;
   pageSize?: number;
   hiddenColumns?: string[];
+  getRowId?: (row: TData) => string;
   getRowHref?: (row: TData) => string;
   comfortableToolbar?: boolean;
   alignFiltersEnd?: boolean;
@@ -68,6 +69,7 @@ export function DataTable<TData extends RowData>({
   emptyState,
   pageSize = 25,
   hiddenColumns = [],
+  getRowId,
   getRowHref,
   comfortableToolbar = false,
   alignFiltersEnd = false,
@@ -82,6 +84,7 @@ export function DataTable<TData extends RowData>({
   const table = useLegacyTable({
     data,
     columns,
+    getRowId,
     state: { sorting, columnFilters, columnVisibility },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -155,7 +158,20 @@ export function DataTable<TData extends RowData>({
                   {filter.allIcon}
                   {filter.allLabel ?? `${filter.label}: 전체`}
                 </SelectItem>
-                {filter.options.map((option) => (
+                {filter.options.some((option) => option.group) ? (
+                  Array.from(new Set(filter.options.map((option) => option.group).filter((group): group is string => Boolean(group)))).map((group, index) => (
+                    <SelectGroup key={group}>
+                      {index > 0 ? <SelectSeparator /> : null}
+                      <SelectLabel className="px-2.5 py-1.5 text-[11px] font-bold tracking-wide text-muted-foreground">{group}</SelectLabel>
+                      {filter.options.filter((option) => option.group === group).map((option) => (
+                        <SelectItem key={option.value} value={option.value} className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>
+                          {option.icon}
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))
+                ) : filter.options.map((option) => (
                   <SelectItem key={option.value} value={option.value} className={comfortableToolbar ? "cursor-pointer py-2.5 pr-8 pl-2.5" : undefined}>
                     {option.icon}
                     {option.label}

@@ -1,3 +1,5 @@
+import { CURRENT_SEASON, leagueIds, type LeagueFilter, type LeagueId } from "@/lib/football/config";
+import { fetchRowsForIds } from "./pagination";
 import { cache } from "react";
 import type { FixtureRecord, PlayerRecord, StandingRecord } from "./types";
 import { getOperationsClient, isOperationsSchemaMissing } from "./operations-client";
@@ -79,12 +81,12 @@ function mapOverride(row: Record<string, unknown>): EntityOverrideRecord {
   };
 }
 
-export const getEntityProviderOperations = cache(async (entityType: ComparableEntityType, entityId: string, season = 2026, leagueId = "kleague") => {
+export const getEntityProviderOperations = cache(async (entityType: ComparableEntityType, entityId: string, season: number, leagueId: LeagueId) => {
   const client = await getOperationsClient();
   if (!client) return { snapshot: null as ProviderSnapshotRecord | null, overrides: [] as EntityOverrideRecord[], schemaReady: false, error: "Supabase 환경 변수가 설정되지 않았습니다." };
   const [snapshot, overrides] = await Promise.all([
-    client.from("provider_entity_snapshots").select(snapshotSelect).eq("entity_type", entityType).eq("entity_id", entityId).eq("season", season).eq("league_id", leagueId).order("fetched_at", { ascending: false }).limit(1).maybeSingle(),
-    client.from("manual_overrides").select("id,entity_type,entity_id,field_path,original_value,override_value,reason,created_at,released_at").eq("entity_type", entityType).eq("entity_id", entityId).eq("season", season).eq("league_id", leagueId).order("created_at", { ascending: false }).limit(100),
+    client.from("provider_entity_snapshots").select(snapshotSelect).eq("entity_type", entityType).eq("entity_id", entityId).eq("season", season).in("league_id", leagueIds(leagueId)).order("fetched_at", { ascending: false }).limit(1).maybeSingle(),
+    client.from("manual_overrides").select("id,entity_type,entity_id,field_path,original_value,override_value,reason,created_at,released_at").eq("entity_type", entityType).eq("entity_id", entityId).eq("season", season).in("league_id", leagueIds(leagueId)).order("created_at", { ascending: false }).limit(100),
   ]);
   const error = snapshot.error ?? overrides.error;
   if (error) {
@@ -99,10 +101,11 @@ export const getEntityProviderOperations = cache(async (entityType: ComparableEn
   };
 });
 
-export const getProviderSnapshotIndex = cache(async (entityType: ComparableEntityType, entityIds: string[], season = 2026, leagueId = "kleague") => {
+export const getProviderSnapshotIndex = cache(async (entityType: ComparableEntityType, entityIds: string[], season = CURRENT_SEASON, leagueId: LeagueFilter = "all") => {
+  if (entityType !== "fixture" && leagueId === "all") throw new Error("선수·순위 비교는 리그를 먼저 선택해야 합니다.");
   const client = await getOperationsClient();
   if (!client || entityIds.length === 0) return { snapshots: new Map<string, ProviderSnapshotRecord>(), schemaReady: Boolean(client), error: client ? null : "Supabase 환경 변수가 설정되지 않았습니다." };
-  const result = await client.from("provider_entity_snapshots").select(snapshotSelect).eq("entity_type", entityType).eq("season", season).eq("league_id", leagueId).in("entity_id", entityIds.slice(0, 200)).order("fetched_at", { ascending: false }).range(0, 999);
+  const result = await fetchRowsForIds(entityIds, (ids, from, to) => client.from("provider_entity_snapshots").select(snapshotSelect).eq("entity_type", entityType).eq("season", season).in("league_id", leagueIds(leagueId)).in("entity_id", ids).order("fetched_at", { ascending: false }).order("id").range(from, to));
   if (result.error) {
     const missing = isOperationsSchemaMissing(result.error.code);
     return { snapshots: new Map<string, ProviderSnapshotRecord>(), schemaReady: !missing, error: missing ? "Provider Snapshot 마이그레이션 적용이 필요합니다." : "외부 비교 데이터를 조회할 수 없습니다." };
@@ -112,13 +115,14 @@ export const getProviderSnapshotIndex = cache(async (entityType: ComparableEntit
   return { snapshots, schemaReady: true, error: null };
 });
 
-export const getProviderOverrideIndex = cache(async (entityType: ComparableEntityType, entityIds: string[], season = 2026, leagueId = "kleague") => {
+export const getProviderOverrideIndex = cache(async (entityType: ComparableEntityType, entityIds: string[], season = CURRENT_SEASON, leagueId: LeagueFilter = "all") => {
+  if (entityType !== "fixture" && leagueId === "all") throw new Error("선수·순위 비교는 리그를 먼저 선택해야 합니다.");
   const client = await getOperationsClient();
   if (!client || entityIds.length === 0) return { overrides: new Map<string, EntityOverrideRecord[]>(), schemaReady: Boolean(client), error: client ? null : "Supabase 환경 변수가 설정되지 않았습니다." };
-  const result = await client.from("manual_overrides")
+  const result = await fetchRowsForIds(entityIds, (ids, from, to) => client.from("manual_overrides")
     .select("id,entity_type,entity_id,field_path,original_value,override_value,reason,created_at,released_at")
-    .eq("entity_type", entityType).eq("season", season).eq("league_id", leagueId)
-    .in("entity_id", entityIds.slice(0, 200)).is("released_at", null).order("created_at", { ascending: false }).range(0, 999);
+    .eq("entity_type", entityType).eq("season", season).in("league_id", leagueIds(leagueId))
+    .in("entity_id", ids).is("released_at", null).order("created_at", { ascending: false }).order("id").range(from, to));
   if (result.error) {
     const missing = isOperationsSchemaMissing(result.error.code);
     return { overrides: new Map<string, EntityOverrideRecord[]>(), schemaReady: !missing, error: missing ? "Provider Snapshot 마이그레이션 적용이 필요합니다." : "수동 Override를 조회할 수 없습니다." };

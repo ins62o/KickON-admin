@@ -77,8 +77,8 @@ export default function AdminDashboardPage() {
       getAdminDashboardSummary(),
       getAdminDashboardAttention(),
       getDashboardUsageSnapshotsClient(),
-      getSyncControlOptions(),
-      getSyncOperationHistory(),
+      getSyncControlOptions("all"),
+      getSyncOperationHistory("all"),
     ]);
     return { dashboard, attention, usage, syncOptions, syncHistory };
   });
@@ -172,7 +172,7 @@ export default function AdminDashboardPage() {
             note={`전체 한도 ${usage.fileStorage.limitLabel}`}
           />
           <CompactUsageGauge
-            title="SportsMonks 사용량"
+            title="SportsMonks 전체 사용량"
             icon={Activity}
             centerValue={usage.provider.centerValue}
             rate={usage.provider.rate}
@@ -199,7 +199,7 @@ export default function AdminDashboardPage() {
           </div>
           <AdminStatusBadge
             size="default"
-            label={syncUnavailable ? "확인 필요" : syncFailureDetected ? "최근 실패 있음" : "정상"}
+            label={syncUnavailable ? "확인 필요" : syncFailureDetected ? "최근 실패 있음 · 전체 리그" : "정상"}
             tone={syncUnavailable ? "warning" : syncFailureDetected ? "danger" : "success"}
           />
         </header>

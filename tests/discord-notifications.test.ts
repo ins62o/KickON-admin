@@ -3,14 +3,19 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const migration = fs.readFileSync(
+const baseMigration = fs.readFileSync(
   path.join(process.cwd(), "supabase/migrations/202609090002_discord_admin_notifications.sql"),
   "utf8",
 );
+const completionMigration = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/202609110005_complete_registration_after_profile_setup.sql"),
+  "utf8",
+);
+const migration = `${baseMigration}\n${completionMigration}`;
 
-test("신규 가입자와 1:1 문의 INSERT가 Discord 알림을 큐에 넣는다", () => {
-  assert.match(migration, /after insert on public\.profiles/);
-  assert.match(migration, /after insert on public\.support_inquiries/);
+test("가입 완료 UPDATE와 1:1 문의 INSERT가 Discord 알림을 큐에 넣는다", () => {
+  assert.match(completionMigration, /after update of registration_completed_at on public\.profiles/);
+  assert.match(baseMigration, /after insert on public\.support_inquiries/);
   assert.match(migration, /perform net\.http_post\(/);
   assert.match(migration, /discord_admin_notifications_webhook_url/);
   assert.match(migration, /신규 가입자가 있습니다/);

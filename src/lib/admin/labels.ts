@@ -2,6 +2,21 @@ export function inquiryStatusLabel(status: string) {
   return ({ RECEIVED: "새 문의", IN_PROGRESS: "새 문의", ANSWERED: "답변 완료", CLOSED: "답변 완료" } as Record<string, string>)[status] ?? status;
 }
 
+export const inquiryCategoryLabels = {
+  APP_ERROR: "앱 오류",
+  DATA_ERROR: "데이터 오류",
+  ACCOUNT: "계정",
+  NOTIFICATION: "알림",
+  ATTENDANCE: "직관 인증",
+  COMMUNITY: "커뮤니티",
+  SUGGESTION: "기능 제안",
+  OTHER: "기타",
+} as const;
+
+export function inquiryCategoryLabel(category: string) {
+  return inquiryCategoryLabels[category as keyof typeof inquiryCategoryLabels] ?? category;
+}
+
 export function reportStatusLabel(status: string) {
   return ({ OPEN: "신규 신고", REVIEWED: "확인 중", RESOLVED: "처리 완료", DISMISSED: "기각" } as Record<string, string>)[status] ?? status;
 }

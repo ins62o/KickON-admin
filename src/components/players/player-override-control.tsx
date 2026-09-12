@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { Textarea } from "@/components/ui/textarea";
 import { getTeamLogoPath } from "@/lib/data/catalog";
 import { deletePlayerAction, updatePlayerDetailsAction, type OperationActionState } from "@/lib/operations/actions";
@@ -154,10 +155,7 @@ function PlayerEditForm({ player, teams, defaultReason, onSuccess }: { player: E
               <Select name="teamId" value={teamId} onValueChange={setTeamId}>
                 <SelectTrigger id="player-team" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><span className="flex min-w-0 flex-1 items-center gap-2 text-left">{selectedTeamLogo ? <Image src={selectedTeamLogo} width={20} height={20} alt="" className="size-5 shrink-0 object-contain" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><UsersRound className="size-3" /></span>}<span className="truncate text-foreground">{selectedTeam?.name ?? "팀 선택"}</span></span></SelectTrigger>
                 <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
-                  {teams.map((team) => {
-                    const logoPath = getTeamLogoPath(team.id);
-                    return <SelectItem key={team.id} value={team.id} className="cursor-pointer py-2.5 pr-8 pl-2.5">{logoPath ? <Image src={logoPath} width={20} height={20} alt="" className="size-5 object-contain" /> : <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary"><UsersRound className="size-3" /></span>}{team.name}</SelectItem>;
-                  })}
+                  <TeamSelectOptions teams={teams} itemClassName="py-2.5" />
                 </SelectContent>
               </Select>
             </Field>

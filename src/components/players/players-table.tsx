@@ -1,5 +1,6 @@
 "use client";
 
+import { playerHref, playerKey, SUPPORTED_LEAGUES } from "@/lib/football/config";
 import Image from "next/image";
 import Link from "next/link";
 import { MapPin, UsersRound } from "lucide-react";
@@ -47,7 +48,7 @@ const columns: LegacyColumnDef<PlayerRecord>[] = [
       const displayName = player.koreanName ?? player.displayName ?? player.name;
       return (
         <Link
-          href={`/squads/detail/?playerId=${encodeURIComponent(player.id)}`}
+          href={playerHref(player)}
           className="block min-w-44 max-w-80 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <p className="truncate text-lg font-semibold text-foreground">{displayName}</p>
@@ -62,17 +63,28 @@ const columns: LegacyColumnDef<PlayerRecord>[] = [
   { accessorKey: "age", header: ({ column }) => <DataTableColumnHeader column={column} title="나이" className="text-sm font-semibold text-foreground" />, cell: ({ row }) => <span className="tabular">{row.original.age === null ? "-" : `${row.original.age}세`}</span> },
 ];
 
-export function PlayersTable({ players }: { players: PlayerRecord[] }) {
-  const teamOptions = Array.from(new Map(players.map((player) => [player.teamId, player.teamName])))
-    .map(([value, label]) => {
-      const logoPath = getTeamLogoPath(value);
+export function PlayersTable({ players, emptyState }: { players: PlayerRecord[]; emptyState?: string }) {
+  const teamOptions = Array.from(new Map(players.map((player) => [player.teamId, {
+    value: player.teamId,
+    label: player.teamName,
+    leagueId: player.leagueId,
+  }])).values())
+    .map((team) => {
+      const logoPath = getTeamLogoPath(team.value);
       return {
-        value,
-        label,
+        value: team.value,
+        label: team.label,
+        group: SUPPORTED_LEAGUES.find((league) => league.id === team.leagueId)?.label ?? "기타",
         icon: logoPath ? <Image src={logoPath} width={20} height={20} alt="" className="size-5 object-contain" /> : undefined,
       };
     })
-    .sort((a, b) => a.label.localeCompare(b.label, "ko"));
+    .sort((left, right) => {
+      const leftIndex = SUPPORTED_LEAGUES.findIndex((league) => league.label === left.group);
+      const rightIndex = SUPPORTED_LEAGUES.findIndex((league) => league.label === right.group);
+      return (leftIndex < 0 ? Number.MAX_SAFE_INTEGER : leftIndex)
+        - (rightIndex < 0 ? Number.MAX_SAFE_INTEGER : rightIndex)
+        || left.label.localeCompare(right.label, "ko");
+    });
   const positionOptions = Array.from(new Set(players.map((player) => player.position).filter((value): value is string => Boolean(value))))
     .map((value) => ({
       value,
@@ -84,6 +96,7 @@ export function PlayersTable({ players }: { players: PlayerRecord[] }) {
     <DataTable
       columns={columns}
       data={players}
+      getRowId={playerKey}
       headerTitle="선수 목록"
       headerTitleId="squad-list-title"
       showHeaderResultCount
@@ -115,8 +128,8 @@ export function PlayersTable({ players }: { players: PlayerRecord[] }) {
         },
       ]}
       pageSize={30}
-      emptyState="조건에 맞는 선수가 없습니다."
-      getRowHref={(player) => `/squads/detail/?playerId=${encodeURIComponent(player.id)}`}
+      emptyState={players.length ? "조건에 맞는 선수가 없습니다." : emptyState ?? "등록된 데이터가 없습니다"}
+      getRowHref={(player) => playerHref(player)}
       comfortableToolbar
       alignFiltersEnd
       showResultCount={false}

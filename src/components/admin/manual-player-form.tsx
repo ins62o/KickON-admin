@@ -1,5 +1,6 @@
 "use client";
 
+import { CURRENT_SEASON, SUPPORTED_LEAGUES } from "@/lib/football/config";
 import Image from "next/image";
 import { useActionState, useState } from "react";
 import { MapPin, UsersRound } from "lucide-react";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { Textarea } from "@/components/ui/textarea";
 import { createManualPlayerAction, initialAdminActionState } from "@/lib/admin/actions";
 import { getTeamLogoPath } from "@/lib/data/catalog";
@@ -25,20 +27,27 @@ const positions = [
   { value: "Attacker", label: "공격수", dot: "bg-red-500" },
 ];
 
-export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: string }> }) {
+export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: string; leagueId: string }> }) {
   const [state, action] = useActionState(createManualPlayerAction, initialAdminActionState);
+  const [leagueId, setLeagueId] = useState("");
+  const leagueTeams = teams.filter((team) => team.leagueId === leagueId);
   const [teamId, setTeamId] = useState("");
-  const selectedTeam = teams.find((team) => team.id === teamId);
+  const selectedTeam = leagueTeams.find((team) => team.id === teamId);
   const selectedTeamLogo = selectedTeam ? getTeamLogoPath(selectedTeam.id) : null;
   return <form action={action} className="mt-2 grid gap-x-5 gap-y-6 sm:grid-cols-2">
+    <input type="hidden" name="season" value={CURRENT_SEASON} />
+    <FormField label="리그" htmlFor="manual-player-league" className="sm:col-span-2">
+      <Select name="leagueId" value={leagueId} onValueChange={(value) => { setLeagueId(value); setTeamId(""); }} required>
+        <SelectTrigger id="manual-player-league" className="w-full"><SelectValue placeholder="리그 먼저 선택" /></SelectTrigger>
+        <SelectContent>{SUPPORTED_LEAGUES.map((league) => <SelectItem key={league.id} value={league.id}>{league.label}</SelectItem>)}</SelectContent>
+      </Select>
+      {leagueId && leagueTeams.length === 0 ? <p className="text-sm text-muted-foreground">등록된 {SUPPORTED_LEAGUES.find((league) => league.id === leagueId)?.label} 데이터가 없습니다</p> : null}
+    </FormField>
     <FormField label="소속 팀" htmlFor="manual-player-team">
-      <Select name="teamId" value={teamId} onValueChange={setTeamId} required>
+      <Select name="teamId" disabled={!leagueId || leagueTeams.length === 0} value={teamId} onValueChange={setTeamId} required>
         <SelectTrigger id="manual-player-team" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><span className="flex min-w-0 flex-1 items-center gap-2 text-left">{selectedTeamLogo ? <Image src={selectedTeamLogo} width={20} height={20} alt="" className="size-5 shrink-0 object-contain" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><UsersRound className="size-3" /></span>}<span className="truncate text-foreground">{selectedTeam?.name ?? "팀 선택"}</span></span></SelectTrigger>
         <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
-          {teams.map((team) => {
-            const logoPath = getTeamLogoPath(team.id);
-            return <SelectItem key={team.id} value={team.id} className="cursor-pointer py-2.5 pr-8 pl-2.5">{logoPath ? <Image src={logoPath} width={20} height={20} alt="" className="size-5 object-contain" /> : <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary"><UsersRound className="size-3" /></span>}{team.name}</SelectItem>;
-          })}
+          <TeamSelectOptions teams={leagueTeams} itemClassName="py-2.5" />
         </SelectContent>
       </Select>
     </FormField>
@@ -63,7 +72,7 @@ function FormField({ label, htmlFor, className, children }: { label: string; htm
   return <div className={`space-y-2.5 ${className ?? ""}`}><label htmlFor={htmlFor} className="block text-sm font-semibold text-foreground">{label}</label>{children}</div>;
 }
 
-export function ManualPlayerDialog({ teams }: { teams: Array<{ id: string; name: string }> }) {
+export function ManualPlayerDialog({ teams }: { teams: Array<{ id: string; name: string; leagueId: string }> }) {
   return (
     <Dialog>
       <DialogTrigger asChild>

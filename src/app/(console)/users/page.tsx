@@ -2,45 +2,32 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Mail, UsersRound } from "lucide-react";
 import { siApple } from "simple-icons";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { DataState } from "@/components/admin/data-state";
 import { PageHeader } from "@/components/admin/page-header";
-import { AdminStatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { getAdminUsersData } from "@/lib/admin/console-data";
 import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { useClientData } from "@/lib/client-data";
-import { getTeamLogoPath, getTeamName } from "@/lib/data/catalog";
+import { getTeamLogoPath, getTeamName, SUPPORTED_TEAM_IDS, TEAM_IDS_BY_LEAGUE } from "@/lib/data/catalog";
 import { formatNumber } from "@/lib/format";
+import { DEFAULT_LEAGUE_ID, isLeagueId, SUPPORTED_LEAGUES } from "@/lib/football/config";
 
 type UserSearchParams = {
   q?: string;
   status?: string;
   team?: string;
   page?: string;
+  leagueId?: string;
 };
 
 const USERS_PER_PAGE = 9;
-
-const USER_TEAM_IDS = [
-  "incheon",
-  "seoul",
-  "jeonbuk",
-  "ulsan",
-  "daejeon",
-  "pohang",
-  "anyang",
-  "bucheon",
-  "gangwon",
-  "jeju",
-  "gwangju",
-  "gimcheon",
-] as const;
 
 function normalizedPage(value: string | undefined) {
   const page = Number.parseInt(value ?? "1", 10);
@@ -52,6 +39,7 @@ function userPageHref(query: UserSearchParams, page: number) {
   if (query.q?.trim()) params.set("q", query.q.trim());
   if (query.status) params.set("status", query.status);
   if (query.team) params.set("team", query.team);
+  if (query.leagueId) params.set("leagueId", query.leagueId);
   if (page > 1) params.set("page", String(page));
   const search = params.toString();
   return search ? `/users?${search}` : "/users";
@@ -116,6 +104,8 @@ function AuthProviderMark({ provider }: { provider: string | null }) {
 export default function UsersPage() {
   const admin = useRequiredAdminPermission("users.read");
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const { data, error, loading, reload } = useClientData(getAdminUsersData);
   if (!admin || loading) return <ClientPageLoading />;
   if (error || !data) return <ClientPageError message={error ?? "사용자 데이터를 확인할 수 없습니다."} retry={reload} />;
@@ -124,16 +114,20 @@ export default function UsersPage() {
     status: searchParams.get("status") ?? undefined,
     team: searchParams.get("team") ?? undefined,
     page: searchParams.get("page") ?? undefined,
+    leagueId: searchParams.get("leagueId") ?? undefined,
   };
+  const leagueId = isLeagueId(query.leagueId) ? query.leagueId : DEFAULT_LEAGUE_ID;
+  const selectedLeague = SUPPORTED_LEAGUES.find((league) => league.id === leagueId)!;
   const keyword = query.q?.trim().toLocaleLowerCase("ko-KR") ?? "";
   const accountStatusFilter = ["ACTIVE", "SUSPENDED", "COMMUNITY_SUSPENDED", "ACCOUNT_SUSPENDED"].includes(query.status ?? "")
     ? query.status
     : "all";
-  const teamFilter = query.team && (USER_TEAM_IDS as readonly string[]).includes(query.team)
+  const teamFilter = query.team && (SUPPORTED_TEAM_IDS as readonly string[]).includes(query.team)
     ? query.team
     : "all";
   const rows = data.users.filter((user) => {
-    if (keyword && ![user.nickname, user.id, user.teamName].filter(Boolean).some((value) => String(value).toLocaleLowerCase("ko-KR").includes(keyword))) return false;
+    const teamName = user.teamId ? getTeamName(user.teamId) : user.teamName;
+    if (keyword && ![user.nickname, user.id, teamName].filter(Boolean).some((value) => String(value).toLocaleLowerCase("ko-KR").includes(keyword))) return false;
     const userStatus = user.accountStatus ?? "ACTIVE";
     if (accountStatusFilter === "COMMUNITY_SUSPENDED" && !["COMMUNITY_SUSPENDED", "SUSPENDED"].includes(userStatus)) return false;
     if (accountStatusFilter !== "all" && accountStatusFilter !== "COMMUNITY_SUSPENDED" && userStatus !== accountStatusFilter) return false;
@@ -145,7 +139,7 @@ export default function UsersPage() {
   const pageOffset = (currentPage - 1) * USERS_PER_PAGE;
   const paginatedRows = rows.slice(pageOffset, pageOffset + USERS_PER_PAGE);
 
-  const teamUserCounts = new Map<string, number>(USER_TEAM_IDS.map((teamId) => [teamId, 0]));
+  const teamUserCounts = new Map<string, number>(SUPPORTED_TEAM_IDS.map((teamId) => [teamId, 0]));
   const teamNamesFromUsers = new Map(
     data.users
       .filter((user) => user.teamId && user.teamName)
@@ -158,7 +152,7 @@ export default function UsersPage() {
     }
   }
 
-  const teamDistribution = USER_TEAM_IDS.map((teamId) => ({
+  const allTeamDistribution = SUPPORTED_TEAM_IDS.map((teamId) => ({
     teamId,
     teamName: teamNamesFromUsers.get(teamId) ?? getTeamName(teamId),
     logoPath: getTeamLogoPath(teamId),
@@ -166,6 +160,8 @@ export default function UsersPage() {
   })).sort((left, right) => (
     right.count - left.count || left.teamName.localeCompare(right.teamName, "ko")
   ));
+  const selectedTeamIds = new Set<string>(TEAM_IDS_BY_LEAGUE[leagueId]);
+  const teamDistribution = allTeamDistribution.filter((team) => selectedTeamIds.has(team.teamId));
   const hasFilters = Boolean(
     keyword ||
     accountStatusFilter !== "all" ||
@@ -181,7 +177,7 @@ export default function UsersPage() {
           className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35"
           aria-labelledby="team-users-title"
         >
-          <header className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-5">
+          <header className="flex flex-col items-stretch gap-4 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
                 <UsersRound className="size-5" aria-hidden="true" />
@@ -190,10 +186,34 @@ export default function UsersPage() {
                 <h2 id="team-users-title" className="text-base font-semibold text-foreground">팀별 가입자</h2>
               </div>
             </div>
-            <AdminStatusBadge label="K리그 1" tone="info" />
+            <Select value={leagueId} onValueChange={(value) => {
+              if (!isLeagueId(value)) return;
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("leagueId", value);
+              params.delete("page");
+              router.push(`${pathname}?${params.toString()}`, { scroll: false });
+            }}>
+              <SelectTrigger
+                aria-label="팀별 가입자 리그 선택"
+                className="h-10! w-full min-w-36 rounded-xl border-primary/25 bg-linear-to-br from-primary/12 to-primary/4 px-3 text-sm font-medium shadow-sm hover:border-primary/45 hover:from-primary/18 data-[state=open]:border-primary/55 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 sm:w-36"
+              >
+                <span className="truncate text-foreground">{selectedLeague.label}</span>
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                align="end"
+                className="w-(--radix-select-trigger-width) min-w-0 rounded-xl border border-border/80 bg-popover p-0 py-1.5 shadow-2xl"
+              >
+                {SUPPORTED_LEAGUES.map((league) => (
+                  <SelectItem key={league.id} value={league.id} className="mx-1.5 my-0.5 h-10 w-[calc(100%-0.75rem)] rounded-lg pr-9 pl-3 text-sm font-medium focus:bg-primary/10">
+                    {league.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </header>
 
-          <div className="grid flex-1 content-start gap-2 p-4 sm:p-5" role="list" aria-label="가입자 수가 많은 순서의 12개 팀">
+          <div className="grid flex-1 content-start gap-2 p-4 sm:p-5" role="list" aria-label={`가입자 수가 많은 순서의 ${selectedLeague.label} 구단`}>
             {teamDistribution.map((team) => (
               <div
                 key={team.teamId}
@@ -238,6 +258,7 @@ export default function UsersPage() {
             className="grid gap-3 border-b border-border/70 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-[minmax(190px,1fr)_minmax(160px,0.65fr)_minmax(160px,0.65fr)_auto] xl:items-end"
             role="search"
           >
+            <input type="hidden" name="leagueId" value={leagueId} />
             <div className="sm:col-span-2 xl:col-span-1">
               <label htmlFor="user-query" className="mb-2.5 block text-sm font-medium text-foreground">사용자 검색</label>
               <Input
@@ -294,14 +315,7 @@ export default function UsersPage() {
                     </span>
                     모든 응원 팀
                   </SelectItem>
-                  {teamDistribution.map((team) => (
-                    <SelectItem key={team.teamId} value={team.teamId} className="py-2 pr-8 pl-2.5">
-                      {team.logoPath ? (
-                        <Image src={team.logoPath} width={20} height={20} alt="" className="object-contain" />
-                      ) : null}
-                      {team.teamName}
-                    </SelectItem>
-                  ))}
+                  <TeamSelectOptions teams={allTeamDistribution.map((team) => ({ id: team.teamId, name: team.teamName }))} />
                 </SelectContent>
               </Select>
             </div>
@@ -311,7 +325,7 @@ export default function UsersPage() {
               </Button>
               {hasFilters ? (
                 <Button asChild variant="ghost">
-                  <Link href="/users">초기화</Link>
+                  <Link href={`/users?leagueId=${leagueId}`}>초기화</Link>
                 </Button>
               ) : null}
             </div>
@@ -331,6 +345,7 @@ export default function UsersPage() {
             <div className="flex-1 divide-y divide-border/70">
               {paginatedRows.map((user) => {
                 const teamLogoPath = user.teamId ? getTeamLogoPath(user.teamId) : null;
+                const teamName = user.teamId ? getTeamName(user.teamId) : user.teamName;
 
                 return (
                   <Link
@@ -355,11 +370,11 @@ export default function UsersPage() {
                       <span className="min-w-0">
                         <span className="block truncate text-base font-semibold text-foreground">{user.nickname}</span>
                         <span className="mt-0.5 block truncate text-xs font-medium text-foreground sm:hidden">
-                          {user.teamName ?? "응원 팀 미선택"}
+                          {teamName ?? "응원 팀 미선택"}
                         </span>
                       </span>
                       <span className="hidden min-w-0 truncate text-sm font-medium text-foreground sm:block">
-                        {user.teamName ?? "응원 팀 미선택"}
+                        {teamName ?? "응원 팀 미선택"}
                       </span>
                       <AuthProviderMark provider={user.authProvider} />
                   </Link>

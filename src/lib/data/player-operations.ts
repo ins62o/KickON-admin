@@ -1,5 +1,7 @@
 import "server-only";
 
+import { fetchAllRows, fetchRowsForIds } from "./pagination";
+import { CURRENT_SEASON, leagueIds, type LeagueFilter, type LeagueId } from "@/lib/football/config";
 import { cache } from "react";
 import { getTeamName } from "./catalog";
 import { getOperationsClient, isOperationsSchemaMissing } from "./operations-client";
@@ -91,6 +93,8 @@ export type RelatedAudit = {
 
 type ChangeFilters = {
   range: PlayerChangeRange;
+  season?: number;
+  leagueId?: LeagueFilter;
   teamId?: string;
   status?: PlayerChangeStatus;
   type?: PlayerChangeType;
@@ -153,7 +157,7 @@ export const getPlayerChanges = cache(async (filters: ChangeFilters) => {
   if (!client) return { rows: [] as PlayerChangeRecord[], total: null, schemaReady: false, error: "Supabase 환경 변수가 설정되지 않았습니다." };
 
   let query = client.from("player_change_events").select(changeSelect, { count: "exact" })
-    .gte("detected_at", sinceForRange(filters.range)).order("detected_at", { ascending: false }).range(0, 499);
+    .eq("season", filters.season ?? CURRENT_SEASON).in("league_id", leagueIds(filters.leagueId)).gte("detected_at", sinceForRange(filters.range)).order("detected_at", { ascending: false }).range(0, 499);
   if (filters.teamId && /^[a-z0-9-]{1,80}$/i.test(filters.teamId)) query = query.or(`from_team_id.eq.${filters.teamId},to_team_id.eq.${filters.teamId}`);
   if (filters.status) query = query.eq("review_status", filters.status);
   if (filters.type) query = query.eq("change_type", filters.type);
@@ -187,13 +191,13 @@ function mapOverride(row: Record<string, unknown>): ManualOverrideRecord {
   };
 }
 
-export const getPlayerOperations = cache(async (playerId: string) => {
+export const getPlayerOperations = cache(async (playerId: string, season: number, leagueId: LeagueId) => {
   const client = await getOperationsClient();
   const empty = { overrides: [] as ManualOverrideRecord[], changes: [] as PlayerChangeRecord[], reports: [] as RelatedReport[], audits: [] as RelatedAudit[] };
   if (!client) return { ...empty, schemaReady: false, error: "Supabase 환경 변수가 설정되지 않았습니다." };
   const [overrides, changes, reports, audits] = await Promise.all([
-    client.from("manual_overrides").select("id,entity_id,field_path,original_value,override_value,reason,blocks_sync,created_by,released_by,released_at,release_reason,created_at,updated_at").eq("entity_type", "player").eq("entity_id", playerId).order("created_at", { ascending: false }).limit(50),
-    client.from("player_change_events").select(changeSelect).eq("player_id", playerId).order("detected_at", { ascending: false }).limit(50),
+    client.from("manual_overrides").select("id,entity_id,field_path,original_value,override_value,reason,blocks_sync,created_by,released_by,released_at,release_reason,created_at,updated_at").eq("entity_type", "player").eq("entity_id", playerId).eq("season", season).eq("league_id", leagueId).order("created_at", { ascending: false }).limit(50),
+    client.from("player_change_events").select(changeSelect).eq("player_id", playerId).eq("season", season).eq("league_id", leagueId).order("detected_at", { ascending: false }).limit(50),
     client.from("user_data_reports").select("id,description,status,priority,created_at").eq("entity_type", "player").eq("entity_id", playerId).order("created_at", { ascending: false }).limit(50),
     client.from("admin_audit_logs").select("id,action,entity_type,reason,before_value,after_value,created_at").eq("entity_id", playerId).order("created_at", { ascending: false }).limit(50),
   ]);
@@ -211,32 +215,32 @@ export const getPlayerOperations = cache(async (playerId: string) => {
   };
 });
 
-export const getActivePlayerOverrideCounts = cache(async () => {
+export const getActivePlayerOverrideCounts = cache(async (league: LeagueFilter = "all", season = CURRENT_SEASON) => {
   const client = await getOperationsClient();
   if (!client) return new Map<string, number>();
-  const result = await client.from("manual_overrides").select("entity_id,field_path").eq("entity_type", "player").is("released_at", null).range(0, 1999);
+  const result = await fetchAllRows((from, to) => client.from("manual_overrides").select("season,league_id,entity_id,field_path").eq("season", season).in("league_id", leagueIds(league)).eq("entity_type", "player").is("released_at", null).order("id").range(from, to));
   if (result.error) return new Map<string, number>();
   const counts = new Map<string, number>();
-  for (const row of result.data ?? []) counts.set(row.entity_id, (counts.get(row.entity_id) ?? 0) + 1);
+  for (const row of result.data ?? []) counts.set(`${row.season}:${row.league_id}:${row.entity_id}`, (counts.get(`${row.season}:${row.league_id}:${row.entity_id}`) ?? 0) + 1);
   return counts;
 });
 
-export const getClubPlayerOperations = cache(async (teamId: string, playerIds: string[]) => {
+export const getClubPlayerOperations = cache(async (teamId: string, playerIds: string[], season: number, leagueId: LeagueId) => {
   const client = await getOperationsClient();
   const empty = { changes: [] as PlayerChangeRecord[], overrides: [] as ManualOverrideRecord[], reports: [] as RelatedReport[], audits: [] as RelatedAudit[] };
   if (!client) return { ...empty, schemaReady: false, error: "Supabase 환경 변수가 설정되지 않았습니다." };
-  const safePlayerIds = playerIds.slice(0, 100);
-  const changesQuery = client.from("player_change_events").select(changeSelect).or(`from_team_id.eq.${teamId},to_team_id.eq.${teamId}`).order("detected_at", { ascending: false }).limit(100);
+  const safePlayerIds = [...new Set(playerIds)];
+  const changesQuery = client.from("player_change_events").select(changeSelect).eq("season", season).eq("league_id", leagueId).or(`from_team_id.eq.${teamId},to_team_id.eq.${teamId}`).order("detected_at", { ascending: false }).limit(100);
   const overridesQuery = safePlayerIds.length > 0
-    ? client.from("manual_overrides").select("id,entity_id,field_path,original_value,override_value,reason,blocks_sync,created_by,released_by,released_at,release_reason,created_at,updated_at").eq("entity_type", "player").in("entity_id", safePlayerIds).order("created_at", { ascending: false }).limit(100)
+    ? fetchRowsForIds(safePlayerIds, (ids, from, to) => client.from("manual_overrides").select("id,entity_id,field_path,original_value,override_value,reason,blocks_sync,created_by,released_by,released_at,release_reason,created_at,updated_at").eq("entity_type", "player").in("entity_id", ids).eq("season", season).eq("league_id", leagueId).order("created_at", { ascending: false }).order("id").range(from, to))
     : Promise.resolve({ data: [], error: null });
   const teamReports = client.from("user_data_reports").select("id,description,status,priority,created_at").eq("entity_type", "team").eq("entity_id", teamId).order("created_at", { ascending: false }).limit(50);
   const playerReports = safePlayerIds.length > 0
-    ? client.from("user_data_reports").select("id,description,status,priority,created_at").eq("entity_type", "player").in("entity_id", safePlayerIds).order("created_at", { ascending: false }).limit(50)
+    ? fetchRowsForIds(safePlayerIds, (ids, from, to) => client.from("user_data_reports").select("id,description,status,priority,created_at").eq("entity_type", "player").in("entity_id", ids).order("created_at", { ascending: false }).order("id").range(from, to))
     : Promise.resolve({ data: [], error: null });
   const teamAudits = client.from("admin_audit_logs").select("id,action,entity_type,reason,before_value,after_value,created_at").eq("entity_id", teamId).order("created_at", { ascending: false }).limit(50);
   const playerAudits = safePlayerIds.length > 0
-    ? client.from("admin_audit_logs").select("id,action,entity_type,reason,before_value,after_value,created_at").in("entity_id", safePlayerIds).order("created_at", { ascending: false }).limit(100)
+    ? fetchRowsForIds(safePlayerIds, (ids, from, to) => client.from("admin_audit_logs").select("id,action,entity_type,reason,before_value,after_value,created_at").in("entity_id", ids).order("created_at", { ascending: false }).order("id").range(from, to))
     : Promise.resolve({ data: [], error: null });
   const [changes, overrides, directReports, relatedReports, audits, relatedAudits] = await Promise.all([changesQuery, overridesQuery, teamReports, playerReports, teamAudits, playerAudits]);
   const error = changes.error ?? overrides.error ?? directReports.error ?? relatedReports.error ?? audits.error ?? relatedAudits.error;

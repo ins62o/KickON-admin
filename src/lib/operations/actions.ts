@@ -1,5 +1,6 @@
 "use client";
 
+import { readFootballScope, isLeagueId } from "@/lib/football/config";
 import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
 import type { AdminRole } from "@/lib/auth/permissions";
 import { hasAdminPermission } from "@/lib/auth/permissions";
@@ -194,7 +195,7 @@ export async function updatePlayerDetailsAction(_previous: OperationActionState,
   const height = parseNullableInteger(formData.get("height"), "신장", 50, 300);
   const weight = parseNullableInteger(formData.get("weight"), "체중", 20, 300);
 
-  if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !entityIdPattern.test(leagueId) || !entityIdPattern.test(teamId)) {
+  if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !isLeagueId(leagueId) || !entityIdPattern.test(teamId)) {
     return { status: "error", message: "선수 식별 정보가 올바르지 않습니다.", completedAt: null };
   }
   if (!playerName || playerName.length > 160 || (displayNameKo && displayNameKo.length > 160) || (position && position.length > 120)) {
@@ -250,7 +251,7 @@ export async function deletePlayerAction(_previous: OperationActionState, formDa
   const leagueId = String(formData.get("leagueId") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();
 
-  if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !entityIdPattern.test(leagueId)) {
+  if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !isLeagueId(leagueId)) {
     return { status: "error", message: "삭제할 선수의 식별 정보가 올바르지 않습니다.", completedAt: null };
   }
   if (reason.length < 3 || reason.length > 1000) {
@@ -281,6 +282,8 @@ export async function deletePlayerAction(_previous: OperationActionState, formDa
 }
 
 export async function applyPlayerOverrideAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const scope = readFootballScope(formData);
+  if (!scope) return { status: "error", message: "시즌과 리그를 확인해 주세요.", completedAt: null };
   const context = await getOperatorContext("admin");
   if (context.error) return { status: "error", message: context.error, completedAt: null };
 
@@ -297,8 +300,8 @@ export async function applyPlayerOverrideAction(_previous: OperationActionState,
 
   const { data, error } = await context.supabase.rpc("apply_player_manual_override", {
     p_player_id: playerId,
-    p_season: 2026,
-    p_league_id: "kleague",
+    p_season: scope.season,
+    p_league_id: scope.leagueId,
     p_field_path: field,
     p_override_value: parsed.value,
     p_reason: reason,
@@ -343,6 +346,8 @@ function parseFixtureOverrideValue(field: string, rawValue: string): { ok: true;
 }
 
 export async function applyFixtureOverrideAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const leagueId = formData.get("leagueId");
+  if (!isLeagueId(leagueId)) return { status: "error", message: "경기의 리그를 확인해 주세요.", completedAt: null };
   const context = await getOperatorContext("admin");
   if (context.error) return { status: "error", message: context.error, completedAt: null };
   const fixtureId = String(formData.get("entityId") ?? "");
@@ -350,8 +355,8 @@ export async function applyFixtureOverrideAction(_previous: OperationActionState
   const reason = String(formData.get("reason") ?? "").trim();
   const parsed = parseFixtureOverrideValue(field, String(formData.get("value") ?? ""));
   if (!entityIdPattern.test(fixtureId) || !fixtureOverrideFields.has(field) || !parsed.ok) return { status: "error", message: parsed.ok ? "경기 수정 값이 올바르지 않습니다." : parsed.error, completedAt: null };
-  if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
-  const { data, error } = await context.supabase.rpc("apply_fixture_manual_override", { p_fixture_id: fixtureId, p_field_path: field, p_override_value: parsed.value, p_reason: reason });
+  if (reason.length < 3) return { status: "error", message: "수정 이유를 3자 이상 입력해 주세요.", completedAt: null };
+  const { data, error } = await context.supabase.rpc("apply_fixture_manual_override", { p_fixture_id: fixtureId, p_league_id: leagueId, p_field_path: field, p_override_value: parsed.value, p_reason: reason });
   if (error || !data) return { status: "error", message: "경기 수동 수정값을 적용하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
   invalidateAdminData();
@@ -359,6 +364,8 @@ export async function applyFixtureOverrideAction(_previous: OperationActionState
 }
 
 export async function updateFixtureScheduleAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const leagueId = formData.get("leagueId");
+  if (!isLeagueId(leagueId)) return { status: "error", message: "경기의 리그를 확인해 주세요.", completedAt: null };
   const context = await getOperatorContext("data_editor");
   if (context.error) return { status: "error", message: context.error, completedAt: null };
   if (!hasAdminPermission(context.admin.role, "data.write")) return { status: "error", message: "경기 일정을 수정할 권한이 없습니다.", completedAt: null };
@@ -387,7 +394,7 @@ export async function updateFixtureScheduleAction(_previous: OperationActionStat
   }
 
   const { data, error } = await context.supabase.rpc("admin_update_fixture_schedule", {
-    p_fixture_id: fixtureId,
+    p_fixture_id: fixtureId, p_league_id: leagueId,
     p_kickoff_at: kickoffDate.toISOString(),
     p_stadium_id: stadiumId,
     p_latitude: latitude,
@@ -416,6 +423,8 @@ function parseStandingOverrideValue(field: string, rawValue: string): { ok: true
 }
 
 export async function applyStandingOverrideAction(_previous: OperationActionState, formData: FormData): Promise<OperationActionState> {
+  const scope = readFootballScope(formData);
+  if (!scope) return { status: "error", message: "시즌과 리그를 확인해 주세요.", completedAt: null };
   const context = await getOperatorContext("admin");
   if (context.error) return { status: "error", message: context.error, completedAt: null };
   const teamId = String(formData.get("entityId") ?? "");
@@ -424,7 +433,7 @@ export async function applyStandingOverrideAction(_previous: OperationActionStat
   const parsed = parseStandingOverrideValue(field, String(formData.get("value") ?? ""));
   if (!entityIdPattern.test(teamId) || !standingOverrideFields.has(field) || !parsed.ok) return { status: "error", message: parsed.ok ? "순위 수정 값이 올바르지 않습니다." : parsed.error, completedAt: null };
   if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
-  const { data, error } = await context.supabase.rpc("apply_standing_manual_override", { p_team_id: teamId, p_season: 2026, p_league_id: "kleague", p_field_path: field, p_override_value: parsed.value, p_reason: reason });
+  const { data, error } = await context.supabase.rpc("apply_standing_manual_override", { p_team_id: teamId, p_season: scope.season, p_league_id: scope.leagueId, p_field_path: field, p_override_value: parsed.value, p_reason: reason });
   if (error || !data) return { status: "error", message: "순위 수동 수정값을 적용하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
   invalidateAdminData();

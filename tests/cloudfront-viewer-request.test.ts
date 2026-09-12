@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-type Request = { uri: string };
+type Request = { uri: string; querystring?: Record<string, { value: string }> };
 type Redirect = { statusCode: number; statusDescription: string; headers: { location: { value: string } } };
 type HandlerResult = Request | Redirect;
 
@@ -37,6 +37,17 @@ test("Next.js 정적 데이터 파일을 상세 ID로 오인하지 않는다", (
   assert.deepEqual(plain(handler({ request: { uri: "/inquiries/__next._tree.txt" } })), {
     uri: "/inquiries/__next._tree.txt",
   });
+});
+
+test("선수 및 경기 상세 리디렉션에서 시즌과 리그를 보존한다", () => {
+  for (const [uri, expected] of [
+    ["/squads/player%201", "/squads/detail/?playerId=player%201"],
+    ["/schedules/game%2F1", "/schedules/detail/?fixtureId=game%2F1"],
+    ["/fixtures/game%2F1", "/schedules/detail/?fixtureId=game%2F1"],
+  ]) {
+    const result = handler({ request: { uri, querystring: { leagueId: { value: "kleague2" }, season: { value: "2026" } } } });
+    assert.equal("headers" in result ? result.headers.location.value : null, `${expected}&leagueId=kleague2&season=2026`);
+  }
 });
 
 test("기존 콘솔 별칭을 새 정적 메뉴로 보낸다", () => {

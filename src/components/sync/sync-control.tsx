@@ -1,5 +1,6 @@
 "use client";
 
+import { CURRENT_SEASON } from "@/lib/football/config";
 import { useActionState, useState } from "react";
 import {
   Activity,
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { runSyncAction, type SyncActionState } from "@/lib/sync/actions";
@@ -29,8 +31,8 @@ import { formatKoreaDateTime, formatNumber, formatRelativeTime } from "@/lib/for
 import { cn } from "@/lib/utils";
 
 type SyncControlProps = {
-  teams: Array<{ id: string; name: string }>;
-  fixtures: Array<{ id: string; label: string }>;
+  teams: Array<{ id: string; name: string; leagueId: string }>;
+  fixtures: Array<{ id: string; label: string; leagueId: string }>;
   canRun: boolean;
   secretReady: boolean;
   environment: "development" | "production";
@@ -174,6 +176,7 @@ function SyncOperationForm({ operation, teams, fixtures, environment, initialTea
     <form action={action} className="space-y-6">
       <input type="hidden" name="operation" value={operation.key} />
 
+      <input type="hidden" name="season" value={CURRENT_SEASON} />
       {disabledReason ? (
         <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-xs leading-5 text-amber-700 dark:text-amber-200">
           <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -187,7 +190,7 @@ function SyncOperationForm({ operation, teams, fixtures, environment, initialTea
           <Select name="teamId" defaultValue={teams.some((team) => team.id === initialTeamId) ? initialTeamId : undefined} required>
             <SelectTrigger id={`sync-team-${operation.key}`} className={syncSelectTriggerClassName}><SelectValue placeholder="구단 선택" /></SelectTrigger>
             <SelectContent position="popper" align="start" sideOffset={6} className={syncSelectContentClassName}>
-              {teams.map((team) => <SelectItem key={team.id} value={team.id} className={syncSelectItemClassName}>{team.name}</SelectItem>)}
+              <TeamSelectOptions teams={teams} itemClassName={syncSelectItemClassName} />
             </SelectContent>
           </Select>
         </div>
@@ -231,7 +234,7 @@ function SyncOperationForm({ operation, teams, fixtures, environment, initialTea
 
       <DialogFooter className="mx-0 -mb-1 mt-1 rounded-lg bg-muted/35 px-0 pt-5 pb-0">
         <DialogClose asChild><Button type="button" variant="outline" size="lg" className="min-w-16">취소</Button></DialogClose>
-        <Button type="submit" size="lg" className="min-w-16" variant={providerQuotaLow || (environment === "production" && isHighCost) ? "destructive" : "default"} disabled={pending || disabled}>
+        <Button type="submit" size="lg" className="min-w-16" variant={providerQuotaLow || (environment === "production" && isHighCost) ? "destructive" : "default"} disabled={pending || disabled || (operation.target === "team" && !teams.length) || (operation.target === "fixture" && !fixtures.length)}>
           {pending ? "실행 중" : "실행"}
         </Button>
       </DialogFooter>

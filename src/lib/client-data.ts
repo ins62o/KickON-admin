@@ -14,6 +14,7 @@ export function useClientData<T>(loader: () => Promise<T>, dependencies: readonl
   const requestIdRef = useRef(0);
   const dataRef = useRef<T | null>(null);
   const dependencyKeyRef = useRef<string | null>(null);
+  const [loadedDependencyKey, setLoadedDependencyKey] = useState<string | null>(null);
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,7 @@ export function useClientData<T>(loader: () => Promise<T>, dependencies: readonl
 
   const reload = useCallback(async () => {
     const requestId = ++requestIdRef.current;
+    const requestedDependencyKey = dependencyKeyRef.current;
     const isInitialLoad = dataRef.current === null;
     if (isInitialLoad) setLoading(true);
     setError(null);
@@ -33,6 +35,7 @@ export function useClientData<T>(loader: () => Promise<T>, dependencies: readonl
       if (requestId === requestIdRef.current) {
         dataRef.current = nextData;
         setData(nextData);
+        setLoadedDependencyKey(requestedDependencyKey);
       }
     } catch (caught) {
       if (requestId === requestIdRef.current && dataRef.current === null) {
@@ -81,5 +84,6 @@ export function useClientData<T>(loader: () => Promise<T>, dependencies: readonl
     };
   }, [reload]);
 
-  return { data, error, loading, reload };
+  const stale = loadedDependencyKey !== dependencyKey;
+  return { data: stale ? null : data, error, loading: loading || (stale && !error), reload };
 }

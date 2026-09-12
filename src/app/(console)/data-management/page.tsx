@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Activity, CircleAlert, Database, HardDrive, RefreshCcw } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, CircleAlert, Database, HardDrive, RefreshCcw } from "lucide-react";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { PageHeader } from "@/components/admin/page-header";
 import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
 import { SyncControl } from "@/components/sync/sync-control";
+import { Button } from "@/components/ui/button";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
 import { getAuditLogList } from "@/lib/data/audit";
@@ -24,11 +25,19 @@ function positiveNumber(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+const auditPageSize = 10;
+
+function positiveInteger(value: string | null) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
 export default function DataManagementPage() {
   const { admin } = useAdminAuth();
   const environment = useConsoleEnvironment();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const auditPage = positiveInteger(searchParams.get("auditPage"));
   const canViewSync = Boolean(admin && hasAdminPermission(admin.role, "sync.read"));
   const canViewUsage = Boolean(admin && hasAdminPermission(admin.role, "system.read"));
   const canViewAudit = Boolean(admin && hasAdminPermission(admin.role, "audit.read"));
@@ -40,12 +49,22 @@ export default function DataManagementPage() {
   const { data, error, loading, reload } = useClientData(async () => {
     const [usage, syncOptions, syncHistory, audit] = await Promise.all([
       canViewSync || canViewUsage ? getDashboardUsageSnapshotsClient() : Promise.resolve(null),
-      canViewSync ? getSyncControlOptions() : Promise.resolve(null),
-      canViewSync ? getSyncOperationHistory() : Promise.resolve(null),
-      canViewAudit ? getAuditLogList() : Promise.resolve(null),
+      canViewSync ? getSyncControlOptions("all") : Promise.resolve(null),
+      canViewSync ? getSyncOperationHistory("all") : Promise.resolve(null),
+      canViewAudit ? getAuditLogList(auditPage, auditPageSize) : Promise.resolve(null),
     ]);
     return { usage, syncOptions, syncHistory, audit };
-  }, [canViewSync, canViewUsage, canViewAudit]);
+  }, [canViewSync, canViewUsage, canViewAudit, auditPage]);
+
+  const auditPageCount = Math.max(1, Math.ceil((data?.audit?.total ?? 0) / auditPageSize));
+  useEffect(() => {
+    if (!data?.audit || data.audit.total === null || auditPage <= auditPageCount) return;
+    const params = new URLSearchParams(searchParams.toString());
+    if (auditPageCount === 1) params.delete("auditPage");
+    else params.set("auditPage", String(auditPageCount));
+    router.replace(`/data-management${params.size ? `?${params}` : ""}`, { scroll: false });
+  }, [auditPage, auditPageCount, data?.audit, router, searchParams]);
+
   if (!admin || loading) return <ClientPageLoading />;
   if (!canViewSync && !canViewUsage && !canViewAudit) return <ClientPageLoading label="접근 권한을 확인하고 있습니다." />;
   if (error || !data) return <ClientPageError message={error ?? "데이터 관리 정보를 확인할 수 없습니다."} retry={reload} />;
@@ -60,6 +79,12 @@ export default function DataManagementPage() {
   const lowQuotaThreshold = providerAllowance === null ? 200 : Math.max(1, Math.floor(providerAllowance * 0.15));
   const providerQuotaLow = providerRemaining !== null && providerRemaining <= lowQuotaThreshold;
   const canRunSync = !admin.isDevelopmentBypass && hasAdminPermission(admin.role, "sync.run");
+  const changeAuditPage = (nextPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextPage <= 1) params.delete("auditPage");
+    else params.set("auditPage", String(nextPage));
+    router.push(`/data-management${params.size ? `?${params}` : ""}`, { scroll: false });
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
@@ -96,7 +121,7 @@ export default function DataManagementPage() {
           <div className="grid gap-px md:grid-cols-2 xl:grid-cols-3">
             <CompactUsageGauge title="데이터베이스 사용량" icon={Database} centerValue={usage.database.centerValue} rate={usage.database.rate} status={usage.database.status} note={`전체 한도 ${usage.database.limitLabel}`} />
             <CompactUsageGauge title="파일 스토리지 사용량" icon={HardDrive} centerValue={usage.fileStorage.centerValue} rate={usage.fileStorage.rate} status={usage.fileStorage.status} note={`전체 한도 ${usage.fileStorage.limitLabel}`} />
-            <CompactUsageGauge title="SportsMonks 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
+            <CompactUsageGauge title="SportsMonks 전체 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
           </div>
         </section>
       ) : null}
@@ -105,12 +130,19 @@ export default function DataManagementPage() {
         <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="audit-log-title">
           <div className="flex flex-col gap-2 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 id="audit-log-title" className="text-base font-semibold">관리자 로그</h2>
-            <p className="text-xs text-muted-foreground">최근 변경 기록 {audit.logs.length}건</p>
+            <p className="text-xs text-muted-foreground">전체 변경 기록 {formatNumber(audit.total ?? audit.logs.length)}건</p>
           </div>
           {audit.error ? (
             <p className="border-b border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-xs text-amber-100/75">{audit.error}</p>
           ) : null}
           <AuditLogTable logs={audit.logs} schemaReady={audit.schemaReady} />
+          {audit.total !== null && audit.total > auditPageSize ? (
+            <nav className="flex items-center justify-center gap-3 border-t border-border/70 px-4 py-4" aria-label="관리자 로그 페이지 이동">
+              <Button type="button" variant="outline" className="h-10! min-w-24" disabled={auditPage <= 1} onClick={() => changeAuditPage(auditPage - 1)}><ChevronLeft className="size-4" />이전</Button>
+              <span className="min-w-20 text-center text-xs tabular-nums text-muted-foreground"><strong className="font-semibold text-foreground">{auditPage}</strong> / {auditPageCount}</span>
+              <Button type="button" variant="outline" className="h-10! min-w-24" disabled={auditPage >= auditPageCount} onClick={() => changeAuditPage(auditPage + 1)}>다음<ChevronRight className="size-4" /></Button>
+            </nav>
+          ) : null}
         </section>
       ) : null}
     </div>

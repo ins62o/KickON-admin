@@ -1,9 +1,11 @@
 "use client";
 
+import { CURRENT_SEASON } from "@/lib/football/config";
 import Image from "next/image";
 import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, CircleCheck, MapPin, Navigation, Search, SlidersHorizontal, UsersRound } from "lucide-react";
 import { ScheduleDateTimePicker } from "@/components/fixtures/schedule-date-time-picker";
+import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { EntityOverrideControl } from "@/components/operations/entity-override-control";
 import { StatusBadge } from "@/components/status-badge";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -60,9 +62,9 @@ export function ScheduleCards({ fixtures, stadiums, overrides, canEdit }: { fixt
   const [page, setPage] = useState(0);
   const stadiumMap = useMemo(() => new Map(stadiums.map((stadium) => [stadium.id, stadium])), [stadiums]);
   const teams = useMemo(() => Array.from(new Map(fixtures.flatMap((fixture) => [
-    [fixture.homeTeamId, fixture.homeTeamName],
-    [fixture.awayTeamId, fixture.awayTeamName],
-  ]))).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "ko")), [fixtures]);
+    [fixture.homeTeamId, { id: fixture.homeTeamId, name: fixture.homeTeamName, leagueId: fixture.leagueId }],
+    [fixture.awayTeamId, { id: fixture.awayTeamId, name: fixture.awayTeamName, leagueId: fixture.leagueId }],
+  ])).values()), [fixtures]);
 
   const filtered = useMemo(() => {
     const search = query.trim().toLocaleLowerCase("ko-KR");
@@ -103,7 +105,7 @@ export function ScheduleCards({ fixtures, stadiums, overrides, canEdit }: { fixt
         <SelectTrigger className="h-12! w-full rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 sm:w-52 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="구단 필터"><SelectValue /></SelectTrigger>
         <SelectContent position="popper" align="start" className="max-h-80 w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
           <SelectItem value="all" className="py-2 pr-8 pl-2.5"><TeamFilterIcon />전체 구단</SelectItem>
-          {teams.map((team) => <SelectItem key={team.value} value={team.value} className="py-2 pr-8 pl-2.5"><TeamFilterIcon teamId={team.value} teamName={team.label} />{team.label}</SelectItem>)}
+          <TeamSelectOptions teams={teams} />
         </SelectContent>
       </Select>
       <p className="text-right text-xs tabular-nums text-muted-foreground">총 <strong className="font-semibold text-foreground">{filtered.length.toLocaleString("ko-KR")}</strong>경기</p>
@@ -138,7 +140,7 @@ function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixt
         <TeamIdentity teamId={fixture.homeTeamId} teamName={fixture.homeTeamName} />
         <div className="flex flex-col items-center justify-center">
           <strong className="text-lg leading-none">{fixture.homeScore === null || fixture.awayScore === null ? "VS" : `${fixture.homeScore} : ${fixture.awayScore}`}</strong>
-          <span className="mt-2 text-xs text-muted-foreground">{fixture.round === null ? "라운드 미정" : `${fixture.round}라운드`}</span>
+          <span className="mt-2 text-xs text-muted-foreground">{fixture.round === null ? "라운드 미정" : `${fixture.round} 라운드`}</span>
         </div>
         <TeamIdentity teamId={fixture.awayTeamId} teamName={fixture.awayTeamName} />
       </div>
@@ -146,8 +148,11 @@ function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixt
         <div className="flex items-center gap-2.5"><MapPin className="size-4 shrink-0 text-primary" /><p className="font-semibold text-foreground">{fixture.stadiumName}</p></div>
         <div className="flex items-start gap-2.5"><Navigation className="mt-0.5 size-4 shrink-0 text-primary" /><p className="leading-relaxed text-muted-foreground">{stadium?.address ?? "주소 정보 없음"}</p></div>
       </div>
-      <ScheduleEditDialog fixture={fixture} stadiums={stadiums} disabled={!canEdit} />
-      <EntityOverrideControl entityType="fixture" entityId={fixture.id} overrides={overrides} currentValues={fixtureComparableValue(fixture)} canEdit={canEdit} showApplyTrigger={false} showEmptyOverrides={false} />
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <ScheduleEditDialog fixture={fixture} stadiums={stadiums} disabled={!canEdit} triggerClassName="h-11! w-full" />
+        <EntityOverrideControl entityType="fixture" entityId={fixture.id} leagueId={fixture.leagueId} season={CURRENT_SEASON} overrides={overrides} currentValues={fixtureComparableValue(fixture)} canEdit={canEdit} triggerLabel="경기 관리" triggerVariant="outline" dialogTitle="경기 정보 수정" dialogDescription={false} submitLabel="수정" triggerClassName="h-11! w-full" showTriggerIcon={false} showSubmitIcon={false} showActiveOverrides={false} />
+      </div>
+      <EntityOverrideControl entityType="fixture" entityId={fixture.id} leagueId={fixture.leagueId} season={CURRENT_SEASON} overrides={overrides} currentValues={fixtureComparableValue(fixture)} canEdit={canEdit} showApplyTrigger={false} showEmptyOverrides={false} />
     </div>
   </article>;
 }
@@ -170,7 +175,7 @@ function TeamFilterIcon({ teamId, teamName }: { teamId?: string; teamName?: stri
   </span>;
 }
 
-function ScheduleEditDialog({ fixture, stadiums, disabled }: { fixture: FixtureRecord; stadiums: StadiumRecord[]; disabled: boolean }) {
+function ScheduleEditDialog({ fixture, stadiums, disabled, triggerClassName }: { fixture: FixtureRecord; stadiums: StadiumRecord[]; disabled: boolean; triggerClassName?: string }) {
   const [open, setOpen] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
   const [formSession, setFormSession] = useState(0);
@@ -178,7 +183,7 @@ function ScheduleEditDialog({ fixture, stadiums, disabled }: { fixture: FixtureR
 
   return <>
     <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setFormSession((value) => value + 1); }}>
-      <DialogTrigger asChild><Button type="button" variant="outline" className="mt-5 w-full px-4" disabled={disabled}>일정 수정</Button></DialogTrigger>
+      <DialogTrigger asChild><Button type="button" variant="outline" className={triggerClassName ?? "h-11! w-full"} disabled={disabled}>일정 수정</Button></DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader><DialogTitle className="text-xl">경기 일정 수정</DialogTitle><DialogDescription>{fixture.homeTeamName} vs {fixture.awayTeamName}</DialogDescription></DialogHeader>
         <FixtureScheduleForm key={formSession} fixture={fixture} stadiums={stadiums} onSuccess={handleSuccess} />
@@ -217,7 +222,7 @@ function FixtureScheduleForm({ fixture, stadiums, onSuccess }: { fixture: Fixtur
   };
 
   return <form action={action} className="mt-2 space-y-5">
-    <input type="hidden" name="fixtureId" value={fixture.id} />
+    <input type="hidden" name="fixtureId" value={fixture.id} /><input type="hidden" name="leagueId" value={fixture.leagueId} />
     <input type="hidden" name="kickoffAt" value={`${kickoffDate}T${kickoffTime}`} />
     <div className="space-y-2.5">
       <p className="text-sm font-semibold">경기 날짜 및 시간</p>

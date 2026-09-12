@@ -15,6 +15,9 @@ import type {
   StandingRecord,
 } from "./types";
 
+import { CURRENT_SEASON, leagueIds, seasonBounds, type LeagueFilter } from "@/lib/football/config";
+import { fetchAllRows } from "./pagination";
+
 type TeamPlayerRow = {
   season: number;
   league_id: string;
@@ -100,59 +103,39 @@ function noConnection<T>(data: T): DataQueryResult<T> {
   return { data, error: "Supabase 환경 변수가 설정되지 않았습니다.", connected: false };
 }
 
-export const getPlayersData = cache(async (): Promise<DataQueryResult<PlayerRecord[]>> => {
+const playerColumns = "season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at";
+
+export const getPlayersData = cache(async (league: LeagueFilter = "all", season = CURRENT_SEASON): Promise<DataQueryResult<PlayerRecord[]> & { total: number | null }> => {
   const { client } = getSupabaseConnection();
-  if (!client) return noConnection([]);
-  const result = await client
-    .from("team_players")
-    .select("season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at")
-    .eq("season", 2026)
-    .eq("league_id", "kleague")
-    .eq("in_squad", true)
-    .order("team_id")
-    .order("shirt_number", { nullsFirst: false })
-    .range(0, 1999);
-  return {
-    data: ((result.data ?? []) as TeamPlayerRow[]).map(mapPlayer),
-    error: result.error?.message ?? null,
-    connected: !result.error,
-  };
+  if (!client) return { ...noConnection([]), total: null };
+  const base = () => client.from("team_players").select(playerColumns)
+    .eq("season", season).in("league_id", leagueIds(league)).eq("in_squad", true);
+  const [result, count] = await Promise.all([
+    fetchAllRows((from, to) => base().order("league_id").order("team_id").order("player_id").range(from, to)),
+    client.from("team_players").select("player_id", { count: "exact", head: true })
+      .eq("season", season).in("league_id", leagueIds(league)).eq("in_squad", true),
+  ]);
+  const rows = result.data as TeamPlayerRow[];
+  const unique = new Set(rows.map((row) => `${row.season}:${row.league_id}:${row.player_id}`));
+  const error = result.error?.message ?? count.error?.message
+    ?? (unique.size !== rows.length || rows.length !== count.count ? "조회 중 선수 데이터가 변경되었습니다. 새로고침해 주세요." : null);
+  return { data: error ? [] : rows.map(mapPlayer), total: count.error ? null : count.count, error, connected: !error };
 });
 
-export const getTeamPlayersData = cache(async (teamId: string): Promise<DataQueryResult<PlayerRecord[]>> => {
-  const { client } = getSupabaseConnection();
-  if (!client) return noConnection([]);
-  const result = await client
-    .from("team_players")
-    .select("season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at")
-    .eq("season", 2026)
-    .eq("league_id", "kleague")
-    .eq("team_id", teamId)
-    .eq("in_squad", true)
-    .order("shirt_number", { nullsFirst: false })
-    .order("player_name");
-  return {
-    data: ((result.data ?? []) as TeamPlayerRow[]).map(mapPlayer),
-    error: result.error?.message ?? null,
-    connected: !result.error,
-  };
+export const getTeamPlayersData = cache(async (teamId: string, league: LeagueFilter = "all", season = CURRENT_SEASON): Promise<DataQueryResult<PlayerRecord[]>> => {
+  const result = await getPlayersData(league, season);
+  return { ...result, data: result.data.filter((player) => player.teamId === teamId) };
 });
 
-export const getPlayerData = cache(async (playerId: string): Promise<DataQueryResult<PlayerRecord | null>> => {
+export const getPlayerData = cache(async (playerId: string, league: LeagueFilter = "all", season = CURRENT_SEASON): Promise<DataQueryResult<PlayerRecord | null>> => {
   const { client } = getSupabaseConnection();
   if (!client) return noConnection(null);
-  const result = await client
-    .from("team_players")
-    .select("season,league_id,team_id,player_id,player_name,display_name,display_name_ko,shirt_number,position,detailed_position,appearances,goals,assists,height,weight,date_of_birth,in_squad,updated_at")
-    .eq("season", 2026)
-    .eq("player_id", playerId)
-    .eq("in_squad", true)
-    .maybeSingle();
-  return {
-    data: result.data ? mapPlayer(result.data as TeamPlayerRow) : null,
-    error: result.error?.message ?? null,
-    connected: !result.error,
-  };
+  // Legacy links may omit league. Resolve only when unique; never choose K1 implicitly.
+  const result = await client.from("team_players").select(playerColumns)
+    .eq("season", season).in("league_id", leagueIds(league)).eq("player_id", playerId).eq("in_squad", true).limit(2);
+  const rows = (result.data ?? []) as TeamPlayerRow[];
+  const error = result.error?.message ?? (rows.length > 1 ? "여러 리그에 등록된 선수입니다. 목록에서 리그를 선택해 주세요." : null);
+  return { data: !error && rows[0] ? mapPlayer(rows[0]) : null, error, connected: !error };
 });
 
 export const getStadiumsData = cache(async (): Promise<DataQueryResult<StadiumRecord[]>> => {
@@ -203,17 +186,18 @@ function mapFixture(row: FixtureRow, stadiums: Map<string, string>): FixtureReco
   };
 }
 
-export const getFixturesData = cache(async (): Promise<DataQueryResult<FixtureRecord[]>> => {
+export const getFixturesData = cache(async (league: LeagueFilter = "all", season = CURRENT_SEASON): Promise<DataQueryResult<FixtureRecord[]>> => {
   const { client } = getSupabaseConnection();
   if (!client) return noConnection([]);
   const [result, stadiums] = await Promise.all([
-    client
+    fetchAllRows((from, to) => client
       .from("fixtures")
       .select("id,sportmonks_id,league_id,round,home_team_id,away_team_id,stadium_id,attendance_latitude,attendance_longitude,attendance_radius_meters,kickoff_at,status,home_score,away_score,live_minute,live_period,updated_at")
-      .gte("kickoff_at", "2026-01-01T00:00:00Z")
-      .lt("kickoff_at", "2027-01-01T00:00:00Z")
+      .in("league_id", leagueIds(league))
+      .gte("kickoff_at", seasonBounds(season).start)
+      .lt("kickoff_at", seasonBounds(season).end)
       .order("kickoff_at", { ascending: false })
-      .range(0, 1999),
+      .order("id").range(from, to)),
     getStadiumMap(),
   ]);
   return {
@@ -223,7 +207,7 @@ export const getFixturesData = cache(async (): Promise<DataQueryResult<FixtureRe
   };
 });
 
-export const getFixtureData = cache(async (fixtureId: string): Promise<DataQueryResult<FixtureDetail | null>> => {
+export const getFixtureData = cache(async (fixtureId: string, league: LeagueFilter = "all"): Promise<DataQueryResult<FixtureDetail | null>> => {
   const { client } = getSupabaseConnection();
   if (!client) return noConnection(null);
   const [fixtureResult, stadiums, lineupsResult, playersResult] = await Promise.all([
@@ -231,6 +215,7 @@ export const getFixtureData = cache(async (fixtureId: string): Promise<DataQuery
       .from("fixtures")
       .select("id,sportmonks_id,league_id,round,home_team_id,away_team_id,stadium_id,attendance_latitude,attendance_longitude,attendance_radius_meters,kickoff_at,status,home_score,away_score,live_minute,live_period,goal_events,updated_at")
       .eq("id", fixtureId)
+      .in("league_id", leagueIds(league))
       .maybeSingle(),
     getStadiumMap(),
     client.from("fixture_lineups").select("team_id,formation,coach_name").eq("fixture_id", fixtureId),
@@ -262,17 +247,19 @@ export const getFixtureData = cache(async (fixtureId: string): Promise<DataQuery
   };
 });
 
-export const getStandingsData = cache(async (): Promise<DataQueryResult<StandingRecord[]>> => {
+export const getStandingsData = cache(async (league: LeagueFilter = "all", season = CURRENT_SEASON): Promise<DataQueryResult<StandingRecord[]>> => {
   const { client } = getSupabaseConnection();
   if (!client) return noConnection([]);
   const result = await client
     .from("league_standings")
-    .select("team_id,rank,played,won,drawn,lost,goals_for,goals_against,points,clean_sheets,average_possession,updated_at")
-    .eq("season", 2026)
-    .eq("league_id", "kleague")
-    .order("rank");
+    .select("season,league_id,team_id,rank,played,won,drawn,lost,goals_for,goals_against,points,clean_sheets,average_possession,updated_at")
+    .eq("season", season)
+    .in("league_id", leagueIds(league))
+    .order("league_id").order("rank").order("team_id");
   return {
     data: (result.data ?? []).map((row) => ({
+      season: row.season,
+      leagueId: row.league_id,
       teamId: row.team_id,
       teamName: getTeamName(row.team_id),
       logoPath: getTeamLogoPath(row.team_id),
@@ -294,10 +281,12 @@ export const getStandingsData = cache(async (): Promise<DataQueryResult<Standing
   };
 });
 
-export const getPlayerRankingsData = cache(async (): Promise<DataQueryResult<PlayerRankingRecord[]>> => {
-  const players = await getPlayersData();
+export const getPlayerRankingsData = cache(async (league: LeagueFilter = "all"): Promise<DataQueryResult<PlayerRankingRecord[]>> => {
+  const players = await getPlayersData(league);
   return {
     data: players.data.map((player) => ({
+      season: player.season,
+      leagueId: player.leagueId,
       playerId: player.id,
       playerName: player.name,
       koreanName: player.koreanName,

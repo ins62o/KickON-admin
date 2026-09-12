@@ -1,5 +1,6 @@
 "use client";
 
+import { playerHref as getPlayerHref } from "@/lib/football/config";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown, MapPin, UsersRound } from "lucide-react";
@@ -84,7 +85,7 @@ export function TeamPlayersTable({ players }: { players: PlayerRecord[] }) {
           <TableBody>
             {filteredPlayers.length > 0 ? filteredPlayers.map((player) => {
               const displayName = player.koreanName ?? player.displayName ?? player.name;
-              const playerHref = `/squads/detail/?playerId=${encodeURIComponent(player.id)}`;
+              const playerHref = getPlayerHref(player);
               return <ClickableTableRow key={player.id} href={playerHref} className="hover:bg-muted/30">
                 <TableCell className="py-4 pl-5"><Link href={playerHref} className="block min-w-44 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="truncate text-base font-semibold text-foreground">{displayName}</p>{displayName !== player.name ? <p className="mt-1 truncate text-sm text-muted-foreground">{player.name}</p> : null}</Link></TableCell>
                 <TableCell className="tabular py-4 text-center font-mono text-sm">{player.shirtNumber ?? "-"}</TableCell>

@@ -1,5 +1,6 @@
 "use client";
 
+import { CURRENT_SEASON } from "@/lib/football/config";
 import { AlertTriangle, CalendarDays, MapPin } from "lucide-react";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
@@ -14,12 +15,12 @@ import { getProviderOverrideIndex } from "@/lib/data/provider-diffs";
 export default function SchedulesPage() {
   const admin = useRequiredAdminPermission("data.read");
   const { data, error, loading, reload } = useClientData(async () => {
-    const fixturesPromise = getFixturesData();
+    const fixturesPromise = getFixturesData("all");
     const stadiumsPromise = getStadiumsData();
     const fixtures = await fixturesPromise;
     const [stadiums, overrides] = await Promise.all([
       stadiumsPromise,
-      getProviderOverrideIndex("fixture", fixtures.data.map((fixture) => fixture.id)),
+      getProviderOverrideIndex("fixture", fixtures.data.map((fixture) => fixture.id), CURRENT_SEASON, "all"),
     ]);
     return { fixtures, stadiums, overrides };
   });
@@ -48,6 +49,7 @@ export default function SchedulesPage() {
     ]} />
     <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="schedule-list-title">
       <div className="border-b border-border/70 px-5 py-4"><h2 id="schedule-list-title" className="text-base font-semibold">경기 일정</h2><p className="mt-1 text-xs text-muted-foreground">날짜와 경기장 변경은 해당 경기만 적용되며 외부 데이터 동기화로 덮어쓰지 않습니다.</p></div>
+      {fixtures.length === 0 && !dataError ? <p className="p-10 text-center text-muted-foreground">등록된 경기 일정이 없습니다</p> : null}
       <ScheduleCards fixtures={fixtures} stadiums={data.stadiums.data} overrides={data.overrides.overrides} canEdit={canEdit} />
     </section>
   </div>;

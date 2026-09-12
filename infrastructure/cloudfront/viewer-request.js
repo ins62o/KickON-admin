@@ -14,6 +14,14 @@ function encodedSegment(value) {
   }
 }
 
+function footballScope(query) {
+  var result = "";
+  ["leagueId", "season"].forEach(function (key) {
+    if (query && query[key] && query[key].value) result += "&" + key + "=" + encodedSegment(query[key].value);
+  });
+  return result;
+}
+
 // CloudFront Functions invokes this global entry point by name.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function handler(event) {
@@ -24,7 +32,7 @@ function handler(event) {
   // /api/* must be attached to a separate CloudFront behavior/API origin.
   if (uri === "/api" || uri.indexOf("/api/") === 0) return request;
 
-  var detail = uri.match(/^\/(users|inquiries|moderation|squads|standings|audit)\/([^/]+)\/?$/);
+  var detail = uri.match(/^\/(users|inquiries|moderation|squads|standings|schedules|fixtures|audit)\/([^/]+)\/?$/);
   if (detail && detail[2] !== "detail" && detail[2].indexOf(".") === -1) {
     var parameterByRoute = {
       users: "userId",
@@ -32,9 +40,12 @@ function handler(event) {
       moderation: "reportId",
       squads: "playerId",
       standings: "teamId",
+      schedules: "fixtureId",
+      fixtures: "fixtureId",
       audit: "auditId",
     };
-    return redirect("/" + detail[1] + "/detail/?" + parameterByRoute[detail[1]] + "=" + encodedSegment(detail[2]));
+    var route = detail[1] === "fixtures" ? "schedules" : detail[1];
+    return redirect("/" + route + "/detail/?" + parameterByRoute[detail[1]] + "=" + encodedSegment(detail[2]) + footballScope(request.querystring));
   }
 
   var redirects = {
@@ -49,7 +60,7 @@ function handler(event) {
   if (redirects[lookupUri]) return redirect(redirects[lookupUri]);
   if (uri.indexOf("/clubs/") === 0 || lookupUri === "/clubs") return redirect("/squads/");
   if (uri.indexOf("/players/") === 0) return redirect("/squads/");
-  if (uri.indexOf("/fixtures/") === 0 || lookupUri === "/fixtures") return redirect("/sync/");
+  if (uri.indexOf("/fixtures/") === 0 || lookupUri === "/fixtures") return redirect("/schedules/");
   if (uri.indexOf("/rankings/") === 0 || lookupUri === "/rankings") return redirect("/standings/");
   if (uri.indexOf("/transfers/") === 0 || lookupUri === "/transfers") return redirect("/squads/");
   if (uri.indexOf("/sync-history/") === 0 || lookupUri === "/sync-history") return redirect("/sync/");

@@ -11,10 +11,15 @@ const fixedScheduleMigrationName = "202609080007_fix_fixture_schedule_changed_ov
 const fixedScheduleMigration = readFileSync(new URL(fixedScheduleMigrationName, migrationsDirectory), "utf8");
 const stadiumLocalizationName = "202609070004_localize_remaining_stadiums.sql";
 const stadiumLocalization = readFileSync(new URL(stadiumLocalizationName, migrationsDirectory), "utf8");
+const scheduleStadiumLocalizationName = "202609120008_localize_schedule_stadiums.sql";
+const scheduleStadiumLocalization = readFileSync(new URL(scheduleStadiumLocalizationName, migrationsDirectory), "utf8");
 const operations = readFileSync(new URL("../src/lib/data/operations.ts", import.meta.url), "utf8");
 const actions = readFileSync(new URL("../src/lib/operations/actions.ts", import.meta.url), "utf8");
 const scheduleCards = readFileSync(new URL("../src/components/fixtures/schedule-table.tsx", import.meta.url), "utf8");
 const scheduleDateTimePicker = readFileSync(new URL("../src/components/fixtures/schedule-date-time-picker.tsx", import.meta.url), "utf8");
+const entityOverrideControl = readFileSync(new URL("../src/components/operations/entity-override-control.tsx", import.meta.url), "utf8");
+const longReasonMigrationName = "202609120007_allow_long_fixture_override_reasons.sql";
+const longReasonMigration = readFileSync(new URL(longReasonMigrationName, migrationsDirectory), "utf8");
 const navigation = readFileSync(new URL("../src/lib/navigation.ts", import.meta.url), "utf8");
 
 test("일정 위치 마이그레이션은 경기별 좌표와 인증 반경을 저장한다", () => {
@@ -70,6 +75,10 @@ test("남은 경기장 이름과 주소를 한국어로 고정한다", () => {
   assert.match(stadiumLocalization, /sportmonks-venue-14076', '수원종합운동장', '경기도 수원시 장안구 경수대로 893'/);
   assert.match(stadiumLocalization, /name_ko = localized\.name_ko/);
   assert.match(stadiumLocalization, /address_ko = localized\.address_ko/);
+  assert.match(scheduleStadiumLocalization, /sportmonks-venue-13542', '천안축구센터 주경기장', '충청남도 천안시 서북구 축구센터로 150'/);
+  assert.match(scheduleStadiumLocalization, /sportmonks-venue-13852', '용인축구센터', '경기도 용인시 처인구 원삼면 보개원삼로 1752'/);
+  assert.match(scheduleStadiumLocalization, /sportmonks-venue-14052', '안산 와스타디움', '경기도 안산시 단원구 화랑로 260'/);
+  assert.doesNotMatch(scheduleStadiumLocalization, /와~스타디움/);
 });
 
 test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제공한다", () => {
@@ -87,7 +96,11 @@ test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제�
   assert.match(scheduleCards, /alt={`\$\{teamName\} 엠블럼`}/);
   assert.match(scheduleCards, /\{date\.date\} \(\{date\.weekday\}\) · \{date\.time\}/);
   assert.match(scheduleCards, /fixture\.round === null \? "라운드 미정"/);
-  assert.match(scheduleCards, /<TeamFilterIcon teamId=\{team\.value\} teamName=\{team\.label\}/);
+  assert.match(scheduleCards, /<TeamSelectOptions teams=\{teams\}/);
+  assert.match(scheduleCards, /stadiums=\{stadiums\}/);
+  assert.doesNotMatch(scheduleCards, /stadiumsByLeague/);
+  assert.match(scheduleCards, /`\$\{fixture\.round\} 라운드`/);
+  assert.doesNotMatch(scheduleCards, /leagueLabel\(fixture\.leagueId\)/);
   assert.doesNotMatch(scheduleCards, /<Pencil/);
   assert.match(scheduleCards, /LIVE: \{ dotClass: "bg-red-400"/);
   assert.match(scheduleCards, /FINISHED: \{ dotClass: "bg-zinc-400"/);
@@ -102,4 +115,25 @@ test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제�
   assert.match(scheduleDateTimePicker, /\[scrollbar-width:none\]/);
   assert.match(scheduleDateTimePicker, /touch-pan-y/);
   assert.doesNotMatch(scheduleDateTimePicker, /type="(?:date|time|datetime-local)"/);
+});
+
+test("일정 카드에서 일정과 경기 정보를 각각 모달로 수정한다", () => {
+  assert.match(scheduleCards, /grid grid-cols-2 gap-2/);
+  assert.match(scheduleCards, />일정 수정<\/Button>/);
+  assert.match(scheduleCards, /triggerLabel="경기 관리"/);
+  assert.match(scheduleCards, /dialogTitle="경기 정보 수정"/);
+  assert.match(scheduleCards, /dialogDescription=\{false\}/);
+  assert.match(scheduleCards, /submitLabel="수정"/);
+  assert.doesNotMatch(scheduleCards, /경기 상세 · 점수 · 라인업/);
+  assert.match(entityOverrideControl, /<ScheduleDateTimePicker/);
+  assert.doesNotMatch(entityOverrideControl, /type="datetime-local"/);
+});
+
+test("경기 정보 수정 이유는 상한 없이 저장된다", () => {
+  const migrationNames = readdirSync(migrationsDirectory).filter((name) => name.endsWith(".sql")).sort();
+  assert.ok(migrationNames.indexOf(longReasonMigrationName) > migrationNames.indexOf("202609120006_preserve_verified_player_names_on_sync.sql"));
+  assert.match(entityOverrideControl, /name="reason" defaultValue=\{defaultReason\} minLength=\{3\} required/);
+  assert.match(actions, /if \(reason\.length < 3\) return \{ status: "error", message: "수정 이유를 3자 이상 입력해 주세요\./);
+  assert.match(longReasonMigration, /check \(char_length\(reason\) >= 3\)/);
+  assert.doesNotMatch(longReasonMigration, /char_length\(p_reason\) > 1000/);
 });

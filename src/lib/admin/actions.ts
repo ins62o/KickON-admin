@@ -1,5 +1,6 @@
 "use client";
 
+import { readFootballScope } from "@/lib/football/config";
 import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
 import { hasAdminPermission, type AdminPermission } from "@/lib/auth/permissions";
 import { invalidateAdminData } from "@/lib/client-data";
@@ -93,18 +94,14 @@ export async function updateSupportInquiryAction(_state: AdminActionState, formD
   const context = await mutationContext("support.write");
   if (context.error) return { status: "error", message: context.error };
   const inquiryId = textValue(formData, "inquiryId", 36);
-  const status = textValue(formData, "status", 20);
   const answer = textValue(formData, "answer", 4000);
-  const note = textValue(formData, "note", 4000);
-  const reason = textValue(formData, "reason", 1000);
-  if (!uuidPattern.test(inquiryId) || !["RECEIVED", "IN_PROGRESS", "ANSWERED", "CLOSED"].includes(status)) return { status: "error", message: "문의 또는 처리 상태가 올바르지 않습니다." };
-  if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "변경 사유를 3자 이상 1,000자 이하로 입력해 주세요." };
-  if (status === "ANSWERED" && answer.length === 0) return { status: "error", message: "답변 완료 상태에는 사용자 답변이 필요합니다." };
-  if (answer.length > 4000 || note.length > 4000) return { status: "error", message: "답변과 메모는 각각 4,000자 이하로 입력해 주세요." };
-  const result = await context.supabase.rpc("admin_update_support_inquiry", { p_inquiry_id: inquiryId, p_status: status, p_answer_content: answer || null, p_internal_note: note || null, p_reason: reason });
+  if (!uuidPattern.test(inquiryId)) return { status: "error", message: "문의 정보가 올바르지 않습니다." };
+  if (answer.length === 0) return { status: "error", message: "사용자 답변을 입력해 주세요." };
+  if (answer.length > 4000) return { status: "error", message: "답변은 4,000자 이하로 입력해 주세요." };
+  const result = await context.supabase.rpc("admin_update_support_inquiry", { p_inquiry_id: inquiryId, p_status: "ANSWERED", p_answer_content: answer, p_internal_note: null, p_reason: "사용자 문의 답변 등록" });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
-  return { status: "success", message: "문의 처리 내용과 감사 기록을 저장했습니다." };
+  return { status: "success", message: "답변을 저장하고 처리 상태를 답변 완료로 변경했습니다." };
 }
 
 export async function applyUserModerationAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
@@ -174,6 +171,8 @@ export async function setContentVisibilityAction(_state: AdminActionState, formD
 }
 
 export async function createManualPlayerAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  const scope = readFootballScope(formData);
+  if (!scope) return { status: "error", message: "시즌과 리그를 확인해 주세요." };
   const context = await mutationContext("data.write");
   if (context.error) return { status: "error", message: context.error };
   const teamId = textValue(formData, "teamId", 120);
@@ -187,21 +186,37 @@ export async function createManualPlayerAction(_state: AdminActionState, formDat
   const shirtNumber = shirtNumberInput === "" ? null : Number(shirtNumberInput);
   if (!teamId || playerName.length < 1 || reason.length < 3 || reason.length > 1000) return { status: "error", message: "팀, 선수 이름과 3자 이상의 등록 사유를 입력해 주세요." };
   if (shirtNumber !== null && (!Number.isInteger(shirtNumber) || shirtNumber < 0 || shirtNumber > 999)) return { status: "error", message: "등번호는 0~999 정수로 입력해 주세요." };
-  const result = await context.supabase.rpc("admin_create_manual_player", { p_team_id: teamId, p_player_name: playerName, p_reason: reason, p_display_name_ko: displayNameKo || null, p_shirt_number: shirtNumber, p_position: position || null, p_detailed_position: detailedPosition || null, p_season: 2026, p_league_id: "kleague" });
+  const result = await context.supabase.rpc("admin_create_manual_player", { p_team_id: teamId, p_player_name: playerName, p_reason: reason, p_display_name_ko: displayNameKo || null, p_shirt_number: shirtNumber, p_position: position || null, p_detailed_position: detailedPosition || null, p_season: scope.season, p_league_id: scope.leagueId });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
   return { status: "success", message: "수동 선수를 등록하고 동기화 보호를 활성화했습니다." };
 }
 
 export async function setVerifiedPlayerNameAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  const scope = readFootballScope(formData);
+  if (!scope) return { status: "error", message: "시즌과 리그를 확인해 주세요." };
   const context = await mutationContext("data.write");
   if (context.error) return { status: "error", message: context.error };
   const playerId = textValue(formData, "playerId", 120);
   const nameKo = textValue(formData, "nameKo", 120);
   const reason = textValue(formData, "reason", 1000);
   if (!playerId || !nameKo || reason.length < 3 || reason.length > 1000) return { status: "error", message: "검증할 한글 이름과 3자 이상의 변경 사유를 입력해 주세요." };
-  const result = await context.supabase.rpc("admin_set_verified_player_name", { p_provider_player_id: playerId, p_name_ko: nameKo, p_reason: reason });
+  const result = await context.supabase.rpc("admin_set_verified_player_name", { p_provider_player_id: playerId, p_season: scope.season, p_league_id: scope.leagueId, p_name_ko: nameKo, p_reason: reason });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
   return { status: "success", message: "검증된 한글 이름을 저장했습니다. 다음 동기화에서도 유지됩니다." };
+}
+
+export async function mergeManualPlayerAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  const scope = readFootballScope(formData);
+  const context = await mutationContext("data.write");
+  if (context.error) return { status: "error", message: context.error };
+  const manualId = textValue(formData, "manualPlayerId", 120);
+  const providerId = textValue(formData, "providerPlayerId", 120);
+  const reason = textValue(formData, "reason", 1000);
+  if (!scope || !manualId.startsWith("manual_") || !providerId || providerId.startsWith("manual_") || reason.length < 3) return { status: "error", message: "리그·시즌·병합 대상과 사유를 확인해 주세요." };
+  const result = await context.supabase.rpc("admin_merge_manual_player", { p_manual_player_id: manualId, p_provider_player_id: providerId, p_season: scope.season, p_league_id: scope.leagueId, p_reason: reason });
+  if (result.error || result.data !== true) return { status: "error", message: "선수를 병합하지 못했습니다. 리그와 검증 한글명을 확인해 주세요." };
+  invalidateAdminData();
+  return { status: "success", message: "수동 선수를 같은 리그의 공급자 선수에 병합했습니다." };
 }

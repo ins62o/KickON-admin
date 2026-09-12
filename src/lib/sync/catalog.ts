@@ -1,3 +1,4 @@
+import { CURRENT_SEASON } from "../football/config.ts";
 export type SyncOperation = "full" | "live" | "post-match" | "history-backfill" | "team-squad" | "team-metrics" | "fixture-lineup";
 
 export type SyncOperationDefinition = {
@@ -61,7 +62,7 @@ export const syncOperations: SyncOperationDefinition[] = [
   },
   {
     key: "full",
-    label: "2026 전체 데이터",
+    label: `${CURRENT_SEASON} 리그 데이터`,
     description: "구단·경기·순위·선수·개인 순위를 전체 재동기화합니다.",
     functionName: "sync-football-data",
     target: "none",
@@ -99,7 +100,7 @@ export const cronSyncOperation: Record<string, SyncOperation | null> = {
 };
 
 export const syncCoverage: SyncCoverage[] = [
-  { target: "전체 데이터", support: "direct", operation: "sync-football-data", detail: "구단·경기·순위·선수·개인 기록을 2026 시즌 단위로 갱신" },
+  { target: "전체 데이터", support: "direct", operation: "sync-football-data", detail: `${CURRENT_SEASON} 구단·경기·순위·선수·개인 기록 갱신` },
   { target: "구단", support: "direct", operation: "sync-team-squad", detail: "선택 구단 선수단과 득점·도움·출전 기록 갱신" },
   { target: "선수", support: "included", operation: "sync-team-squad", detail: "선수 단건 API가 없어 현재 소속 구단 선수단 단위로 갱신" },
   { target: "경기", support: "direct", operation: "sync-fixture-lineup", detail: "선택 경기의 확정 라인업·후보 명단 갱신" },

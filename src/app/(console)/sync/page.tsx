@@ -18,6 +18,7 @@ import { getSyncOperation, syncCoverage } from "@/lib/sync/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useConsoleEnvironment } from "@/lib/environment";
+import { leagueLabel } from "@/lib/football/config";
 
 function positiveNumber(value: string | undefined) {
   const parsed = Number(value);
@@ -30,13 +31,13 @@ export default function SyncPage() {
   const searchParams = useSearchParams();
   const { data, error, loading, reload } = useClientData(async () => {
     const [dashboard, fixtures, providerUsage, syncHistory] = await Promise.all([
-      getDashboardData(),
-      getFixturesData(),
+      getDashboardData("all"),
+      getFixturesData("all"),
       getProviderUsageDataClient(),
-      getSyncOperationHistory(),
+      getSyncOperationHistory("all"),
     ]);
     return { dashboard, fixtures, providerUsage, syncHistory };
-  });
+  }, []);
   if (!admin || loading) return <ClientPageLoading />;
   if (error || !data) return <ClientPageError message={error ?? "동기화 데이터를 확인할 수 없습니다."} retry={reload} />;
   const { dashboard, fixtures, providerUsage, syncHistory } = data;
@@ -54,10 +55,9 @@ export default function SyncPage() {
     .sort((a, b) => Math.abs(new Date(a.kickoffAt).getTime() - generatedAt) - Math.abs(new Date(b.kickoffAt).getTime() - generatedAt));
   const requestedFixture = sortedFixtures.find((fixture) => fixture.id === query.fixtureId);
   const fixtureOptions = (requestedFixture ? [requestedFixture, ...sortedFixtures.filter((fixture) => fixture.id !== requestedFixture.id)] : sortedFixtures)
-    .slice(0, 80)
     .map((fixture) => ({
-      id: fixture.id,
-      label: `${formatKoreaDateTime(fixture.kickoffAt)} · ${fixture.homeTeamName} vs ${fixture.awayTeamName}`,
+      id: fixture.id, leagueId: fixture.leagueId,
+      label: `${leagueLabel(fixture.leagueId)} · ${formatKoreaDateTime(fixture.kickoffAt)} · ${fixture.homeTeamName} vs ${fixture.awayTeamName}`,
     }));
 
   return (
@@ -67,7 +67,6 @@ export default function SyncPage() {
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">데이터 동기화</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">필요한 구단이나 경기만 선택해 외부 축구 데이터를 다시 가져옵니다.</p>
         </div>
         <span className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium">{environment === "production" ? "운영 환경" : "개발 환경"}</span>
       </div>
@@ -91,7 +90,7 @@ export default function SyncPage() {
       <section className="mt-6">
         <div className="mb-3 flex items-center gap-2"><RefreshCcw className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">실행할 작업</h2></div>
         <SyncControl
-          teams={dashboard.clubs.map((club) => ({ id: club.id, name: club.name }))}
+          teams={dashboard.clubs.map((club) => ({ id: club.id, name: club.name, leagueId: club.leagueId ?? "" }))}
           fixtures={fixtureOptions}
           canRun={!admin.isDevelopmentBypass && hasAdminPermission(admin.role, "sync.run")}
           secretReady={process.env.NEXT_PUBLIC_ADMIN_SYNC_ENABLED !== "false"}
@@ -114,6 +113,7 @@ export default function SyncPage() {
 
       <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35">
         <div className="border-b border-border/70 px-4 py-3.5"><h2 className="text-sm font-semibold">최근 새로고침 상태</h2><p className="mt-0.5 text-xs text-muted-foreground">자동 작업의 최근 성공과 실패 기록</p></div>
+        <p className="mb-3 text-xs text-muted-foreground">아래 자동 동기화 상태는 전체 리그 기준이며, 리그 미지정 기록을 포함합니다.</p>
         <SyncTable rows={dashboard.syncStates} />
       </section>
     </div>

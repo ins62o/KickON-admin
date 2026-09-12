@@ -1,5 +1,8 @@
 import "server-only";
 
+import { CURRENT_SEASON, SUPPORTED_LEAGUE_IDS, seasonBounds, playerHref } from "@/lib/football/config";
+import { fetchAllRows } from "./pagination";
+import { getPlayerData } from "./operations";
 import { cache } from "react";
 import { getTeamName } from "./catalog";
 import { getOperationsClient, isOperationsSchemaMissing } from "./operations-client";
@@ -144,8 +147,8 @@ export async function getReportQueueData(filters: ReportQueueFilters): Promise<R
     operationsClient.from("user_data_reports").select("id", { count: "exact", head: true }).eq("priority", "urgent").in("status", ["open", "in_review", "on_hold"]),
     operationsClient.from("user_data_reports").select("id", { count: "exact", head: true }).in("status", ["resolved", "rejected"]),
     publicClient ? publicClient.from("teams").select("id,name,short_name") : Promise.resolve({ data: null, error: null }),
-    publicClient ? publicClient.from("team_players").select("player_id,player_name,display_name,display_name_ko,team_id").eq("season", 2026).range(0, 1999) : Promise.resolve({ data: null, error: null }),
-    publicClient ? publicClient.from("fixtures").select("id,home_team_id,away_team_id,kickoff_at").gte("kickoff_at", "2026-01-01T00:00:00Z").lt("kickoff_at", "2027-01-01T00:00:00Z").range(0, 1999) : Promise.resolve({ data: null, error: null }),
+    publicClient ? fetchAllRows((from, to) => publicClient.from("team_players").select("player_id,player_name,display_name,display_name_ko,team_id").eq("season", CURRENT_SEASON).in("league_id", SUPPORTED_LEAGUE_IDS).order("league_id").order("team_id").order("player_id").range(from, to)) : Promise.resolve({ data: null, error: null }),
+    publicClient ? fetchAllRows((from, to) => publicClient.from("fixtures").select("id,home_team_id,away_team_id,kickoff_at").gte("kickoff_at", seasonBounds().start).lt("kickoff_at", seasonBounds().end).in("league_id", SUPPORTED_LEAGUE_IDS).order("id").range(from, to)) : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (reportsResult.error) {
@@ -154,7 +157,9 @@ export async function getReportQueueData(filters: ReportQueueFilters): Promise<R
   }
 
   const teamMap = new Map((teamsResult.data ?? []).map((row) => [String(row.id), String(row.name ?? row.short_name ?? getTeamName(String(row.id)))]));
-  const playerMap = new Map((playersResult.data ?? []).map((row) => [String(row.player_id), {
+  const playerIdCounts = new Map<string, number>();
+  for (const player of playersResult.data ?? []) playerIdCounts.set(player.player_id, (playerIdCounts.get(player.player_id) ?? 0) + 1);
+  const playerMap = new Map((playersResult.data ?? []).filter((row) => playerIdCounts.get(row.player_id) === 1).map((row) => [String(row.player_id), {
     name: String(row.display_name_ko ?? row.display_name ?? row.player_name ?? row.player_id), teamId: String(row.team_id),
   }]));
   const fixtureMap = new Map((fixturesResult.data ?? []).map((row) => [String(row.id), fixtureName(String(row.home_team_id), String(row.away_team_id), String(row.kickoff_at))]));
@@ -229,9 +234,10 @@ async function resolveReportEntityContext(report: UserReportRecord): Promise<Rep
     return { name: String(result?.data?.name ?? result?.data?.short_name ?? getTeamName(report.entityId)), href: reportEntityHref(report), syncHref: reportSyncHref(report, report.entityId), teamId: report.entityId };
   }
   if (report.entityType === "player" || report.entityType === "ranking") {
-    const result = publicClient ? await publicClient.from("team_players").select("player_name,display_name,display_name_ko,team_id").eq("season", 2026).eq("player_id", report.entityId).maybeSingle() : null;
-    const teamId = result?.data?.team_id ? String(result.data.team_id) : null;
-    return { name: String(result?.data?.display_name_ko ?? result?.data?.display_name ?? result?.data?.player_name ?? report.entityId), href: reportEntityHref(report), syncHref: reportSyncHref(report, teamId), teamId };
+    const result = await getPlayerData(report.entityId);
+    const player = result.data;
+    const teamId = player?.teamId ?? null;
+    return { name: player?.koreanName ?? player?.displayName ?? player?.name ?? "리그 확인 필요", href: player ? playerHref(player) : reportEntityHref(report), syncHref: player ? `/sync?operation=team-squad&teamId=${encodeURIComponent(player.teamId)}&leagueId=${encodeURIComponent(player.leagueId)}` : null, teamId };
   }
   if (report.entityType === "fixture") {
     const result = publicClient ? await publicClient.from("fixtures").select("home_team_id,away_team_id,kickoff_at").eq("id", report.entityId).maybeSingle() : null;
@@ -244,10 +250,10 @@ async function resolveReportEntityContext(report: UserReportRecord): Promise<Rep
 export function reportEntityHref(report: UserReportRecord) {
   if (!report.entityId) return null;
   const id = encodeURIComponent(report.entityId);
-  if (report.entityType === "team") return `/clubs/${id}`;
-  if (report.entityType === "player") return `/players/${id}`;
-  if (report.entityType === "fixture") return `/fixtures/${id}`;
-  if (report.entityType === "standing") return `/standings/${id}`;
-  if (report.entityType === "ranking") return "/rankings";
+  if (report.entityType === "team") return `/standings/detail/?teamId=${id}`;
+  if (report.entityType === "player") return `/squads/detail/?playerId=${id}`;
+  if (report.entityType === "fixture") return `/schedules/detail/?fixtureId=${id}`;
+  if (report.entityType === "standing") return `/standings/detail/?teamId=${id}`;
+  if (report.entityType === "ranking") return `/squads/detail/?playerId=${id}`;
   return null;
 }

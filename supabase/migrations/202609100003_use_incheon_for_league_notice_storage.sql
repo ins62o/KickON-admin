@@ -16,7 +16,7 @@ set search_path = ''
 as $$
 declare
   current_actor uuid := (select auth.uid());
-  normalized_board text := upper(trim(coalesce(target_board, ''));
+  normalized_board text := upper(trim(coalesce(target_board, '')));
   normalized_team_id text := trim(coalesce(target_team_id, ''));
   normalized_title text := trim(coalesce(notice_title, ''));
   normalized_content text := trim(coalesce(notice_content, ''));
