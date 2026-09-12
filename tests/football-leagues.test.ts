@@ -27,9 +27,12 @@ test('team and player lists keep league controls compact',()=>{
 
 test('data management uses the combined league scope and stale K2 cleanup stays narrowly scoped',()=>{
   const page=readFileSync(new URL('../src/app/(console)/data-management/page.tsx',import.meta.url),'utf8');
+  const syncControl=readFileSync(new URL('../src/components/sync/sync-control.tsx',import.meta.url),'utf8');
   assert.match(page,/getSyncControlOptions\("all"\)/);
   assert.match(page,/getSyncOperationHistory\("all"\)/);
   assert.doesNotMatch(page,/<LeagueFilter/);
+  assert.match(syncControl,/\{operation\.label\} 갱신/);
+  assert.doesNotMatch(syncControl,/<DialogTitle[^>]*>\{operation\.label\} 데이터 갱신/);
 
   const migration=readFileSync(new URL('../supabase/migrations/202609120005_replay_invalid_k2_squad_error_cleanup.sql',import.meta.url),'utf8');
   assert.match(migration,/set last_error = null/);

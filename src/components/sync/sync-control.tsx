@@ -129,7 +129,7 @@ function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, 
       <DialogContent className="gap-6 rounded-2xl p-5 sm:max-w-lg sm:p-6" aria-describedby={undefined}>
         <DialogHeader className="gap-0 pr-9">
           <div className="flex items-center gap-3">
-            <DialogTitle className="min-w-0 flex-1 text-lg leading-7">{operation.label} 데이터 갱신</DialogTitle>
+            <DialogTitle className="min-w-0 flex-1 text-lg leading-7">{operation.label} 갱신</DialogTitle>
             {isHighCost ? (
               <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-700/25 bg-amber-600/[0.08] px-2 py-1 text-[11px] font-medium text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300">
                 <ShieldAlert className="size-3.5" aria-hidden="true" />
