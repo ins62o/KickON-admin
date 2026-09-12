@@ -3,6 +3,10 @@ import { cache } from "react";
 
 import { getServiceAccountIds } from "@/lib/admin/user-visibility";
 import {
+  countUnrecoveredSyncFailures,
+  type RecentSyncRunRow,
+} from "@/lib/admin/sync-health";
+import {
   getOperationsClient,
   isOperationsSchemaMissing,
 } from "@/lib/data/operations-client";
@@ -562,7 +566,10 @@ async function getRecentFootballSyncFailureCount(
 
   const rows = (result.data ?? []) as SyncFreshnessRow[];
   return {
-    count: rows.filter((row) => Boolean(row.last_error?.trim())).length,
+    count: rows.filter((row) => Boolean(row.last_error?.trim()) && (
+      !row.last_succeeded_at || !row.last_attempted_at ||
+      Date.parse(row.last_succeeded_at) < Date.parse(row.last_attempted_at)
+    )).length,
     error: null,
   };
 }
@@ -733,10 +740,9 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
       .not("registration_completed_at", "is", null),
     client
       .from("sync_runs")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["failed", "partial"])
-      .gte("created_at", twentyFourHoursAgo)
-      .or("status.eq.failed,failed_count.gt.0,error_code.not.is.null,error_message.not.is.null"),
+      .select("job_key,status,failed_count,error_code,error_message,metadata,created_at")
+      .in("status", ["succeeded", "failed", "partial"])
+      .gte("created_at", twentyFourHoursAgo),
   ]);
 
   const rawTotalProfiles = countValue(profilesResult);
@@ -744,7 +750,9 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
     ? null
     : Math.max(0, rawTotalProfiles - excludedProfileCount);
   const failedSyncCount24h = availableFailureCount(
-    countValue(failedSyncResult),
+    failedSyncResult.error
+      ? null
+      : countUnrecoveredSyncFailures((failedSyncResult.data ?? []) as RecentSyncRunRow[]),
     syncStateFailureResult.count,
   );
   const syncUnavailable = failedSyncCount24h === null;
