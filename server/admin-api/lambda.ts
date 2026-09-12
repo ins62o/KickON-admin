@@ -337,7 +337,13 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
         });
         const responseBody = await result.json().catch(() => ({}));
         const scopeLabel = leagueId === "all" && bodies.length === 1 ? "전체 리그" : configs[index]?.label ?? "전체 리그";
-        if (!result.ok) throw new Error(`${scopeLabel} 동기화 함수가 HTTP ${result.status}로 응답했습니다.`);
+        if (!result.ok) {
+          const providerMessage = responseBody && typeof responseBody === "object" && !Array.isArray(responseBody)
+            && typeof (responseBody as { error?: unknown }).error === "string"
+            ? (responseBody as { error: string }).error.trim()
+            : "";
+          throw new Error(`${scopeLabel} 동기화 함수가 HTTP ${result.status}로 응답했습니다.${providerMessage ? ` ${providerMessage}` : ""}`);
+        }
         return { leagueId: configs[index]?.id ?? "all", result: responseBody };
       }));
       if (results.length === 1) {

@@ -83,6 +83,24 @@ test('provider sync operations use the selected provider mapping',()=>{
   assert.deepEqual(secretOperationBodies('live','all',CURRENT_SEASON),[{mode:'live',pollCount:0}]);
   assert.throws(()=>secretOperationBody('full','kleague2',2025));
 });
+
+test('deployed full sync accepts K League 2 and writes every scoped row to K League 2',()=>{
+  const source=readFileSync(new URL('../supabase/functions/sync-football-data/index.ts',import.meta.url),'utf8');
+  assert.match(source,/const K_LEAGUE_2_ID = 1362/);
+  assert.match(source,/const K_LEAGUE_2_SEASON_ID = 27443/);
+  assert.match(source,/leagueId === K_LEAGUE_2_ID[\s\S]*seasonId === K_LEAGUE_2_SEASON_ID[\s\S]*\? 'kleague2'/);
+  assert.match(source,/\.eq\('league_id', internalLeagueId\)/);
+  assert.match(source,/league_id: internalLeagueId/g);
+  assert.doesNotMatch(source,/Only K League 1 seasons 2024 through 2026 are enabled/);
+  assert.match(source,/nameKo: '안산 와스타디움'/);
+});
+
+test('production bootstrap contains all 17 K League 2 provider team identities',()=>{
+  const migration=readFileSync(new URL('../supabase/migrations/202609120009_bootstrap_k_league_2_teams.sql',import.meta.url),'utf8');
+  const ids=['ansan-greeners','busan-ipark','cheonan-city','chungbuk-cheongju','chungnam-asan','daegu','gimhae','gimpo','gyeongnam','hwaseong','jeonnam','paju','seongnam','seoul-eland','suwon-bluewings','suwon-fc','yongin'];
+  for(const id of ids) assert.match(migration,new RegExp(`\\('${id}',`));
+  assert.match(migration,/1362,[\s\S]*27443/);
+});
 test('admin API infers a K2 target and carries scope through snapshots, invoke and sync audit',async()=>{
   const savedFetch=globalThis.fetch; const keys=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SPORTSMONKS_API_ALLOWANCE'];
   const previous=keys.map(key=>process.env[key]);
