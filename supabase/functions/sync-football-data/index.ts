@@ -2048,7 +2048,26 @@ Deno.serve(async request => {
 
   const suppliedSecret = request.headers.get('x-sync-secret') ?? '';
   const expectedSecret = Deno.env.get('FOOTBALL_SYNC_SECRET');
-  if (!expectedSecret || suppliedSecret !== expectedSecret) {
+  let authorized = Boolean(expectedSecret && suppliedSecret === expectedSecret);
+  if (!authorized) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      return Response.json(
+        { error: 'Supabase server config is missing' },
+        { status: 500 },
+      );
+    }
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: verified, error } = await admin.rpc(
+      'verify_live_football_sync_secret',
+      { candidate: suppliedSecret },
+    );
+    authorized = !error && verified === true;
+  }
+  if (!authorized) {
     return new Response('Unauthorized', { status: 401 });
   }
   const requests = (body as { requests?: unknown }).requests;

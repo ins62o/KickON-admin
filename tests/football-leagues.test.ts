@@ -96,6 +96,7 @@ test('deployed full sync accepts K League 2 and writes every scoped row to K Lea
   assert.match(source,/EdgeRuntime\?: \{ waitUntil:/);
   assert.match(source,/status: 'accepted'/);
   assert.match(source,/runBackgroundSync/);
+  assert.equal(source.match(/verify_live_football_sync_secret/g)?.length,2);
 });
 
 test('production bootstrap contains all 17 K League 2 provider team identities',()=>{
