@@ -373,8 +373,16 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
           season,
           ...(operation.target === "team" ? { teamId } : operation.target === "fixture" ? { fixtureId } : {}),
         };
-        const result = await context.client.functions.invoke(operation.functionName, { body });
+        const syncSecret = operation.key === "team-squad" ? process.env.FOOTBALL_SYNC_SECRET?.trim() : undefined;
+        if (operation.key === "team-squad" && !syncSecret) throw new Error("선수단 동기화 서버 인증 설정이 없습니다.");
+        const result = await context.client.functions.invoke(operation.functionName, {
+          body: { ...body, ...(operation.key === "team-squad" ? { force: true } : {}) },
+          ...(syncSecret ? { headers: { "x-sync-secret": syncSecret } } : {}),
+        });
         if (result.error) throw result.error;
+        if (operation.key === "team-squad" && result.data?.status !== "synced") {
+          throw new Error("선수단 동기화가 실제로 완료되지 않았습니다.");
+        }
         return { leagueId: config.id, result: result.data };
       }));
       resultPayload = results.length === 1 ? results[0].result : {

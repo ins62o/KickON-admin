@@ -113,6 +113,7 @@ test('admin API infers a K2 target and carries scope through snapshots, invoke a
   const previous=keys.map(key=>process.env[key]);
   process.env.NEXT_PUBLIC_SUPABASE_URL='https://example.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='test-key';process.env.FOOTBALL_SYNC_SECRET='test-secret';delete process.env.SPORTSMONKS_API_ALLOWANCE;
   const requests:Array<{url:URL;body:Record<string,unknown>}> = [];
+  let squadStatus = 'synced';
   globalThis.fetch=async(input,init)=>{
     const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
     const body=typeof init?.body==='string'?JSON.parse(init.body):{};requests.push({url,body});
@@ -121,7 +122,11 @@ test('admin API infers a K2 target and carries scope through snapshots, invoke a
     else if(url.pathname.endsWith('/admin_users')) payload=[{role:'super_admin',is_active:true}];
     else if(url.pathname.endsWith('/league_standings')) {assert.equal(url.searchParams.get('team_id'),'eq.paju');assert.equal(url.searchParams.get('season'),'eq.2026');payload=[{team_id:'paju',league_id:'kleague2'}];}
     else if(url.pathname.endsWith('/sync_runs')) payload=[{id:'22222222-2222-4222-8222-222222222222'}];
-    else if(url.pathname.endsWith('/sync-team-squad')) payload={status:'succeeded'};
+    else if(url.pathname.endsWith('/sync-team-squad')) {
+      assert.equal(new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined)).get('x-sync-secret'),'test-secret');
+      assert.equal(body.force,true);
+      payload={status:squadStatus};
+    }
     else if(url.pathname.endsWith('/sync-team-metrics')) payload={status:'succeeded'};
     else if(url.pathname.endsWith('/sync-football-data')) payload={status:'accepted'};
     else if(url.pathname.includes('/rpc/')) payload=url.pathname.endsWith('/get_admin_provider_usage')?[]:1;
@@ -149,5 +154,11 @@ test('admin API infers a K2 target and carries scope through snapshots, invoke a
     assert.equal(typeof fullInvoke.body.syncRunId,'string');
     assert.deepEqual((fullInvoke.body.requests as Array<Record<string,unknown>>).map(body=>body.leagueId),SUPPORTED_LEAGUES.map(league=>league.providerLeagueId));
     assert.equal(requests.filter(r=>r.url.pathname.endsWith('/sync_runs')).length,1);
+    squadStatus='server-managed';
+    requests.length=0;
+    const noOp=await request({operation:'team-squad',teamId:'paju',season:2026,reason:'retry squad sync'});
+    assert.equal(noOp.statusCode,400);
+    assert.ok(requests.some(r=>r.url.pathname.endsWith('/sync_runs')&&r.body.status==='failed'));
+    assert.ok(!requests.some(r=>r.url.pathname.endsWith('/sync_runs')&&r.body.status==='succeeded'));
   } finally {globalThis.fetch=savedFetch;keys.forEach((key,i)=>{if(previous[i]===undefined)delete process.env[key];else process.env[key]=previous[i];});}
 });
