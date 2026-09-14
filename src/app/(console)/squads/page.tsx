@@ -33,11 +33,12 @@ export default function SquadsPage() {
   return <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
     <PageHeader
       title="선수 관리"
+      className="flex-row items-center justify-between"
       actions={canRegisterPlayer ? <ManualPlayerDialog teams={teamOptions} /> : null}
       actionsLabel="선수 관리"
     />
     {result.error ? <div role="alert" className="mt-5 flex items-start gap-3 border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{result.error}</div> : null}
-    <MetricStrip className="mt-6" items={[
+    <MetricStrip className="mt-6 grid-cols-2!" itemClassName="p-3 md:p-4" items={[
       { id: "all", label: "전체 선수", value: `${formatNumber(result.total)}명`, icon: UsersRound, tone: "accent" },
       { id: "translation-needed", label: "번역 필요 선수명", value: `${formatNumber(translationNeededCount)}명`, icon: Globe2, tone: "accent" },
     ]} />

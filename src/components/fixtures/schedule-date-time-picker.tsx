@@ -98,7 +98,7 @@ export function ScheduleDateTimePicker({ id, date, time, onDateChange, onTimeCha
       <span id={`${id}-date-label`} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><CalendarDays className="size-3.5 text-primary" />경기 날짜</span>
       <PopoverPrimitive.Root open={dateOpen} onOpenChange={setDateOpen}>
         <PopoverPrimitive.Trigger asChild>
-          <button type="button" aria-labelledby={`${id}-date-label`} className="flex h-12 w-full items-center justify-between rounded-lg border border-border/70 bg-background/80 px-3 text-left text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-muted/35 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/15">
+          <button type="button" aria-labelledby={`${id}-date-label`} className="flex h-11 w-full items-center justify-between rounded-lg border border-border/70 bg-background/80 px-3 text-left text-sm font-semibold transition-colors hover:bg-muted/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50">
             <span className="truncate tabular-nums">{formatSelectedDate(date)}</span>
             <CalendarDays className="size-4 shrink-0 text-primary" />
           </button>
@@ -144,7 +144,7 @@ export function ScheduleDateTimePicker({ id, date, time, onDateChange, onTimeCha
       <span id={`${id}-time-label`} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Clock3 className="size-3.5 text-primary" />시작 시간</span>
       <PopoverPrimitive.Root open={timeOpen} onOpenChange={setTimeOpen}>
         <PopoverPrimitive.Trigger asChild>
-          <button type="button" aria-labelledby={`${id}-time-label`} className="flex h-12 w-full items-center justify-between rounded-lg border border-border/70 bg-background/80 px-3 text-left text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-muted/35 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/15">
+          <button type="button" aria-labelledby={`${id}-time-label`} className="flex h-11 w-full items-center justify-between rounded-lg border border-border/70 bg-background/80 px-3 text-left text-sm font-semibold transition-colors hover:bg-muted/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50">
             <span className="tabular-nums">{formatSelectedTime(time)}</span>
             <Clock3 className="size-4 shrink-0 text-primary" />
           </button>

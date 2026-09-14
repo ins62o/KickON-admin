@@ -102,8 +102,8 @@ test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 �
   assert.doesNotMatch(component, /앱 커뮤니티에 노출할 전체 및 팀별 공지/);
   assert.match(component, /등록된 공지<\/h2>/);
   assert.match(component, /filteredNotices\.length/);
-  assert.match(component, /TabsTrigger value="LEAGUE" className="font-bold text-white data-active:text-white">전체 공지/);
-  assert.match(component, /TabsTrigger value="TEAM" className="font-bold text-white data-active:text-white">팀별 공지/);
+  assert.match(component, /TabsTrigger value="LEAGUE" className="font-bold text-muted-foreground data-active:bg-background data-active:text-foreground">전체 공지/);
+  assert.match(component, /TabsTrigger value="TEAM" className="font-bold text-muted-foreground data-active:bg-background data-active:text-foreground">팀별 공지/);
   assert.match(component, /grid h-14! w-full grid-cols-2/);
   assert.match(component, /notice\.board === noticeScope/);
   assert.match(component, /notice\.teamId === activeTeamFilter/);
@@ -112,13 +112,19 @@ test("공지 화면은 중복 제출을 막고 성공 후 관리자 목록을 �
   assert.match(component, /getTeamLogoPath\(notice\.teamId\)/);
   assert.match(component, /notice\.board === "TEAM" \? `\$\{notice\.teamName\} · ` : ""/);
   assert.doesNotMatch(component, /formatNoticeDateTime\(notice\.createdAt\)} · \{notice\.authorName\}/);
+  assert.match(component, /DialogFooter className=\{canWrite \? "grid grid-cols-2 sm:flex" : "grid grid-cols-1 sm:flex"\}/);
+  assert.match(component, /ActionSubmit className="h-11! px-5 font-extrabold">공지 등록/);
+  assert.match(component, /order-2 h-11! w-full px-4 font-extrabold sm:order-none sm:w-auto" onClick=\{onClose\}>닫기/);
+  assert.match(component, /order-1 h-11! w-full px-4 font-extrabold sm:order-none sm:w-auto" onClick=\{\(\) => onDelete\(notice\)\}>삭제/);
   assert.match(component, /id="notice-team-filter" className="h-11!/);
   assert.match(component, /if \(nextBoard === "LEAGUE"\) setTeamId\(""\)/);
   assert.match(component, /onChangeCapture=\{\(\) => \{/);
   assert.match(component, /SelectItem value="__all" className="min-h-11/);
   assert.equal((component.match(/<TeamSelectOptions teams=\{teams\}/g) ?? []).length, 2);
-  assert.match(component, /w-72 px-8 text-center">대상 팀/);
-  assert.match(component, /w-64 px-8">등록 시각/);
+  assert.match(component, /hidden w-72 px-8 text-center md:table-cell">대상 팀/);
+  assert.match(component, /hidden w-64 px-8 md:table-cell">등록 시각/);
+  assert.match(component, /Table className="min-w-0 md:min-w-\[620px\]"/);
+  assert.match(component, /className="flex-row items-center justify-between"/);
   assert.match(component, /items-center justify-center gap-2/);
   assert.match(component, /formatNoticeDateTime/);
   assert.match(component, /월 \$\{Number\(part\("day"\)\)\}일/);
@@ -178,7 +184,7 @@ test("문의 상세 헤더는 이전 링크 없이 상태를 우측에 표시하
   const detail = fs.readFileSync(path.join(root, "src/app/(console)/inquiries/detail/page.tsx"), "utf8");
   assert.doesNotMatch(detail, /문의 내역|ArrowLeft|context=\{/);
   assert.match(detail, /actions=\{<AdminStatusBadge/);
-  assert.match(detail, /className="sm:items-start"/);
+  assert.match(detail, /className="flex-row items-start justify-between gap-3 sm:items-start"/);
   assert.match(detail, /max-w-\[1720px\]/);
   assert.doesNotMatch(detail, /mt-5 max-w-3xl/);
   assert.match(detail, /요청 내용/);
@@ -207,12 +213,25 @@ test("문의 답변은 답변만 입력받고 저장 시 답변 완료로 전환
 
 test("관리자 버튼은 전역 크기 체계에 따라 과도한 높이를 사용하지 않는다", () => {
   const button = fs.readFileSync(path.join(root, "src/components/ui/button.tsx"), "utf8");
+  const select = fs.readFileSync(path.join(root, "src/components/ui/select.tsx"), "utf8");
   const actionSubmit = fs.readFileSync(path.join(root, "src/components/admin/action-submit.tsx"), "utf8");
-  assert.match(button, /default:\s*\n\s*"h-9 gap-2/);
-  assert.match(button, /sm: "h-8 gap-1/);
-  assert.match(button, /lg: "h-10 gap-2/);
+  const loginForm = fs.readFileSync(path.join(root, "src/components/auth/login-form.tsx"), "utf8");
+  const moderationForm = fs.readFileSync(path.join(root, "src/components/admin/user-moderation-form.tsx"), "utf8");
+  const schedulePicker = fs.readFileSync(path.join(root, "src/components/fixtures/schedule-date-time-picker.tsx"), "utf8");
+  const scheduleTable = fs.readFileSync(path.join(root, "src/components/fixtures/schedule-table.tsx"), "utf8");
+  assert.match(button, /default:\s*\n\s*"h-11! gap-2/);
+  assert.match(button, /xs: "h-11! gap-1/);
+  assert.match(button, /sm: "h-11! gap-1/);
+  assert.match(button, /lg: "h-11! gap-2/);
   assert.doesNotMatch(button, /default: "h-12!/);
+  assert.match(select, /flex h-11! w-fit cursor-pointer[^\"]*rounded-xl border border-border\/80 bg-muted\/35/);
+  assert.match(select, /rounded-xl border border-border\/80 bg-popover p-1/);
+  assert.match(select, /cursor-pointer items-center gap-1\.5 rounded-lg py-2\.5/);
   assert.doesNotMatch(actionSubmit, /size="sm"/);
+  assert.match(loginForm, /<Button type="submit" size="lg" className="h-11 w-full"/);
+  assert.doesNotMatch(moderationForm, /ActionSubmit[^>]*h-12/);
+  assert.equal((schedulePicker.match(/<button[^>]*className="flex h-11 w-full/g) ?? []).length, 2);
+  assert.doesNotMatch(scheduleTable, /(?:triggerClass|SelectTrigger)[^\n]*(?:h-12!|h-14!)/);
 });
 
 test("신고 처리 화면은 문의 용어를 섞지 않고 오류 뒤 입력을 유지한다", () => {

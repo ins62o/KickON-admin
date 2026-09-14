@@ -44,6 +44,7 @@ type SyncControlProps = {
   providerResetAt: string | null;
   providerQuotaLow: boolean;
   lastSync: SyncOperationLastSyncMap;
+  compactOnMobile?: boolean;
 };
 
 const iconByOperation: Record<SyncOperation, typeof RefreshCcw> = {
@@ -58,15 +59,22 @@ const iconByOperation: Record<SyncOperation, typeof RefreshCcw> = {
 
 const initialState: SyncActionState = { status: "idle", message: null, operation: null, completedAt: null };
 
-const syncSelectTriggerClassName = "h-11 w-full rounded-xl border-border/90 bg-background/45 px-3.5 text-sm shadow-inner shadow-black/10 transition-colors hover:border-primary/35 hover:bg-background/65 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-ring/20";
+const syncSelectTriggerClassName = "w-full";
 const syncSelectContentClassName = "max-h-72 w-(--radix-select-trigger-width) rounded-xl border border-border/90 bg-popover p-1.5 shadow-2xl shadow-black/25";
 const syncSelectItemClassName = "my-1 min-h-11 cursor-pointer rounded-lg py-2.5 pr-10 pl-3 text-sm transition-colors first:mt-0 last:mb-0 focus:bg-primary/10 focus:text-foreground data-[state=checked]:bg-primary/12 data-[state=checked]:font-semibold data-[state=checked]:text-primary dark:focus:bg-primary/15 dark:data-[state=checked]:bg-primary/15";
 
 export function SyncControl(props: SyncControlProps) {
+  const compactOnMobile = props.compactOnMobile ?? false;
+
   return (
-    <div className="overflow-x-auto pb-1">
+    <div className={cn(compactOnMobile ? "pb-1 md:overflow-x-auto" : "overflow-x-auto pb-1")}>
       <div
-        className="grid min-w-[1260px] grid-cols-7 gap-px overflow-hidden rounded-xl border border-border/80 bg-border/70"
+        className={cn(
+          "grid overflow-hidden rounded-xl",
+          compactOnMobile
+            ? "grid-cols-2 gap-2 md:min-w-[1260px] md:grid-cols-7 md:gap-px md:border md:border-border/80 md:bg-border/70"
+            : "min-w-[1260px] grid-cols-7 gap-px border border-border/80 bg-border/70",
+        )}
         role="group"
         aria-label="데이터 동기화 작업"
       >
@@ -78,7 +86,7 @@ export function SyncControl(props: SyncControlProps) {
   );
 }
 
-function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, environment, initialOperation, initialTeamId, initialFixtureId, providerRemaining, providerAllowance, providerResetAt, providerQuotaLow, lastSync }: SyncControlProps & { operation: (typeof syncOperations)[number] }) {
+function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, environment, initialOperation, initialTeamId, initialFixtureId, providerRemaining, providerAllowance, providerResetAt, providerQuotaLow, lastSync, compactOnMobile = false }: SyncControlProps & { operation: (typeof syncOperations)[number] }) {
   const [formSession, setFormSession] = useState(0);
   const Icon = iconByOperation[operation.key];
   const targetUnavailable = operation.target === "team"
@@ -105,18 +113,24 @@ function SyncOperationButton({ operation, teams, fixtures, canRun, secretReady, 
       <DialogTrigger asChild>
         <Button
           variant="ghost"
-          className="h-36 w-full min-w-0 cursor-pointer flex-col items-stretch justify-start gap-0 rounded-none bg-card px-4 py-4 text-left whitespace-normal hover:bg-primary/[0.06]"
+          className={cn(
+            "h-36! w-full min-w-0 cursor-pointer flex-col items-stretch justify-start gap-0 rounded-none bg-card px-4 py-4 text-left whitespace-normal hover:bg-primary/[0.06]",
+            compactOnMobile && "h-28! rounded-lg border border-border/80 px-3 py-3 last:col-span-2 md:h-36! md:rounded-none md:border-0 md:px-4 md:py-4 md:last:col-span-1",
+          )}
           aria-label={`${operation.label} 실행`}
           title={`${operation.label} 데이터 갱신${disabledReason ? ` · ${disabledReason}` : ""}`}
         >
-          <span className="flex w-full items-start">
+          <span className="flex w-full min-w-0 items-center gap-2.5 md:items-start md:gap-0">
             <span
               className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary"
             >
               <Icon className="size-4.5" aria-hidden="true" />
             </span>
+            <span className="line-clamp-2 min-w-0 text-sm leading-5 font-semibold text-foreground md:hidden">
+              {operation.label}
+            </span>
           </span>
-          <span className="mt-3 block max-w-full truncate text-sm font-semibold text-foreground">{operation.label}</span>
+          <span className="mt-3 hidden max-w-full truncate text-sm font-semibold text-foreground md:block">{operation.label}</span>
           <span
             className="mt-auto flex w-full items-center gap-1.5 border-t border-border/60 pt-3 text-xs font-normal text-muted-foreground"
             title={operationLastSync.at ? `마지막 동기화 ${formatKoreaDateTime(operationLastSync.at)}` : `마지막 동기화 ${operationLastSync.label}`}

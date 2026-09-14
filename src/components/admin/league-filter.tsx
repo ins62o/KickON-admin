@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DEFAULT_LEAGUE_ID, isLeagueId, SUPPORTED_LEAGUES, type LeagueFilter as Filter } from "@/lib/football/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export function useLeagueFilter(allowAll = true): Filter {
   const params = useSearchParams();
@@ -10,20 +11,20 @@ export function useLeagueFilter(allowAll = true): Filter {
   return isLeagueId(value) ? value : allowAll ? "all" : DEFAULT_LEAGUE_ID;
 }
 
-export function LeagueFilter({ allowAll = true }: { allowAll?: boolean }) {
+export function LeagueFilter({ allowAll = true, className }: { allowAll?: boolean; className?: string }) {
   const value = useLeagueFilter(allowAll);
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
-  return <div className="my-5 flex flex-wrap items-center gap-3">
+  return <div className={cn("my-5 flex flex-wrap items-center gap-3", className)}>
     <Select value={value} onValueChange={(next) => {
       const query = new URLSearchParams(params.toString());
       query.set("leagueId", next);
       for (const key of ["q", "search", "page", "teamId", "fixtureId", "operation"]) query.delete(key);
       router.push(`${pathname}?${query}`, { scroll: false });
     }}>
-      <SelectTrigger className="h-11! w-40 rounded-xl border-primary/25 bg-linear-to-br from-primary/12 to-primary/4 px-3 text-sm font-medium tracking-normal shadow-sm hover:border-primary/45 hover:from-primary/18 data-[state=open]:border-primary/55 data-[state=open]:ring-3 data-[state=open]:ring-primary/15" aria-label="리그 선택"><SelectValue /></SelectTrigger>
-      <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) min-w-0 rounded-xl border border-border/80 bg-popover p-0 py-1.5 shadow-2xl">{allowAll ? <SelectItem value="all" className="mx-1.5 my-0.5 h-10 w-[calc(100%-0.75rem)] rounded-lg pr-9 pl-3 text-sm font-medium tracking-normal focus:bg-primary/10">전체</SelectItem> : null}{SUPPORTED_LEAGUES.map((league) => <SelectItem key={league.id} value={league.id} className="mx-1.5 my-0.5 h-10 w-[calc(100%-0.75rem)] rounded-lg pr-9 pl-3 text-sm font-medium tracking-normal focus:bg-primary/10">{league.label}</SelectItem>)}</SelectContent>
+      <SelectTrigger className="w-40 tracking-normal" aria-label="리그 선택"><SelectValue /></SelectTrigger>
+      <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">{allowAll ? <SelectItem value="all" className="py-2 pr-8 pl-2.5">전체</SelectItem> : null}{SUPPORTED_LEAGUES.map((league) => <SelectItem key={league.id} value={league.id} className="py-2 pr-8 pl-2.5">{league.label}</SelectItem>)}</SelectContent>
     </Select>
   </div>;
 }

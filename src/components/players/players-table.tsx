@@ -37,6 +37,39 @@ function positionDotClass(value: string) {
   return "bg-muted-foreground/60";
 }
 
+function PlayerMobileRow({ player }: { player: PlayerRecord }) {
+  const displayName = player.koreanName ?? player.displayName ?? player.name;
+  const teamLogoPath = getTeamLogoPath(player.teamId);
+
+  return (
+    <Link
+      href={playerHref(player)}
+      className="block p-4 outline-none hover:bg-primary/[0.06] focus-visible:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      <span className="flex min-w-0 items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block truncate text-base font-semibold text-foreground">{displayName}</span>
+          {player.name !== displayName ? <span className="mt-0.5 block truncate text-xs text-muted-foreground">{player.name}</span> : null}
+        </span>
+        <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+          {player.shirtNumber === null ? "-" : `#${player.shirtNumber}`}
+        </span>
+      </span>
+      <span className="mt-3 flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-background/70">
+            {teamLogoPath ? <Image src={teamLogoPath} fill sizes="24px" alt="" className="object-contain p-1" /> : <UsersRound className="size-3" aria-hidden="true" />}
+          </span>
+          <span className="truncate font-medium text-foreground">{player.teamName}</span>
+        </span>
+        <span className="shrink-0">
+          {positionLabel(player.position)}{player.age === null ? "" : ` · ${player.age}세`}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 const columns: LegacyColumnDef<PlayerRecord>[] = [
   {
     id: "player",
@@ -135,6 +168,8 @@ export function PlayersTable({ players, emptyState }: { players: PlayerRecord[];
       showResultCount={false}
       comfortableRows
       columnWidths={playerColumnWidths}
+      compactOnMobile
+      renderMobileRow={(player) => <PlayerMobileRow player={player} />}
     />
   );
 }

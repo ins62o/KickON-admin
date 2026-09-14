@@ -162,7 +162,7 @@ function NoticeCreateForm({ teams, onSuccess }: { teams: CommunityNoticeTeam[]; 
 
       {state.message === dismissedActionMessage ? null : <ActionMessage state={state} />}
       <DialogFooter className="mx-0 mb-0 px-0 pb-0">
-        <ActionSubmit className="h-10! px-5">공지 등록</ActionSubmit>
+        <ActionSubmit className="h-11! px-5 font-extrabold">공지 등록</ActionSubmit>
       </DialogFooter>
     </form>
   );
@@ -182,10 +182,10 @@ function NoticeDetail({ notice, canWrite, onClose, onDelete }: { notice: Communi
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-48 whitespace-pre-wrap break-words rounded-lg border border-border/80 bg-background p-4 text-sm leading-7 text-foreground/90">{notice.content}</div>
-        <DialogFooter>
-          <Button type="button" variant="outline" size="sm" className="h-9! px-4" onClick={onClose}>닫기</Button>
+        <DialogFooter className={canWrite ? "grid grid-cols-2 sm:flex" : "grid grid-cols-1 sm:flex"}>
+          <Button type="button" variant="outline" size="sm" className="order-2 h-11! w-full px-4 font-extrabold sm:order-none sm:w-auto" onClick={onClose}>닫기</Button>
           {canWrite ? (
-            <Button type="button" variant="destructive" size="sm" className="h-9! px-4" onClick={() => onDelete(notice)}>삭제</Button>
+            <Button type="button" variant="destructive" size="sm" className="order-1 h-11! w-full px-4 font-extrabold sm:order-none sm:w-auto" onClick={() => onDelete(notice)}>삭제</Button>
           ) : null}
         </DialogFooter>
       </DialogContent>
@@ -213,8 +213,8 @@ function NoticeDeleteDialog({ notice, onClose, onSuccess }: { notice: CommunityN
           <input type="hidden" name="noticeId" value={notice.id} />
           <ActionMessage state={state} />
           <AlertDialogFooter>
-            <AlertDialogCancel type="button" className="h-9! px-4" disabled={pending}>취소</AlertDialogCancel>
-            <ActionSubmit variant="destructive" className="h-9! px-4" pendingLabel="삭제 중…">삭제</ActionSubmit>
+            <AlertDialogCancel type="button" className="h-11! px-4" disabled={pending}>취소</AlertDialogCancel>
+            <ActionSubmit variant="destructive" className="h-11! px-4" pendingLabel="삭제 중…">삭제</ActionSubmit>
           </AlertDialogFooter>
         </form>
       </AlertDialogContent>
@@ -272,8 +272,9 @@ export function CommunityNoticeManager() {
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
       <PageHeader
         title="공지사항"
+        className="flex-row items-center justify-between"
         actions={canWrite ? (
-          <Button type="button" size="sm" className="h-10! px-4" onClick={() => handleCreateOpenChange(true)}>
+          <Button type="button" size="sm" className="h-11! px-4" onClick={() => handleCreateOpenChange(true)}>
             공지 작성
           </Button>
         ) : null}
@@ -288,9 +289,9 @@ export function CommunityNoticeManager() {
         </div>
         <div className="border-b border-border/70 px-5 py-3">
           <Tabs value={noticeScope} onValueChange={(value) => setNoticeScope(value as "LEAGUE" | "TEAM")} className="w-full">
-            <TabsList aria-label="공지 노출 범위" className="grid h-14! w-full grid-cols-2">
-              <TabsTrigger value="LEAGUE" className="font-bold text-white data-active:text-white">전체 공지</TabsTrigger>
-              <TabsTrigger value="TEAM" className="font-bold text-white data-active:text-white">팀별 공지</TabsTrigger>
+            <TabsList aria-label="공지 노출 범위" className="grid h-14! w-full grid-cols-2 border border-border/70 bg-muted/70">
+              <TabsTrigger value="LEAGUE" className="font-bold text-muted-foreground data-active:bg-background data-active:text-foreground">전체 공지</TabsTrigger>
+              <TabsTrigger value="TEAM" className="font-bold text-muted-foreground data-active:bg-background data-active:text-foreground">팀별 공지</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -322,12 +323,12 @@ export function CommunityNoticeManager() {
             </Select>
           </div>
         ) : null}
-        <Table className="min-w-[620px]">
+        <Table className="min-w-0 md:min-w-[620px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="px-6">제목</TableHead>
-              {noticeScope === "TEAM" ? <TableHead className="w-72 px-8 text-center">대상 팀</TableHead> : null}
-              <TableHead className="w-64 px-8">등록 시각</TableHead>
+              {noticeScope === "TEAM" ? <TableHead className="hidden w-72 px-8 text-center md:table-cell">대상 팀</TableHead> : null}
+              <TableHead className="hidden w-64 px-8 md:table-cell">등록 시각</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -348,7 +349,7 @@ export function CommunityNoticeManager() {
               >
                 <TableCell className="max-w-lg px-6 py-4 text-sm font-semibold">{notice.title}</TableCell>
                 {noticeScope === "TEAM" ? (
-                  <TableCell className="w-72 px-8 py-4 text-sm text-muted-foreground">
+                  <TableCell className="hidden w-72 px-8 py-4 text-sm text-muted-foreground md:table-cell">
                     <span className="flex items-center justify-center gap-2">
                       {getTeamLogoPath(notice.teamId) ? (
                         <Image src={getTeamLogoPath(notice.teamId)!} width={24} height={24} alt="" className="size-6 shrink-0 object-contain" />
@@ -361,7 +362,7 @@ export function CommunityNoticeManager() {
                     </span>
                   </TableCell>
                 ) : null}
-                <TableCell className="w-64 px-8 py-4 text-sm text-muted-foreground">{formatNoticeDateTime(notice.createdAt)}</TableCell>
+                <TableCell className="hidden w-64 px-8 py-4 text-sm text-muted-foreground md:table-cell">{formatNoticeDateTime(notice.createdAt)}</TableCell>
               </TableRow>
             )) : (
               <TableRow><TableCell colSpan={noticeScope === "TEAM" ? 3 : 2}><DataState kind="empty" title={`등록된 ${noticeScope === "LEAGUE" ? "전체" : "팀별"} 공지가 없습니다`} description={canWrite ? "공지 작성 버튼으로 공지를 등록해 주세요." : "공지사항이 등록되면 이곳에 표시됩니다."} icon={Megaphone} compact /></TableCell></TableRow>

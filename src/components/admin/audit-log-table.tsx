@@ -1,6 +1,7 @@
 import { AuditLogLinkRow } from "@/components/admin/audit-log-link-row";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Link from "next/link";
 import {
   auditActionLabel,
   auditChangeSummary,
@@ -13,12 +14,25 @@ import { cn } from "@/lib/utils";
 export function AuditLogTable({
   logs,
   schemaReady,
+  compactOnMobile = false,
 }: {
   logs: AuditLogRecord[];
   schemaReady: boolean;
+  compactOnMobile?: boolean;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <>
+      {compactOnMobile ? <div className="divide-y divide-border/70 md:hidden">
+        {logs.length > 0 ? logs.map((log) => {
+          const changeSummary = auditChangeSummary(log);
+          return <Link key={log.id} href={`/audit/detail/?auditId=${encodeURIComponent(log.id)}`} className="block px-4 py-4 transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" aria-label={`${changeSummary} 변경 확인`}>
+            <div className="flex items-start justify-between gap-3"><p className="line-clamp-2 min-w-0 text-sm font-semibold leading-5">{changeSummary}</p><ActionBadge action={log.action} /></div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-muted-foreground"><span className="tabular-nums">{formatKoreaFullDateTime(log.createdAt)}</span><span>{log.actorId ? auditRoleLabel(log.actorRole) : "시스템 자동 작업"}</span></div>
+            <p className={cn("mt-2 line-clamp-2 text-xs leading-5", !log.reason && "text-muted-foreground")}>{log.reason ?? "변경 사유가 기록되지 않았습니다."}</p>
+          </Link>;
+        }) : <div className="flex min-h-52 items-center justify-center px-5 text-center"><p className="text-sm font-medium">{schemaReady ? "아직 저장된 변경 기록이 없습니다" : "변경 기록 데이터를 아직 연결하지 않았습니다"}</p></div>}
+      </div> : null}
+      <div className={cn("overflow-x-auto", compactOnMobile && "hidden md:block")}>
       <Table className="min-w-[880px]">
         <TableHeader className="[&_th]:h-12 [&_th]:px-3">
           <TableRow className="hover:bg-transparent">
@@ -43,7 +57,8 @@ export function AuditLogTable({
           )}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }
 

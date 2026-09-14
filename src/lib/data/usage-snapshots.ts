@@ -7,6 +7,7 @@ import { getSupabaseProjectMetrics } from "@/lib/supabase/project-metrics";
 import { getSupabaseStorageUsage } from "@/lib/supabase/storage-usage";
 import { getProviderUsageData, getSupabaseUsageData, getSystemStatusData } from "./platform-operations";
 import { getOperationsClient } from "./operations-client";
+import { providerUsageHealth } from "./provider-usage-health";
 import type { HealthStatus } from "./types";
 import { getActiveConsoleEnvironment, type ConsoleEnvironment } from "@/lib/environment";
 
@@ -265,7 +266,7 @@ function buildUsageCards({ supabase, storage, sportsMonks }: CoreUsageSources) {
   const provider: UsageGaugePanelProps = {
     title: "SportsMonks API 사용량",
     rate: providerRate,
-    status: usageHealth(providerRate, sportsMonks.connected && sportsMonks.remaining !== null),
+    status: providerUsageHealth(providerRate, sportsMonks.connected && sportsMonks.remaining !== null),
     centerValue: sportsMonks.remaining === null ? "-" : `${formatNumber(sportsMonks.remaining)}회`,
     centerLabel: "남은 호출",
     details: [

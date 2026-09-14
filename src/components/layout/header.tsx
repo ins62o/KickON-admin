@@ -51,7 +51,7 @@ export function Header({ admin, loading = false, switching = false }: {
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background">
       <div className="mx-auto flex h-[68px] w-full max-w-[1720px] items-center gap-2 px-4 lg:gap-3 lg:px-6">
         {admin ? <MobileNavigation role={admin.role} /> : <span className="size-11 shrink-0 xl:hidden" aria-hidden="true" />}
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="킥온 대시보드">
+        <Link href="/" className="hidden shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:flex" aria-label="킥온 대시보드">
           <span className="flex h-9 w-11 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-[#08111e]">
             <Image src="/branding/app-logo.png" alt="" width={32} height={32} priority className="size-8 object-contain" />
           </span>

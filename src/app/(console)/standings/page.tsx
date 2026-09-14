@@ -12,6 +12,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { useClientData } from "@/lib/client-data";
 import { getStandingsData } from "@/lib/data/operations";
+import type { StandingRecord } from "@/lib/data/types";
+
+function teamDetailHref(row: StandingRecord) {
+  return `/standings/detail/?teamId=${encodeURIComponent(row.teamId)}&leagueId=${encodeURIComponent(row.leagueId)}&season=${row.season}`;
+}
+
+function TeamMobileRow({ row }: { row: StandingRecord }) {
+  return (
+    <Link
+      href={teamDetailHref(row)}
+      className="grid grid-cols-[28px_40px_minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-4 transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:hidden"
+    >
+      <span className="tabular text-center font-mono text-sm font-semibold text-muted-foreground">{row.rank}</span>
+      {row.logoPath ? (
+        <span className="relative size-10">
+          <Image src={row.logoPath} alt={`${row.teamName} 로고`} fill sizes="40px" className="object-contain" />
+        </span>
+      ) : (
+        <span className="flex size-10 items-center justify-center rounded-lg bg-muted text-xs">{row.teamId.slice(0, 2)}</span>
+      )}
+      <strong className="min-w-0 truncate text-sm">{row.teamName}</strong>
+      <span className="tabular text-right"><strong className="text-lg">{row.points}</strong><span className="ml-0.5 text-[11px] text-muted-foreground">점</span></span>
+    </Link>
+  );
+}
 
 export default function StandingsPage() {
   const league = useLeagueFilter(false);
@@ -22,13 +47,16 @@ export default function StandingsPage() {
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
       <PageHeader title="팀 관리" />
-      <LeagueFilter allowAll={false} />
       {result.error ? <div className="mt-5 flex items-start gap-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-xs text-amber-100/70"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-300" />{result.error}</div> : null}
       <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35">
-        <div className="border-b border-border/70 px-11 py-4">
-          <h2 className="text-base font-semibold">{leagueLabel(league)} {CURRENT_SEASON}</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:py-4 md:px-11">
+          <h2 className="min-w-0 text-base font-semibold">{leagueLabel(league)} {CURRENT_SEASON}</h2>
+          <div className="shrink-0"><LeagueFilter allowAll={false} className="my-0" /></div>
         </div>
-        <div className="overflow-x-auto">
+        {result.data.length > 0 ? <div className="divide-y divide-border/70 md:hidden">
+          {result.data.map((row) => <TeamMobileRow key={row.teamId} row={row} />)}
+        </div> : <p className="flex min-h-52 items-center justify-center px-5 text-center text-sm text-muted-foreground md:hidden">{emptyLeagueMessage(league)}</p>}
+        <div className="hidden overflow-x-auto md:block">
           <Table className="min-w-[1040px] table-fixed">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -46,13 +74,13 @@ export default function StandingsPage() {
             </TableHeader>
             <TableBody>
               {result.data.length > 0 ? result.data.map((row) => (
-                <ClickableTableRow key={row.teamId} href={`/standings/detail/?teamId=${encodeURIComponent(row.teamId)}&leagueId=${encodeURIComponent(row.leagueId)}&season=${row.season}`}>
+                <ClickableTableRow key={row.teamId} href={teamDetailHref(row)}>
                   <TableCell className="tabular py-5 text-center font-mono text-base font-semibold">{row.rank}</TableCell>
                   <TableCell className="py-5">
-                    <Link href={`/standings/detail/?teamId=${encodeURIComponent(row.teamId)}&leagueId=${encodeURIComponent(row.leagueId)}&season=${row.season}`} className="flex min-w-44 items-center gap-3.5 rounded-md text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Link href={teamDetailHref(row)} className="flex min-w-44 items-center gap-3.5 rounded-md text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       {row.logoPath ? (
-                        <span className="relative size-10 overflow-hidden rounded-lg bg-white p-1">
-                          <Image src={row.logoPath} alt={`${row.teamName} 로고`} fill sizes="40px" className="object-contain p-1" />
+                        <span className="relative size-10">
+                          <Image src={row.logoPath} alt={`${row.teamName} 로고`} fill sizes="40px" className="object-contain" />
                         </span>
                       ) : (
                         <span className="flex size-10 items-center justify-center rounded-lg bg-muted text-xs">{row.teamId.slice(0, 2)}</span>

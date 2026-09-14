@@ -38,8 +38,12 @@ export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: s
     <input type="hidden" name="season" value={CURRENT_SEASON} />
     <FormField label="리그" htmlFor="manual-player-league" className="sm:col-span-2">
       <Select name="leagueId" value={leagueId} onValueChange={(value) => { setLeagueId(value); setTeamId(""); }} required>
-        <SelectTrigger id="manual-player-league" className="w-full"><SelectValue placeholder="리그 먼저 선택" /></SelectTrigger>
-        <SelectContent>{SUPPORTED_LEAGUES.map((league) => <SelectItem key={league.id} value={league.id}>{league.label}</SelectItem>)}</SelectContent>
+        <SelectTrigger id="manual-player-league" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50">
+          <SelectValue placeholder="리그 먼저 선택" />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
+          {SUPPORTED_LEAGUES.map((league) => <SelectItem key={league.id} value={league.id} className="cursor-pointer py-2.5 pr-8 pl-2.5">{league.label}</SelectItem>)}
+        </SelectContent>
       </Select>
       {leagueId && leagueTeams.length === 0 ? <p className="text-sm text-muted-foreground">등록된 {SUPPORTED_LEAGUES.find((league) => league.id === leagueId)?.label} 데이터가 없습니다</p> : null}
     </FormField>

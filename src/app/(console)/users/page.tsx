@@ -9,7 +9,7 @@ import { ClientPageError, ClientPageLoading } from "@/components/admin/client-pa
 import { DataState } from "@/components/admin/data-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { getAdminUsersData } from "@/lib/admin/console-data";
@@ -170,14 +170,26 @@ export default function UsersPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-      <PageHeader title="사용자" />
+      <PageHeader
+        title="사용자"
+        className="flex-row items-center justify-between"
+        actions={(
+          <p className="flex items-baseline gap-1.5 text-sm text-muted-foreground">
+            <span>전체 가입자</span>
+            <strong className="font-sans text-base font-semibold text-foreground tabular-nums">
+              {formatNumber(data.users.length)}명
+            </strong>
+          </p>
+        )}
+        actionsLabel="사용자 통계"
+      />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <section
           className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35"
           aria-labelledby="team-users-title"
         >
-          <header className="flex flex-col items-stretch gap-4 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-4 sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
                 <UsersRound className="size-5" aria-hidden="true" />
@@ -195,17 +207,17 @@ export default function UsersPage() {
             }}>
               <SelectTrigger
                 aria-label="팀별 가입자 리그 선택"
-                className="h-10! w-full min-w-36 rounded-xl border-primary/25 bg-linear-to-br from-primary/12 to-primary/4 px-3 text-sm font-medium shadow-sm hover:border-primary/45 hover:from-primary/18 data-[state=open]:border-primary/55 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 sm:w-36"
+                className="w-28 sm:w-36"
               >
                 <span className="truncate text-foreground">{selectedLeague.label}</span>
               </SelectTrigger>
               <SelectContent
                 position="popper"
                 align="end"
-                className="w-(--radix-select-trigger-width) min-w-0 rounded-xl border border-border/80 bg-popover p-0 py-1.5 shadow-2xl"
+                className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl"
               >
                 {SUPPORTED_LEAGUES.map((league) => (
-                  <SelectItem key={league.id} value={league.id} className="mx-1.5 my-0.5 h-10 w-[calc(100%-0.75rem)] rounded-lg pr-9 pl-3 text-sm font-medium focus:bg-primary/10">
+                  <SelectItem key={league.id} value={league.id} className="py-2 pr-8 pl-2.5">
                     {league.label}
                   </SelectItem>
                 ))}
@@ -213,19 +225,21 @@ export default function UsersPage() {
             </Select>
           </header>
 
-          <div className="grid flex-1 content-start gap-2 p-4 sm:p-5" role="list" aria-label={`가입자 수가 많은 순서의 ${selectedLeague.label} 구단`}>
+          <div className="grid flex-1 grid-cols-2 content-start gap-2 p-4 sm:p-5 md:grid-cols-1" role="list" aria-label={`가입자 수가 많은 순서의 ${selectedLeague.label} 구단`}>
             {teamDistribution.map((team) => (
-              <div
+              <Link
                 key={team.teamId}
+                href={userPageHref({ ...query, team: team.teamId, leagueId }, 1)}
+                scroll={false}
                 role="listitem"
-                className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-lg border border-border/65 bg-background/35 p-3.5"
+                className="grid min-h-24 min-w-0 grid-cols-[32px_minmax(0,1fr)_auto] grid-rows-[32px_auto] items-center gap-x-2 gap-y-2 rounded-lg border border-border/65 bg-background/35 p-3 outline-none transition-colors hover:border-primary/35 hover:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-ring md:min-h-0 md:grid-cols-[40px_minmax(0,1fr)_auto] md:grid-rows-1 md:gap-3.5 md:p-3.5"
               >
-                <span className="relative flex size-10 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background/70">
+                <span className="relative flex size-8 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background/70 md:size-10">
                   {team.logoPath ? (
                     <Image
                       src={team.logoPath}
                       fill
-                      sizes="40px"
+                      sizes="(max-width: 767px) 32px, 40px"
                       alt=""
                       className="object-contain p-1.5"
                     />
@@ -233,11 +247,11 @@ export default function UsersPage() {
                     <UsersRound className="size-4 text-muted-foreground" aria-hidden="true" />
                   )}
                 </span>
-                <span className="min-w-0 truncate text-sm font-semibold text-foreground">{team.teamName}</span>
-                <strong className="font-sans text-base font-semibold tabular-nums text-foreground">
+                <span className="col-span-3 row-start-2 min-w-0 truncate text-xs font-semibold text-foreground md:col-span-1 md:row-start-auto md:text-sm">{team.teamName}</span>
+                <strong className="col-start-3 row-start-1 font-sans text-base font-semibold tabular-nums text-foreground md:col-start-auto md:row-start-auto">
                   {formatNumber(team.count)}명
                 </strong>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
@@ -248,26 +262,21 @@ export default function UsersPage() {
         >
           <header className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-5">
             <h2 id="user-search-title" className="text-base font-semibold text-foreground">가입자 검색</h2>
-            <p className="flex shrink-0 items-baseline gap-1.5 text-sm text-muted-foreground">
-              <span>전체 가입자</span>
-              <strong className="font-sans text-base font-semibold text-foreground tabular-nums">{formatNumber(data.users.length)}명</strong>
-            </p>
           </header>
 
           <form
-            className="grid gap-3 border-b border-border/70 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-[minmax(190px,1fr)_minmax(160px,0.65fr)_minmax(160px,0.65fr)_auto] xl:items-end"
+            className="grid grid-cols-2 gap-3 border-b border-border/70 p-4 sm:p-5 xl:grid-cols-[minmax(190px,1fr)_minmax(160px,0.65fr)_minmax(160px,0.65fr)_auto] xl:items-end"
             role="search"
           >
             <input type="hidden" name="leagueId" value={leagueId} />
-            <div className="sm:col-span-2 xl:col-span-1">
+            <div className="col-span-2 xl:col-span-1">
               <label htmlFor="user-query" className="mb-2.5 block text-sm font-medium text-foreground">사용자 검색</label>
-              <Input
+              <SearchInput
                 id="user-query"
                 name="q"
                 defaultValue={query.q ?? ""}
                 placeholder="닉네임 또는 사용자 ID"
                 aria-label="사용자 검색"
-                className="h-11 rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
               />
             </div>
             <div>
@@ -301,7 +310,7 @@ export default function UsersPage() {
             </div>
             <div>
               <label htmlFor="user-team" className="mb-2.5 block text-sm font-medium text-foreground">응원 팀</label>
-              <Select name="team" defaultValue={teamFilter}>
+              <Select key={teamFilter} name="team" defaultValue={teamFilter}>
                 <SelectTrigger
                   id="user-team"
                   className="h-11! w-full rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"
@@ -319,7 +328,7 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1">
+            <div className="col-span-2 flex items-center gap-2 xl:col-span-1">
               <Button type="submit" className="h-11 flex-1 rounded-xl px-4 text-sm">
                 검색
               </Button>

@@ -3,7 +3,7 @@
 import { CURRENT_SEASON } from "@/lib/football/config";
 import Image from "next/image";
 import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, CircleCheck, MapPin, Navigation, Search, SlidersHorizontal, UsersRound } from "lucide-react";
+import { CalendarDays, CircleCheck, MapPin, Navigation, SlidersHorizontal, UsersRound } from "lucide-react";
 import { ScheduleDateTimePicker } from "@/components/fixtures/schedule-date-time-picker";
 import { TeamSelectOptions } from "@/components/admin/team-select-options";
 import { EntityOverrideControl } from "@/components/operations/entity-override-control";
@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescript
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { fixtureStatusLabels, getTeamLogoPath } from "@/lib/data/catalog";
@@ -21,7 +22,7 @@ import { updateFixtureScheduleAction, type OperationActionState } from "@/lib/op
 
 const initialState: OperationActionState = { status: "idle", message: null, completedAt: null };
 const pageSize = 18;
-const triggerClass = "h-12! w-full rounded-xl border-border/80 bg-background/75 px-3.5 shadow-sm transition-colors hover:border-primary/45 hover:bg-muted/35 sm:w-44";
+const triggerClass = "w-full xl:w-44";
 const contentClass = "rounded-xl border border-border/80 bg-popover/98 p-1.5 shadow-2xl backdrop-blur-xl";
 const itemClass = "my-0.5 min-h-10 cursor-pointer rounded-lg px-3 py-2 pr-9 font-medium focus:bg-primary/12 focus:text-foreground data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary";
 
@@ -83,32 +84,28 @@ export function ScheduleCards({ fixtures, stadiums, overrides, canEdit }: { fixt
   const resetPage = () => setPage(0);
 
   return <div>
-    <div className="grid gap-3 border-b border-border/70 bg-muted/10 p-4 sm:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_176px_208px_auto] xl:items-center">
-      <label className="relative block">
-        <span className="sr-only">구단 또는 경기장 검색</span>
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(event) => { setQuery(event.target.value); resetPage(); }}
-          placeholder="구단 또는 경기장 검색"
-          className="h-12 rounded-xl bg-background/75 pr-4 pl-11 shadow-sm"
-        />
-      </label>
+    <div className="grid grid-cols-2 gap-3 border-b border-border/70 bg-muted/10 p-4 xl:grid-cols-[minmax(280px,1fr)_176px_208px] xl:items-center">
+      <SearchInput
+        containerClassName="col-span-2 xl:col-span-1"
+        value={query}
+        onChange={(event) => { setQuery(event.target.value); resetPage(); }}
+        placeholder="구단 또는 경기장 검색"
+        aria-label="구단 또는 경기장 검색"
+      />
       <Select value={status} onValueChange={(value) => { setStatus(value); resetPage(); }}>
         <SelectTrigger className={triggerClass} aria-label="경기 상태 필터"><SelectValue /></SelectTrigger>
         <SelectContent position="popper" align="start" className={`${contentClass} max-h-80 w-(--radix-select-trigger-width)`}>
-          <SelectItem value="all" className={itemClass}><SlidersHorizontal className="size-4 text-primary" />전체 상태</SelectItem>
+          <SelectItem value="all" className={itemClass}><span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><SlidersHorizontal className="size-3" /></span>전체 상태</SelectItem>
           {(Object.keys(fixtureStatusLabels) as FixtureRecord["status"][]).map((value) => <SelectItem key={value} value={value} className={itemClass}><FixtureStatusOption status={value} /></SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={teamId} onValueChange={(value) => { setTeamId(value); resetPage(); }}>
-        <SelectTrigger className="h-12! w-full rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 sm:w-52 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="구단 필터"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full xl:w-52" aria-label="구단 필터"><SelectValue /></SelectTrigger>
         <SelectContent position="popper" align="start" className="max-h-80 w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
           <SelectItem value="all" className="py-2 pr-8 pl-2.5"><TeamFilterIcon />전체 구단</SelectItem>
           <TeamSelectOptions teams={teams} />
         </SelectContent>
       </Select>
-      <p className="text-right text-xs tabular-nums text-muted-foreground">총 <strong className="font-semibold text-foreground">{filtered.length.toLocaleString("ko-KR")}</strong>경기</p>
     </div>
 
     {visible.length ? <div className="grid gap-4 p-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -130,12 +127,12 @@ export function ScheduleCards({ fixtures, stadiums, overrides, canEdit }: { fixt
 function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixture: FixtureRecord; stadium: StadiumRecord | undefined; stadiums: StadiumRecord[]; overrides: EntityOverrideRecord[]; canEdit: boolean }) {
   const date = fixtureDate(fixture.kickoffAt);
   const statusVisual = fixtureStatusVisual[fixture.status];
-  return <article className="group flex min-h-96 flex-col overflow-hidden rounded-2xl border border-border/75 bg-background/55 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg hover:shadow-black/10">
-    <header className="flex items-center justify-between gap-4 border-b border-border/60 px-5 py-4">
+  return <article className="group flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/75 bg-background/55 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg hover:shadow-black/10 md:min-h-96">
+    <header className="flex items-center justify-between gap-4 border-b border-border/60 px-4 py-4 md:px-5">
       <p className="text-sm font-semibold tabular-nums">{date.date} ({date.weekday}) · {date.time}</p>
       <StatusBadge status={statusVisual.health} label={fixtureStatusLabels[fixture.status]} className={statusVisual.badgeClass} />
     </header>
-    <div className="flex flex-1 flex-col p-5">
+    <div className="flex flex-1 flex-col p-4 md:p-5">
       <div className="grid min-h-28 grid-cols-[1fr_72px_1fr] items-center gap-3 text-center">
         <TeamIdentity teamId={fixture.homeTeamId} teamName={fixture.homeTeamName} />
         <div className="flex flex-col items-center justify-center">
@@ -160,8 +157,8 @@ function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixt
 function TeamIdentity({ teamId, teamName }: { teamId: string; teamName: string }) {
   const logoPath = getTeamLogoPath(teamId);
   return <div className="flex min-w-0 flex-col items-center">
-    <span className="relative flex size-12 items-center justify-center overflow-hidden rounded-full bg-white p-1.5 shadow-sm ring-1 ring-border/70">
-      {logoPath ? <Image src={logoPath} alt={`${teamName} 엠블럼`} fill sizes="48px" className="object-contain p-1.5" /> : <span className="text-xs font-extrabold text-zinc-700">{teamName.replaceAll(" ", "").slice(0, 2)}</span>}
+    <span className="relative flex size-12 items-center justify-center overflow-hidden">
+      {logoPath ? <Image src={logoPath} alt={`${teamName} 엠블럼`} fill sizes="48px" className="object-contain" /> : <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-extrabold text-primary">{teamName.replaceAll(" ", "").slice(0, 2)}</span>}
     </span>
     <strong className="mt-2.5 line-clamp-2 text-sm leading-snug">{teamName}</strong>
   </div>;
@@ -212,6 +209,15 @@ function FixtureScheduleForm({ fixture, stadiums, onSuccess }: { fixture: Fixtur
   const [longitude, setLongitude] = useState(String(fixture.attendanceLongitude ?? initialStadium?.longitude ?? ""));
   const [state, action, pending] = useActionState(updateFixtureScheduleAction, initialState);
   const selectedStadium = stadiums.find((stadium) => stadium.id === stadiumId);
+  const stadiumOptions = useMemo(() => {
+    const uniqueByName = new Map<string, StadiumRecord>();
+    for (const stadium of stadiums) {
+      const normalizedName = stadium.name.replace(/\s+/g, " ").trim().toLocaleLowerCase("ko-KR");
+      const existing = uniqueByName.get(normalizedName);
+      if (!existing || stadium.id === fixture.stadiumId) uniqueByName.set(normalizedName, stadium);
+    }
+    return Array.from(uniqueByName.values());
+  }, [fixture.stadiumId, stadiums]);
 
   useEffect(() => { if (state.status === "success" && state.completedAt) onSuccess(); }, [onSuccess, state.completedAt, state.status]);
 
@@ -231,11 +237,11 @@ function FixtureScheduleForm({ fixture, stadiums, onSuccess }: { fixture: Fixtur
     <div className="space-y-2.5">
       <label htmlFor={`fixture-stadium-${fixture.id}`} className="block text-sm font-semibold">경기장</label>
       <Select name="stadiumId" value={stadiumId} onValueChange={changeStadium} required>
-        <SelectTrigger id={`fixture-stadium-${fixture.id}`} className="h-14! w-full rounded-xl border-primary/25 bg-primary/5 px-3.5 hover:border-primary/50">
-          <span className="flex min-w-0 flex-1 items-center gap-2.5 text-left"><MapPin className="size-4 shrink-0 text-primary" /><span className="min-w-0"><span className="block truncate text-sm font-semibold">{selectedStadium?.name ?? "경기장 선택"}</span>{selectedStadium?.address ? <span className="mt-0.5 block truncate text-xs text-muted-foreground">{selectedStadium.address}</span> : null}</span></span>
+        <SelectTrigger id={`fixture-stadium-${fixture.id}`} className="w-full">
+          <span className="flex min-w-0 flex-1 items-center gap-2.5 text-left"><MapPin className="size-4 shrink-0 text-primary" /><span className="truncate text-sm font-semibold">{selectedStadium?.name ?? "경기장 선택"}</span></span>
         </SelectTrigger>
         <SelectContent position="popper" align="start" className={`${contentClass} max-h-80 w-(--radix-select-trigger-width)`}>
-          {stadiums.map((stadium) => <SelectItem key={stadium.id} value={stadium.id} className={`${itemClass} min-h-12`}><span className="flex min-w-0 flex-col items-start"><span>{stadium.name}</span>{stadium.address ? <span className="max-w-96 truncate text-xs font-normal text-muted-foreground">{stadium.address}</span> : null}</span></SelectItem>)}
+          {stadiumOptions.map((stadium) => <SelectItem key={stadium.id} value={stadium.id} className={`${itemClass} min-h-12`}><span className="flex min-w-0 flex-col items-start"><span>{stadium.name}</span>{stadium.address ? <span className="max-w-96 truncate text-xs font-normal text-muted-foreground">{stadium.address}</span> : null}</span></SelectItem>)}
         </SelectContent>
       </Select>
     </div>
@@ -245,7 +251,7 @@ function FixtureScheduleForm({ fixture, stadiums, onSuccess }: { fixture: Fixtur
         <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
         <div className="min-w-0"><p className="truncate text-sm font-semibold">{selectedStadium?.name ?? "경기장 선택"}</p><p className="mt-1 truncate text-xs text-muted-foreground">{selectedStadium?.address ?? "주소 정보 없음"}</p></div>
       </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <div className="mt-5 mb-2 grid gap-4 sm:grid-cols-2">
         <div className="space-y-2"><label htmlFor={`fixture-latitude-${fixture.id}`} className="text-xs font-medium">위도</label><Input id={`fixture-latitude-${fixture.id}`} name="latitude" type="number" min={-90} max={90} step="any" value={latitude} onChange={(event) => setLatitude(event.target.value)} required className="h-12 rounded-xl px-3.5" /></div>
         <div className="space-y-2"><label htmlFor={`fixture-longitude-${fixture.id}`} className="text-xs font-medium">경도</label><Input id={`fixture-longitude-${fixture.id}`} name="longitude" type="number" min={-180} max={180} step="any" value={longitude} onChange={(event) => setLongitude(event.target.value)} required className="h-12 rounded-xl px-3.5" /></div>
       </div>

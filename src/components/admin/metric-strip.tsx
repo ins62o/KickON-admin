@@ -20,6 +20,8 @@ export type MetricStripProps = {
   className?: string;
   itemClassName?: string;
   layout?: "stacked" | "inline";
+  compactOnMobile?: boolean;
+  centered?: boolean;
 };
 
 const iconToneClass: Record<MetricTone, string> = {
@@ -38,6 +40,8 @@ export function MetricStrip({
   className,
   itemClassName,
   layout = "stacked",
+  compactOnMobile = false,
+  centered = false,
 }: MetricStripProps) {
   return (
     <dl
@@ -57,27 +61,31 @@ export function MetricStrip({
             className={cn(
               "min-w-0 bg-card/45 p-4",
               layout === "inline" && "flex min-h-18 flex-wrap items-center justify-between gap-x-4 gap-y-2",
+              compactOnMobile && layout === "stacked" && "p-2.5 text-center md:p-4 md:text-left",
+              compactOnMobile && layout === "inline" && "p-3 md:p-4",
+              centered && "flex flex-col items-center justify-center text-center md:text-center",
               itemClassName,
             )}
             data-tone={tone}
           >
             {layout === "inline" ? (
               <>
-                <dt className="flex min-w-0 items-center gap-3 text-base font-semibold text-foreground">
+                <dt className={cn("flex min-w-0 items-center gap-3 text-base font-semibold text-foreground", compactOnMobile && "gap-2 text-sm md:gap-3 md:text-base")}>
                   {Icon ? (
                     <span
                       className={cn(
                         "flex size-10 shrink-0 items-center justify-center rounded-lg border",
+                        compactOnMobile && "size-8 rounded-md md:size-10 md:rounded-lg",
                         iconToneClass[tone],
                       )}
                       aria-hidden="true"
                     >
-                      <Icon className="size-5" />
+                      <Icon className={cn("size-5", compactOnMobile && "size-4 md:size-5")} />
                     </span>
                   ) : null}
                   <span className="truncate">{item.label}</span>
                 </dt>
-                <dd className="tabular shrink-0 text-2xl font-semibold tracking-tight text-foreground">
+                <dd className={cn("tabular shrink-0 text-2xl font-semibold tracking-tight text-foreground", compactOnMobile && "text-xl md:text-2xl")}>
                   {item.value}
                 </dd>
                 {item.detail ? (
@@ -88,18 +96,19 @@ export function MetricStrip({
               </>
             ) : (
               <>
-                <dt className="text-sm font-medium text-muted-foreground">
+                <dt className={cn("text-sm font-medium text-muted-foreground", compactOnMobile && "text-[11px] md:text-sm")}>
                   {(Icon || item.status) ? (
-                    <span className="mb-4 flex min-h-8 items-start justify-between gap-3">
+                    <span className={cn("mb-4 flex min-h-8 items-start justify-between gap-3", compactOnMobile && "mb-3 min-h-7 justify-center md:mb-4 md:min-h-8 md:justify-between", centered && "justify-center md:justify-center")}>
                       {Icon ? (
                         <span
                           className={cn(
                             "flex size-8 shrink-0 items-center justify-center rounded-md border",
+                            compactOnMobile && "size-7 md:size-8",
                             iconToneClass[tone],
                           )}
                           aria-hidden="true"
                         >
-                          <Icon className="size-4" />
+                          <Icon className={cn("size-4", compactOnMobile && "size-3.5 md:size-4")} />
                         </span>
                       ) : <span />}
                       {item.status}
@@ -107,7 +116,7 @@ export function MetricStrip({
                   ) : null}
                   <span className="block truncate">{item.label}</span>
                 </dt>
-                <dd className="tabular mt-1 truncate text-2xl font-semibold tracking-tight text-foreground">
+                <dd className={cn("tabular mt-1 truncate text-2xl font-semibold tracking-tight text-foreground", compactOnMobile && "text-lg md:text-2xl")}>
                   {item.value}
                 </dd>
                 {item.detail ? (

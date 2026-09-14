@@ -30,7 +30,7 @@ type EditablePlayer = Pick<PlayerRecord,
 type TeamOption = { id: string; name: string };
 
 export function PlayerOverrideControl({ player, teams, canEdit, openApply = false, defaultReason = "" }: { player: EditablePlayer; teams: TeamOption[]; canEdit: boolean; openApply?: boolean; defaultReason?: string }) {
-  return <div className="flex items-center gap-2"><PlayerEditDialog player={player} teams={teams} canEdit={canEdit} open={openApply && canEdit} defaultReason={defaultReason} /><PlayerDeleteDialog player={player} canEdit={canEdit} /></div>;
+  return <div className="grid w-full grid-cols-2 items-center gap-2 sm:w-72"><PlayerEditDialog player={player} teams={teams} canEdit={canEdit} open={openApply && canEdit} defaultReason={defaultReason} /><PlayerDeleteDialog player={player} canEdit={canEdit} /></div>;
 }
 
 function PlayerDeleteDialog({ player, canEdit }: { player: EditablePlayer; canEdit: boolean }) {
@@ -48,7 +48,7 @@ function PlayerDeleteDialog({ player, canEdit }: { player: EditablePlayer; canEd
       if (!nextOpen) setFormSession((session) => session + 1);
     }}>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="destructive" className="px-5" disabled={!canEdit}>
+        <Button type="button" variant="destructive" className="h-11! w-full px-5 font-extrabold" disabled={!canEdit}>
           선수 삭제
         </Button>
       </AlertDialogTrigger>
@@ -106,7 +106,7 @@ function PlayerEditDialog({ player, teams, canEdit, open, defaultReason }: { pla
         setEditOpen(nextOpen);
         if (!nextOpen) setFormSession((session) => session + 1);
       }}>
-        <DialogTrigger asChild><Button className="h-10 px-5" disabled={!canEdit}>선수 정보 수정</Button></DialogTrigger>
+        <DialogTrigger asChild><Button className="h-11! w-full px-5 font-extrabold" disabled={!canEdit}>선수 정보 수정</Button></DialogTrigger>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader className="pb-1"><DialogTitle className="text-xl">선수 정보 수정</DialogTitle></DialogHeader>
           <PlayerEditForm key={formSession} player={player} teams={teams} defaultReason={defaultReason} onSuccess={handleSuccess} />

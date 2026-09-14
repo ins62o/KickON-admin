@@ -10,6 +10,7 @@ import DataManagementLoading from "@/app/(console)/data-management/loading";
 import InquiriesLoading from "@/app/(console)/inquiries/loading";
 import InquiryDetailLoading from "@/app/(console)/inquiries/detail/loading";
 import ModerationDetailLoading from "@/app/(console)/moderation/detail/loading";
+import SchedulesLoading from "@/app/(console)/schedules/loading";
 import SquadsLoading from "@/app/(console)/squads/loading";
 import PlayerDetailLoading from "@/app/(console)/squads/detail/loading";
 import StandingsLoading from "@/app/(console)/standings/loading";
@@ -31,6 +32,7 @@ export function ClientPageLoading({ label = "관리자 데이터를 불러오고
   else if (pathname.startsWith("/inquiries")) skeleton = <InquiriesLoading />;
   else if (pathname.startsWith("/moderation/detail")) skeleton = <ModerationDetailLoading />;
   else if (pathname.startsWith("/moderation")) skeleton = <InquiriesLoading />;
+  else if (pathname.startsWith("/schedules")) skeleton = <SchedulesLoading />;
   else if (pathname.startsWith("/squads/detail")) skeleton = <PlayerDetailLoading />;
   else if (pathname.startsWith("/squads")) skeleton = <SquadsLoading />;
   else if (pathname.startsWith("/standings/detail")) skeleton = <StandingDetailLoading />;

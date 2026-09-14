@@ -54,7 +54,7 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
       <div className="space-y-2">
         <label htmlFor="user-moderation-action" className="block text-sm font-medium">조치</label>
         <Select name="action" value={selectedAction} onValueChange={(nextAction) => setActionSelection({ accountStatus, action: nextAction })}>
-          <SelectTrigger id="user-moderation-action" className="h-11! w-full cursor-pointer rounded-lg border-border/80 bg-muted/35 px-3.5 text-sm font-medium hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50">
+          <SelectTrigger id="user-moderation-action" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-lg border border-border/80 bg-popover p-1 shadow-2xl">
@@ -68,7 +68,7 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
       <div className={cn("space-y-2", !suspensionEnabled && "opacity-55")}>
         <label htmlFor="user-moderation-duration" className="block text-sm font-medium">정지 기간</label>
         <Select value={suspensionEnabled ? suspensionDays : ""} onValueChange={setSuspensionDays} disabled={!suspensionEnabled}>
-          <SelectTrigger id="user-moderation-duration" className="h-11! w-full cursor-pointer rounded-lg border-border/80 bg-muted/35 px-3.5 text-sm font-medium hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 disabled:cursor-not-allowed dark:bg-muted/35 dark:hover:bg-muted/50">
+          <SelectTrigger id="user-moderation-duration" className="w-full">
             <SelectValue placeholder="해당 없음" />
           </SelectTrigger>
           <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-lg border border-border/80 bg-popover p-1 shadow-2xl">
@@ -82,14 +82,14 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
       <Textarea id="user-moderation-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 px-4 py-3.5 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
     </div>
     {state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}
-    <div className="flex justify-end"><ActionSubmit pendingLabel="적용 중…" className="inline-flex h-12! min-w-32 items-center justify-center px-6 text-base leading-none" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>적용</ActionSubmit></div>
+    <div className="flex justify-end"><ActionSubmit pendingLabel="적용 중…" className="inline-flex h-11! min-w-32 items-center justify-center px-6 text-base leading-none" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>적용</ActionSubmit></div>
   </form>;
 }
 
 export function UserModerationDialog({ userId, accountStatus, nickname }: UserModerationFormProps) {
   return <Dialog>
     <DialogTrigger asChild>
-      <Button type="button" variant="destructive" size="default" className="min-w-24 px-5">
+      <Button type="button" variant="destructive" size="default" className="h-11! w-full min-w-24 px-5 font-extrabold sm:w-auto">
         정지
       </Button>
     </DialogTrigger>

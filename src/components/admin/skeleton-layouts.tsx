@@ -40,7 +40,7 @@ export function PageTitleSkeleton({
         <Skeleton className={cn("h-9", titleWidth)} />
         {description ? <Skeleton className="mt-2 h-4 w-72 max-w-full" /> : null}
       </div>
-      {action ? <Skeleton className="h-10 w-28 rounded-lg" /> : null}
+      {action ? <Skeleton className="h-11 w-28 rounded-lg" /> : null}
     </header>
   );
 }

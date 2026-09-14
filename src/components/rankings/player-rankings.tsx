@@ -33,7 +33,7 @@ export function PlayerRankings({ players }: { players: PlayerRankingRecord[] }) 
           <TabsList><TabsTrigger value="goals">득점</TabsTrigger><TabsTrigger value="assists">도움</TabsTrigger><TabsTrigger value="appearances">출전</TabsTrigger></TabsList>
         </Tabs>
         <Select value={teamId} onValueChange={setTeamId}>
-          <SelectTrigger className="w-44 bg-background/60"><SelectValue placeholder="구단 선택" /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="구단 선택" /></SelectTrigger>
           <SelectContent><SelectItem value="all">전체 구단</SelectItem><TeamSelectOptions teams={teams} /></SelectContent>
         </Select>
         <span className="ml-auto text-xs text-muted-foreground">상위 {ranking.length}명</span>

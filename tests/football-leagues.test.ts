@@ -17,11 +17,14 @@ test('verified player names survive later squad and lineup syncs',()=>{
 test('team and player lists keep league controls compact',()=>{
   const standings=readFileSync(new URL('../src/app/(console)/standings/page.tsx',import.meta.url),'utf8');
   const leagueFilter=readFileSync(new URL('../src/components/admin/league-filter.tsx',import.meta.url),'utf8');
+  const select=readFileSync(new URL('../src/components/ui/select.tsx',import.meta.url),'utf8');
   const players=readFileSync(new URL('../src/components/players/players-table.tsx',import.meta.url),'utf8');
   assert.doesNotMatch(standings,/STANDING_RULES|현재 순위 기준|공식 대회요강/);
   assert.doesNotMatch(leagueFilter,/시즌 ·|K리그1·2/);
-  assert.match(leagueFilter,/h-11! w-40/);
-  assert.match(leagueFilter,/font-medium tracking-normal/);
+  assert.match(leagueFilter,/className="w-40 tracking-normal"/);
+  assert.match(select,/flex h-11! w-fit cursor-pointer/);
+  assert.match(leagueFilter,/className\?: string/);
+  assert.match(select,/text-sm font-medium whitespace-nowrap/);
   assert.doesNotMatch(players,/row\.original\.leagueId\)\?\.badge/);
 });
 

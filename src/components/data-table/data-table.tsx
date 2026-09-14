@@ -17,9 +17,9 @@ import {
   useLegacyTable,
   type LegacyColumnDef,
 } from "@tanstack/react-table/legacy";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,8 @@ type DataTableProps<TData extends RowData> = {
   showResultCount?: boolean;
   comfortableRows?: boolean;
   columnWidths?: Record<string, string>;
+  compactOnMobile?: boolean;
+  renderMobileRow?: (row: TData) => ReactNode;
 };
 
 export function DataTable<TData extends RowData>({
@@ -76,6 +78,8 @@ export function DataTable<TData extends RowData>({
   showResultCount = true,
   comfortableRows = false,
   columnWidths,
+  compactOnMobile = false,
+  renderMobileRow,
 }: DataTableProps<TData>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -122,19 +126,17 @@ export function DataTable<TData extends RowData>({
         </div>
       ) : null}
       <div className="flex flex-col gap-2 border-b border-border/70 p-3 lg:flex-row lg:items-center">
-        <div className="relative min-w-0 flex-1 lg:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={(table.getColumn(searchColumnId)?.getFilterValue() as string) ?? ""}
-            onChange={(event) => table.getColumn(searchColumnId)?.setFilterValue(event.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder}
-            className={comfortableToolbar
-              ? "h-11 rounded-xl border-border/80 bg-muted/35 pl-9 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
-              : "h-9 bg-background/60 pl-9"}
-          />
-        </div>
-        <div className={alignFiltersEnd ? "flex flex-wrap items-center gap-2 lg:ml-auto" : "flex flex-wrap items-center gap-2"}>
+        <SearchInput
+          containerClassName="flex-1 lg:max-w-sm"
+          value={(table.getColumn(searchColumnId)?.getFilterValue() as string) ?? ""}
+          onChange={(event) => table.getColumn(searchColumnId)?.setFilterValue(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+        />
+        <div className={cn(
+          compactOnMobile ? "grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center" : "flex flex-wrap items-center gap-2",
+          alignFiltersEnd && "lg:ml-auto",
+        )}>
           {filters.map((filter) => (
             <Select
               key={filter.columnId}
@@ -144,8 +146,8 @@ export function DataTable<TData extends RowData>({
               <SelectTrigger
                 size="sm"
                 className={comfortableToolbar
-                  ? "h-11! w-44 cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"
-                  : "h-9 min-w-32 bg-background/60"}
+                  ? cn("w-44", compactOnMobile && "w-full lg:w-44")
+                  : "min-w-32"}
               >
                 <SelectValue placeholder={filter.label} />
               </SelectTrigger>
@@ -184,7 +186,7 @@ export function DataTable<TData extends RowData>({
             <Button
               variant="ghost"
               size="sm"
-              className={comfortableToolbar ? "h-11 rounded-xl px-3 text-sm text-muted-foreground" : "h-9 text-xs text-muted-foreground"}
+              className={comfortableToolbar ? cn("h-11 rounded-xl px-3 text-sm text-muted-foreground", compactOnMobile && "col-span-2 lg:col-span-1") : "h-9 text-xs text-muted-foreground"}
               onClick={() => table.resetColumnFilters()}
             >
               <X className="size-3.5" /> 필터 초기화
@@ -196,7 +198,17 @@ export function DataTable<TData extends RowData>({
         ) : null}
       </div>
 
-      <div className="overflow-x-auto">
+      {renderMobileRow ? (
+        <div className="divide-y divide-border/70 md:hidden">
+          {table.getRowModel().rows.length > 0
+            ? table.getRowModel().rows.map((row) => (
+                <div key={row.id}>{renderMobileRow(row.original)}</div>
+              ))
+            : <div className="flex min-h-48 items-center justify-center px-4 text-center text-sm text-muted-foreground">{emptyState ?? "조건에 맞는 데이터가 없습니다."}</div>}
+        </div>
+      ) : null}
+
+      <div className={renderMobileRow ? "hidden overflow-x-auto md:block" : "overflow-x-auto"}>
         <Table className={cn("min-w-[980px]", columnWidths && "table-fixed")}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

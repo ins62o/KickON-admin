@@ -25,7 +25,7 @@ test("사용자 조치 화면은 커뮤니티 정지와 계정 정지를 구분�
   assert.match(form, /id="user-moderation-duration"/);
   assert.match(form, /suspensionDayOptions\.map\(\(days\) => <SelectItem/);
   assert.match(form, /pendingLabel="적용 중…"[\s\S]*>적용<\/ActionSubmit>/);
-  assert.match(form, /className="inline-flex h-12! min-w-32 items-center justify-center px-6 text-base leading-none"/);
+  assert.match(form, /className="inline-flex h-11! min-w-32 items-center justify-center px-6 text-base leading-none"/);
   assert.match(form, /actionSelection\.accountStatus === accountStatus \? actionSelection\.action : initialAction\(accountStatus\)/);
   assert.doesNotMatch(form, /key=\{`\$\{userId\}:\$\{accountStatus\}`\}/);
   assert.match(form, /className="min-h-28 px-4 py-3\.5 text-sm"/);

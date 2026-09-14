@@ -2,10 +2,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function TeamRowSkeleton() {
   return (
-    <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-lg border border-border/65 bg-background/35 p-3.5">
-      <Skeleton className="size-10 rounded-lg" />
-      <Skeleton className="h-4 w-24 max-w-full" />
-      <Skeleton className="h-5 w-8" />
+    <div className="grid min-h-24 grid-cols-[32px_minmax(0,1fr)_auto] grid-rows-[32px_auto] items-center gap-x-2 gap-y-2 rounded-lg border border-border/65 bg-background/35 p-3 md:min-h-0 md:grid-cols-[40px_minmax(0,1fr)_auto] md:grid-rows-1 md:gap-3.5 md:p-3.5">
+      <Skeleton className="size-8 rounded-lg md:size-10" />
+      <Skeleton className="col-span-3 row-start-2 h-4 w-24 max-w-full md:col-span-1 md:row-start-auto" />
+      <Skeleton className="col-start-3 row-start-1 h-5 w-8 md:col-start-auto md:row-start-auto" />
     </div>
   );
 }
@@ -31,8 +31,12 @@ export default function UsersLoading() {
       aria-busy="true"
       aria-label="사용자 정보를 불러오는 중"
     >
-      <header className="border-b border-border/70 pb-4">
+      <header className="flex items-center justify-between gap-3 border-b border-border/70 pb-4">
         <Skeleton className="h-9 w-24" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-5 w-8" />
+        </div>
       </header>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
@@ -42,10 +46,10 @@ export default function UsersLoading() {
               <Skeleton className="size-10 rounded-lg" />
               <Skeleton className="h-5 w-24" />
             </div>
-            <Skeleton className="h-6 w-14 rounded-md" />
+            <Skeleton className="h-11 w-28 rounded-xl sm:w-36" />
           </header>
 
-          <div className="grid flex-1 content-start gap-2 p-4 sm:p-5">
+          <div className="grid flex-1 grid-cols-2 content-start gap-2 p-4 sm:p-5 md:grid-cols-1">
             {Array.from({ length: 12 }).map((_, index) => (
               <TeamRowSkeleton key={index} />
             ))}
@@ -55,20 +59,16 @@ export default function UsersLoading() {
         <section className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35">
           <header className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-5">
             <Skeleton className="h-5 w-24" />
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-5 w-7" />
-            </div>
           </header>
 
-          <div className="grid gap-3 border-b border-border/70 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-[minmax(190px,1fr)_minmax(160px,0.65fr)_minmax(160px,0.65fr)_auto] xl:items-end">
+          <div className="grid grid-cols-2 gap-3 border-b border-border/70 p-4 sm:p-5 xl:grid-cols-[minmax(190px,1fr)_minmax(160px,0.65fr)_minmax(160px,0.65fr)_auto] xl:items-end">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className={index === 0 ? "sm:col-span-2 xl:col-span-1" : undefined}>
+              <div key={index} className={index === 0 ? "col-span-2 xl:col-span-1" : undefined}>
                 <Skeleton className="mb-2.5 h-4 w-16" />
                 <Skeleton className="h-11 w-full rounded-xl" />
               </div>
             ))}
-            <div className="flex items-center sm:col-span-2 xl:col-span-1">
+            <div className="col-span-2 flex items-center xl:col-span-1">
               <Skeleton className="h-11 w-full rounded-xl xl:w-20" />
             </div>
           </div>

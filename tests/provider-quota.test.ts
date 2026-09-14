@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { resolveProviderQuota } from "../src/lib/data/provider-quota.ts";
+import { providerUsageHealth } from "../src/lib/data/provider-usage-health.ts";
 
 const OBSERVED_AT = "2026-09-03T00:00:00.000Z";
 
@@ -59,4 +60,16 @@ test("유효한 리셋 정보가 없으면 관측된 잔여량만 사용한다",
     remaining: 1_988,
     resetAt: null,
   });
+});
+
+test("SportsMonks 사용률은 50% 초과부터 주의, 75% 초과부터 위험이다", () => {
+  assert.equal(providerUsageHealth(50, true), "normal");
+  assert.equal(providerUsageHealth(50.01, true), "warning");
+  assert.equal(providerUsageHealth(75, true), "warning");
+  assert.equal(providerUsageHealth(75.01, true), "danger");
+});
+
+test("SportsMonks 사용률을 확인할 수 없으면 상태를 알 수 없음으로 표시한다", () => {
+  assert.equal(providerUsageHealth(null, true), "unknown");
+  assert.equal(providerUsageHealth(80, false), "unknown");
 });

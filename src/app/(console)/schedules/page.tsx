@@ -40,15 +40,19 @@ export default function SchedulesPage() {
   const dataError = data.fixtures.error ?? data.stadiums.error ?? data.overrides.error;
 
   return <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-    <PageHeader title="일정 관리" description="경기 날짜와 경기장, 직관 인증 위치를 수정합니다. 저장한 기준은 다음 인증 요청부터 바로 적용됩니다." />
+    <PageHeader title="일정 관리" />
     {dataError ? <div role="alert" className="mt-5 flex items-start gap-3 border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{dataError}</div> : null}
-    <MetricStrip className="mt-6" items={[
+    <MetricStrip
+      className="mt-6 grid-cols-3!"
+      compactOnMobile
+      centered
+      items={[
       { id: "fixtures", label: "전체 일정", value: `${fixtures.length.toLocaleString("ko-KR")}경기`, icon: CalendarDays, tone: "accent" },
       { id: "upcoming", label: "예정 상태", value: `${scheduledCount.toLocaleString("ko-KR")}경기`, icon: CalendarDays, tone: "neutral" },
       { id: "custom-location", label: "별도 인증 위치", value: `${customLocationCount.toLocaleString("ko-KR")}경기`, icon: MapPin, tone: customLocationCount > 0 ? "warning" : "neutral" },
     ]} />
     <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="schedule-list-title">
-      <div className="border-b border-border/70 px-5 py-4"><h2 id="schedule-list-title" className="text-base font-semibold">경기 일정</h2><p className="mt-1 text-xs text-muted-foreground">날짜와 경기장 변경은 해당 경기만 적용되며 외부 데이터 동기화로 덮어쓰지 않습니다.</p></div>
+      <div className="border-b border-border/70 px-5 py-4"><h2 id="schedule-list-title" className="text-base font-semibold">경기 일정</h2></div>
       {fixtures.length === 0 && !dataError ? <p className="p-10 text-center text-muted-foreground">등록된 경기 일정이 없습니다</p> : null}
       <ScheduleCards fixtures={fixtures} stadiums={data.stadiums.data} overrides={data.overrides.overrides} canEdit={canEdit} />
     </section>

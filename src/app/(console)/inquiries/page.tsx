@@ -10,7 +10,7 @@ import { DataState } from "@/components/admin/data-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,6 +87,9 @@ function InquiryHistoryPanel({
       <MetricStrip
         ariaLabel="1:1 문의 상태"
         layout="inline"
+        compactOnMobile
+        className="grid-cols-2!"
+        itemClassName="min-h-20 flex-col items-start justify-start gap-2 md:min-h-18 md:flex-row md:items-center md:justify-between md:gap-3"
         items={[
           { id: "new", label: "새 문의", value: `${formatNumber(newCount)}건`, icon: Headphones, tone: "accent" },
           { id: "answered", label: "답변 완료", value: `${formatNumber(answeredCount)}건`, icon: CheckCircle2, tone: "success" },
@@ -97,14 +100,14 @@ function InquiryHistoryPanel({
         <div className="border-b border-border/70 px-5 py-4">
           <h2 id="inquiry-list-title" className="text-base font-semibold">문의 내역</h2>
         </div>
-        <form className="grid gap-3 border-b border-border/70 p-4 lg:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" role="search">
+        <form className="grid grid-cols-2 gap-3 border-b border-border/70 p-4 lg:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" role="search">
           <input type="hidden" name="tab" value="inquiries" />
-          <Input
+          <SearchInput
+            containerClassName="col-span-2 lg:col-span-1"
             name="q"
             defaultValue={query.q}
             placeholder="제목, 원문, 사용자 검색"
             aria-label="1:1 문의 검색"
-            className="h-11 rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
           />
           <Select name="status" defaultValue={statusFilter}>
             <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="1:1 문의 상태">
@@ -138,11 +141,36 @@ function InquiryHistoryPanel({
               ))}
             </SelectContent>
           </Select>
-          <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
+          <Button type="submit" className="col-span-2 h-11 rounded-xl px-5 text-sm lg:col-span-1">
             검색
           </Button>
         </form>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-border/70 md:hidden">
+          {rows.length > 0 ? rows.map((inquiry) => (
+            <Link
+              key={inquiry.id}
+              href={`/inquiries/detail/?inquiryId=${encodeURIComponent(inquiry.id)}`}
+              className="block px-4 py-4 outline-none hover:bg-primary/[0.06] focus-visible:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <span className="flex min-w-0 items-center justify-between gap-3">
+                <span className="inline-flex min-w-0 max-w-[45%] items-center rounded-md border border-primary/15 bg-primary/[0.07] px-2 py-1 text-[11px] font-medium text-primary">
+                  <span className="truncate">
+                  {inquiryCategoryLabels[inquiry.category as keyof typeof inquiryCategoryLabels] ?? inquiry.category}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatKoreaReadableDateTime(inquiry.createdAt)}</span>
+              </span>
+              <span className="mt-3 line-clamp-2 text-sm leading-5 font-semibold text-foreground">{inquiry.subject}</span>
+              <span className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
+                <span className="shrink-0">문의자</span>
+                <strong className="truncate font-medium text-foreground/80">{inquiry.requester?.nickname ?? "알 수 없음"}</strong>
+              </span>
+            </Link>
+          )) : (
+            <DataState kind="empty" title="조건에 맞는 문의가 없습니다" hideDescription compact />
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
@@ -231,6 +259,9 @@ function ReportHistoryPanel({
       <MetricStrip
         ariaLabel="신고 처리 상태"
         layout="inline"
+        compactOnMobile
+        className="grid-cols-2!"
+        itemClassName="min-h-20 flex-col items-start justify-start gap-2 md:min-h-18 md:flex-row md:items-center md:justify-between md:gap-3"
         items={[
           { id: "new", label: "새 신고", value: `${formatNumber(newCount)}건`, icon: ShieldAlert, tone: "accent" },
           { id: "answered", label: "처리 완료", value: `${formatNumber(answeredCount)}건`, icon: CheckCircle2, tone: "success" },
@@ -241,14 +272,14 @@ function ReportHistoryPanel({
         <div className="border-b border-border/70 px-5 py-4">
           <h2 id="report-list-title" className="text-base font-semibold">신고 내역</h2>
         </div>
-        <form className="grid gap-3 border-b border-border/70 p-4 lg:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" role="search">
+        <form className="grid grid-cols-2 gap-3 border-b border-border/70 p-4 lg:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" role="search">
           <input type="hidden" name="tab" value="reports" />
-          <Input
+          <SearchInput
+            containerClassName="col-span-2 lg:col-span-1"
             name="q"
             defaultValue={query.q}
             placeholder="원문, 작성자, 신고 사유 검색"
             aria-label="신고 검색"
-            className="h-11 rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm shadow-inner shadow-black/5 dark:bg-muted/35"
           />
           <Select name="status" defaultValue={statusFilter}>
             <SelectTrigger className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50" aria-label="신고 상태">
@@ -280,11 +311,36 @@ function ReportHistoryPanel({
               <SelectItem value="FIXTURE_CHEER" className="cursor-pointer py-2.5 pr-8 pl-2.5">경기 응원</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="submit" className="h-11 rounded-xl px-5 text-sm">
+          <Button type="submit" className="col-span-2 h-11 rounded-xl px-5 text-sm lg:col-span-1">
             검색
           </Button>
         </form>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-border/70 md:hidden">
+          {rows.length > 0 ? rows.map((report) => (
+            <Link
+              key={report.id}
+              href={`/moderation/detail/?reportId=${encodeURIComponent(report.id)}`}
+              className="block px-4 py-4 outline-none hover:bg-primary/[0.06] focus-visible:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <span className="flex min-w-0 items-center justify-between gap-3">
+                <span className="inline-flex min-w-0 max-w-[45%] items-center rounded-md border border-primary/15 bg-primary/[0.07] px-2 py-1 text-[11px] font-medium text-primary">
+                  <span className="truncate">{reportTargetLabel(report.targetType)}</span>
+                </span>
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatKoreaReadableDateTime(report.createdAt)}</span>
+              </span>
+              <span className="mt-3 line-clamp-2 text-sm leading-5 font-semibold text-foreground">
+                {report.target?.title || report.target?.content || report.target?.emoticonKey || "원문을 찾을 수 없음"}
+              </span>
+              <span className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
+                <span className="shrink-0">신고자</span>
+                <strong className="truncate font-medium text-foreground/80">{report.reporter?.nickname ?? "확인 불가"}</strong>
+              </span>
+            </Link>
+          )) : (
+            <DataState kind="empty" title="조건에 맞는 신고가 없습니다" hideDescription compact />
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
@@ -367,18 +423,18 @@ export default function InquiriesPage() {
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
       <PageHeader title="문의 신고" />
 
-      <Tabs key={activeTab} defaultValue={activeTab} className="mt-6 gap-5">
+      <Tabs key={activeTab} defaultValue={activeTab} className="mt-5 gap-4 md:mt-6 md:gap-5">
         <TabsList
-          className={`grid! h-16! w-full ${canReadInquiries && canReadReports ? "grid-cols-2" : "grid-cols-1"} gap-1.5 rounded-xl border border-border/80 bg-card/45 p-1.5`}
+          className={`grid! h-14! w-full ${canReadInquiries && canReadReports ? "grid-cols-2" : "grid-cols-1"} gap-1.5 rounded-xl border border-border/80 bg-card/45 p-1.5 md:h-16!`}
           aria-label="문의 내역 유형"
         >
           {canReadInquiries ? (
-            <TabsTrigger value="inquiries" className="h-full! w-full cursor-pointer rounded-lg border-transparent text-base font-semibold data-active:border-transparent data-active:bg-primary/10 data-active:text-primary data-active:shadow-none data-active:ring-1 data-active:ring-inset data-active:ring-primary/20 dark:data-active:border-transparent">
+            <TabsTrigger value="inquiries" className="h-full! w-full cursor-pointer rounded-lg border-transparent text-sm font-semibold data-active:border-transparent data-active:bg-primary/10 data-active:text-primary data-active:shadow-none data-active:ring-1 data-active:ring-inset data-active:ring-primary/20 dark:data-active:border-transparent md:text-base">
               문의 내역
             </TabsTrigger>
           ) : null}
           {canReadReports ? (
-            <TabsTrigger value="reports" className="h-full! w-full cursor-pointer rounded-lg border-transparent text-base font-semibold data-active:border-transparent data-active:bg-primary/10 data-active:text-primary data-active:shadow-none data-active:ring-1 data-active:ring-inset data-active:ring-primary/20 dark:data-active:border-transparent">
+            <TabsTrigger value="reports" className="h-full! w-full cursor-pointer rounded-lg border-transparent text-sm font-semibold data-active:border-transparent data-active:bg-primary/10 data-active:text-primary data-active:shadow-none data-active:ring-1 data-active:ring-inset data-active:ring-primary/20 dark:data-active:border-transparent md:text-base">
               신고 내역
             </TabsTrigger>
           ) : null}

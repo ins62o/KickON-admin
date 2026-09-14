@@ -55,7 +55,7 @@ export function TeamPlayersTable({ players }: { players: PlayerRecord[] }) {
         <h2 id="team-players-title" className="text-base font-semibold">선수 구성원</h2>
         <div className="flex items-center gap-3">
           <Select value={position} onValueChange={setPosition}>
-            <SelectTrigger className="h-10! w-44 cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50">
+            <SelectTrigger className="h-11! min-w-0 flex-1 cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 sm:w-44 sm:flex-none dark:bg-muted/35 dark:hover:bg-muted/50">
               <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
                 {selectedPosition ? <span className={`size-2 shrink-0 rounded-full ${selectedPosition.dot}`} aria-hidden="true" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><MapPin className="size-3" /></span>}
                 <span className="truncate text-foreground">{selectedPosition?.label ?? "모든 포지션"}</span>
@@ -69,7 +69,14 @@ export function TeamPlayersTable({ players }: { players: PlayerRecord[] }) {
           <span className="min-w-12 text-right text-sm font-semibold tabular text-foreground">{filteredPlayers.length}명</span>
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="divide-y divide-border/70 md:hidden">
+        {filteredPlayers.length > 0 ? filteredPlayers.map((player) => {
+          const displayName = player.koreanName ?? player.displayName ?? player.name;
+          const playerHref = getPlayerHref(player);
+          return <Link key={player.id} href={playerHref} className="block p-4 outline-none hover:bg-primary/[0.06] focus-visible:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"><span className="flex min-w-0 items-start justify-between gap-3"><span className="min-w-0"><span className="block truncate text-base font-semibold text-foreground">{displayName}</span>{displayName !== player.name ? <span className="mt-0.5 block truncate text-xs text-muted-foreground">{player.name}</span> : null}</span><span className="shrink-0 text-sm font-semibold tabular text-foreground">{player.shirtNumber === null ? "-" : `#${player.shirtNumber}`}</span></span><span className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground"><span className="shrink-0">{positionLabel(player.position)}{player.age === null ? "" : ` · ${player.age}세`}</span><span className="truncate text-right tabular">출전 {player.appearances} · 득점 {player.goals} · 도움 {player.assists}</span></span></Link>;
+        }) : <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-4 text-muted-foreground"><UsersRound className="size-6" /><p className="text-sm">선택한 포지션의 선수가 없습니다.</p></div>}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
         <Table className="min-w-[960px] table-fixed">
           <TableHeader>
             <TableRow className="hover:bg-transparent">

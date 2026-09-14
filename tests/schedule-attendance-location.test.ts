@@ -94,11 +94,17 @@ test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제�
   assert.match(scheduleCards, /data-\[state=checked\]:bg-primary\/10/);
   assert.match(scheduleCards, /getTeamLogoPath\(teamId\)/);
   assert.match(scheduleCards, /alt={`\$\{teamName\} 엠블럼`}/);
+  assert.doesNotMatch(scheduleCards, /rounded-full bg-white p-1\.5 shadow-sm ring-1/);
   assert.match(scheduleCards, /\{date\.date\} \(\{date\.weekday\}\) · \{date\.time\}/);
   assert.match(scheduleCards, /fixture\.round === null \? "라운드 미정"/);
   assert.match(scheduleCards, /<TeamSelectOptions teams=\{teams\}/);
   assert.match(scheduleCards, /stadiums=\{stadiums\}/);
   assert.doesNotMatch(scheduleCards, /stadiumsByLeague/);
+  assert.match(scheduleCards, /const stadiumOptions = useMemo/);
+  assert.match(scheduleCards, /uniqueByName = new Map<string, StadiumRecord>/);
+  assert.match(scheduleCards, /stadiumOptions\.map\(\(stadium\)/);
+  assert.doesNotMatch(scheduleCards, /selectedStadium\?\.address \? <span/);
+  assert.match(scheduleCards, /mt-5 mb-2 grid gap-4 sm:grid-cols-2/);
   assert.match(scheduleCards, /`\$\{fixture\.round\} 라운드`/);
   assert.doesNotMatch(scheduleCards, /leagueLabel\(fixture\.leagueId\)/);
   assert.doesNotMatch(scheduleCards, /<Pencil/);
@@ -113,6 +119,9 @@ test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제�
   assert.match(scheduleDateTimePicker, /aria-label="시 선택"/);
   assert.match(scheduleDateTimePicker, /aria-label="분 선택"/);
   assert.match(scheduleDateTimePicker, /\[scrollbar-width:none\]/);
+  assert.doesNotMatch(scheduleDateTimePicker, /hover:border-primary\/40/);
+  assert.doesNotMatch(scheduleDateTimePicker, /focus-visible:ring-3/);
+  assert.equal((scheduleDateTimePicker.match(/focus-visible:outline-2 focus-visible:outline-offset-2/g) ?? []).length, 2);
   assert.match(scheduleDateTimePicker, /touch-pan-y/);
   assert.doesNotMatch(scheduleDateTimePicker, /type="(?:date|time|datetime-local)"/);
 });

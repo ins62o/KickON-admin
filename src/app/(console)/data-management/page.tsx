@@ -111,6 +111,7 @@ export default function DataManagementPage() {
             providerResetAt={usage.sportsMonks.resetAt}
             providerQuotaLow={providerQuotaLow}
             lastSync={syncHistory}
+            compactOnMobile
           />
         </section>
       ) : null}
@@ -118,29 +119,29 @@ export default function DataManagementPage() {
       {canViewUsage && usage ? (
         <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-border/70" aria-labelledby="usage-summary-title">
           <h2 id="usage-summary-title" className="sr-only">서비스 사용량</h2>
-          <div className="grid gap-px md:grid-cols-2 xl:grid-cols-3">
-            <CompactUsageGauge title="데이터베이스 사용량" icon={Database} centerValue={usage.database.centerValue} rate={usage.database.rate} status={usage.database.status} note={`전체 한도 ${usage.database.limitLabel}`} />
-            <CompactUsageGauge title="파일 스토리지 사용량" icon={HardDrive} centerValue={usage.fileStorage.centerValue} rate={usage.fileStorage.rate} status={usage.fileStorage.status} note={`전체 한도 ${usage.fileStorage.limitLabel}`} />
-            <CompactUsageGauge title="SportsMonks 전체 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
+          <div className="grid grid-cols-2 gap-px md:grid-cols-2 xl:grid-cols-3">
+            <CompactUsageGauge compactOnMobile title="데이터베이스 사용량" icon={Database} centerValue={usage.database.centerValue} rate={usage.database.rate} status={usage.database.status} note={`전체 한도 ${usage.database.limitLabel}`} />
+            <CompactUsageGauge compactOnMobile title="파일 스토리지 사용량" icon={HardDrive} centerValue={usage.fileStorage.centerValue} rate={usage.fileStorage.rate} status={usage.fileStorage.status} note={`전체 한도 ${usage.fileStorage.limitLabel}`} />
+            <CompactUsageGauge compactOnMobile className="col-span-2 md:col-span-1" title="SportsMonks 전체 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
           </div>
         </section>
       ) : null}
 
       {canViewAudit && audit ? (
         <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="audit-log-title">
-          <div className="flex flex-col gap-2 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-4">
             <h2 id="audit-log-title" className="text-base font-semibold">관리자 로그</h2>
             <p className="text-xs text-muted-foreground">전체 변경 기록 {formatNumber(audit.total ?? audit.logs.length)}건</p>
           </div>
           {audit.error ? (
             <p className="border-b border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-xs text-amber-100/75">{audit.error}</p>
           ) : null}
-          <AuditLogTable logs={audit.logs} schemaReady={audit.schemaReady} />
+          <AuditLogTable logs={audit.logs} schemaReady={audit.schemaReady} compactOnMobile />
           {audit.total !== null && audit.total > auditPageSize ? (
             <nav className="flex items-center justify-center gap-3 border-t border-border/70 px-4 py-4" aria-label="관리자 로그 페이지 이동">
-              <Button type="button" variant="outline" className="h-10! min-w-24" disabled={auditPage <= 1} onClick={() => changeAuditPage(auditPage - 1)}><ChevronLeft className="size-4" />이전</Button>
+              <Button type="button" variant="outline" className="h-11! min-w-24" disabled={auditPage <= 1} onClick={() => changeAuditPage(auditPage - 1)}><ChevronLeft className="size-4" />이전</Button>
               <span className="min-w-20 text-center text-xs tabular-nums text-muted-foreground"><strong className="font-semibold text-foreground">{auditPage}</strong> / {auditPageCount}</span>
-              <Button type="button" variant="outline" className="h-10! min-w-24" disabled={auditPage >= auditPageCount} onClick={() => changeAuditPage(auditPage + 1)}>다음<ChevronRight className="size-4" /></Button>
+              <Button type="button" variant="outline" className="h-11! min-w-24" disabled={auditPage >= auditPageCount} onClick={() => changeAuditPage(auditPage + 1)}>다음<ChevronRight className="size-4" /></Button>
             </nav>
           ) : null}
         </section>
