@@ -11,3 +11,7 @@
 개발 DB `uvsmyftwwucrvoteajpi`에 `202609170001_cancel_app_store_release.sql`의 RPC 및 실행 권한을 SQL Editor로 적용하고 PostgREST 스키마를 갱신했다. 이번 수동 적용은 migration 이력 테이블에 등록하지 않았으므로 실제 함수 적용과 이력 등록을 구분해야 한다. 운영 DB에는 적용하지 않았다.
 
 검증: 어드민 테스트 113개, lint, typecheck, 개발 정적 빌드 통과. 실제 개발 DB 트랜잭션에서 복원·감사·사유 검증·비관리자/오래된 이력/다른 플랫폼/중복 취소 차단 통과. 첫 등록 조건은 트랜잭션 내부에서 before_value=null인 fixture로 검증했다. 모두 롤백했다. 재현 SQL은 `supabase/manual/verify_app_release_cancel.sql`이다.
+
+개발 배포: 커밋 `ec633a489fe72493382aa57acd91b7d3de683768`, GitHub Actions 실행 `35112781602` 성공. 개발 정적 콘솔과 개발 Lambda가 배포됐으며 운영 배포 작업은 건너뛰었다. `https://admin.kickon.kr/development/data-management/?appUpdates=1`에서 입력 취소가 현재 설정으로 초기화되고 저장 취소 확인 창의 돌아가기가 동작하는 것을 확인했다. 실제 사용자의 저장 설정은 취소하지 않았다.
+
+운영 반영 시 새 취소 RPC 및 실행 권한을 운영 DB에 적용하고 이 커밋을 포함한 어드민을 배포해야 한다. 개발 DB의 수동 적용 migration 이력 등록도 별도로 정리해야 한다.
