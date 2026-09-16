@@ -7,6 +7,7 @@ import type * as Environment from "../src/lib/environment.ts";
 import type { callAdminApi } from "../src/lib/admin-api.ts";
 import type { signInAction, signOutAction } from "../src/lib/auth/actions.ts";
 import type { runSyncAction } from "../src/lib/sync/actions.ts";
+import type * as AppReleases from "../src/lib/admin/app-releases.ts";
 
 // Run the actual browser bundle (including @supabase/ssr), so its default
 // singleton behavior is exercised rather than mocked out.
@@ -16,6 +17,7 @@ const bundle = buildSync({
       export * from "./src/lib/environment";
       export * from "./src/lib/admin-api";
       export * from "./src/lib/auth/actions";
+      export * from "./src/lib/admin/app-releases";
       export * from "./src/lib/sync/actions";`,
     resolveDir: process.cwd(),
   },
@@ -39,7 +41,7 @@ const bundle = buildSync({
 function browser() {
   const cookies = new Map<string, string>();
   const storage = new Map<string, string>();
-  const requests: { url: string; authorization: string | null }[] = [];
+  const requests: { url: string; authorization: string | null; body: string | null }[] = [];
   const timeouts: number[] = [];
   const trackedAbortSignal = new Proxy(AbortSignal, {
     get(target, property, receiver) {
@@ -78,7 +80,7 @@ function browser() {
     setTimeout, clearTimeout, setInterval, clearInterval,
     fetch: async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      requests.push({ url, authorization: new Headers(init?.headers).get("Authorization") });
+      requests.push({ url, authorization: new Headers(init?.headers).get("Authorization"), body: typeof init?.body === "string" ? init.body : null });
       const environment = new URL(url).hostname.split(".")[0];
       const body = url.includes("/auth/v1/token") ? {
         access_token: `test-access-${environment}`,
@@ -93,7 +95,7 @@ function browser() {
     },
   });
   vm.runInContext(bundle, context);
-  const app = context.app as typeof Environment & {
+  const app = context.app as typeof Environment & typeof AppReleases & {
     getBrowserSupabaseClient: typeof getBrowserSupabaseClient;
     callAdminApi: typeof callAdminApi;
     signInAction: typeof signInAction;
@@ -102,6 +104,49 @@ function browser() {
   };
   return { app, cookies, requests, storage, timeouts };
 }
+
+test("앱 업데이트 조회·변경·이력은 선택한 환경의 관리자 세션을 사용한다", async () => {
+  const { app, requests } = browser();
+  const credentials = new FormData();
+  credentials.set("email", "qa@example.invalid");
+  credentials.set("password", "test-only");
+  await app.signInAction({ error: null, email: "" }, credentials);
+  try {
+    for (const environment of ["development", "production"] as const) {
+      app.setActiveConsoleEnvironment(environment);
+      await app.getAppReleases();
+      let request = requests.at(-1)!;
+      assert.equal(new URL(request.url).hostname, `${environment}.example`);
+      assert.equal(request.authorization, `Bearer test-access-${environment}`);
+      assert.equal(new URL(request.url).searchParams.get("select"), "platform,version,enabled,updated_at");
+      for (const platform of ["android", "ios"] as const) {
+        await app.saveAppRelease(platform, "1.0.10", false, "  스토어 배포 대기  ");
+        request = requests.at(-1)!;
+        assert.equal(new URL(request.url).hostname, `${environment}.example`);
+        assert.equal(request.authorization, `Bearer test-access-${environment}`);
+        assert.equal(new URL(request.url).pathname, "/rest/v1/rpc/admin_set_app_store_release");
+        assert.deepEqual(JSON.parse(request.body!), {
+          target_platform: platform, release_version: "1.0.10", release_enabled: false, change_reason: "스토어 배포 대기",
+        });
+      }
+      await app.getAppReleaseHistory();
+      request = requests.at(-1)!;
+      const url = new URL(request.url);
+      assert.equal(url.hostname, `${environment}.example`);
+      assert.equal(request.authorization, `Bearer test-access-${environment}`);
+      assert.equal(url.pathname, "/rest/v1/admin_audit_logs");
+      assert.equal(url.searchParams.get("entity_type"), "eq.app_store_releases");
+      assert.equal(url.searchParams.get("limit"), "50");
+    }
+    const count = requests.length;
+    for (const [version, reason] of [["1.0.3-beta", "배포 대기"], ["1.0.3", "  "], ["1.0.3", "a".repeat(1001)]]) {
+      await assert.rejects(app.saveAppRelease("ios", version, true, reason), /버전 형식과 변경 사유/);
+    }
+    assert.equal(requests.length, count);
+  } finally {
+    await app.signOutAction();
+  }
+});
 
 for (const order of [
   ["development", "production"],

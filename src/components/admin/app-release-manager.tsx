@@ -14,7 +14,7 @@ import { auditRoleLabel } from "@/lib/data/audit";
 import { getAppReleaseHistory, getAppReleases, saveAppRelease, type AppRelease } from "@/lib/admin/app-releases";
 
 function ReleaseForm({ platform, release, canEdit, onSaved }: {
-  platform: AppRelease["platform"]; release?: AppRelease; canEdit: boolean; onSaved: () => Promise<void>;
+  platform: AppRelease["platform"]; release?: AppRelease; canEdit: boolean; onSaved: () => void;
 }) {
   const [version, setVersion] = useState(release?.version ?? "");
   const [enabled, setEnabled] = useState(release?.enabled ?? false);
@@ -32,8 +32,7 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
       await saveAppRelease(platform, version.trim(), enabled, reason);
       setMessage(`${label} 설정을 저장했습니다.`);
       setReason("");
-      await onSaved();
-      invalidateAdminData();
+      onSaved();
     } catch (error) {
       setFailed(true);
       setMessage(error instanceof Error ? error.message : "저장하지 못했습니다.");
@@ -67,11 +66,11 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
 export function AppReleaseManager() {
   const admin = useRequiredAdminPermission("system.read");
   const environment = useConsoleEnvironment();
-  const { data, error, loading, reload } = useClientData(getAppReleases, [admin?.userId]);
+  const { data, error, loading, reload } = useClientData(getAppReleases, [admin?.userId, environment]);
   if (!admin || loading) return <ClientPageLoading label="앱 업데이트 설정을 불러오고 있습니다." />;
   if (error || !data) return <ClientPageError message={error ?? "설정을 불러오지 못했습니다."} retry={reload} />;
   const canEdit = admin.role === "admin" || admin.role === "super_admin";
-  return <div className="space-y-6">
+  return <div className="mx-auto w-full max-w-[1720px] space-y-6 px-4 py-6 lg:px-6 lg:py-7">
     <PageHeader title="앱 업데이트" description="Android와 iOS의 출시 버전과 업데이트 안내를 각각 관리합니다." />
     <p className="text-sm font-medium">{environmentLabel(environment)}의 실제 설정입니다. 저장하면 이 서버를 사용하는 앱에 반영됩니다.</p>
     <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">스토어에 업데이트가 배포된 후 안내를 켜 주세요. 같은 버전 또는 상위 버전에는 표시하지 않습니다. 사용자가 라벨을 누르면 해당 플랫폼의 스토어로 이동합니다.</p>
@@ -79,7 +78,7 @@ export function AppReleaseManager() {
     <div className="grid gap-5 lg:grid-cols-2">
       {(["android", "ios"] as const).map(platform => {
         const release = data.find(item => item.platform === platform);
-        return <ReleaseForm key={`${environment}:${platform}`} platform={platform} release={release} canEdit={canEdit} onSaved={reload} />;
+        return <ReleaseForm key={`${environment}:${platform}`} platform={platform} release={release} canEdit={canEdit} onSaved={invalidateAdminData} />;
       })}
     </div>
     <ReleaseHistory key={environment} userId={admin.userId} />
