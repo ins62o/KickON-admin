@@ -137,15 +137,15 @@ export default function DataManagementPage() {
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
                   <Smartphone className="size-4" aria-hidden="true" />
                 </span>
-                <h3 className="text-xs font-semibold md:text-sm">앱 업데이트</h3>
+                <h3 className="text-xs font-semibold md:text-sm">업데이트</h3>
               </header>
               <div className="flex flex-1 items-center justify-center py-4">
-                <button type="button" className="group flex size-24 flex-col items-center justify-center rounded-full border-8 border-[var(--gauge-track)] bg-card text-center transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:size-44 md:border-[16px]" onClick={() => setAppUpdatesOpen(true)} aria-label="Android와 iPhone 앱 업데이트 설정 열기">
-                  <span className="text-sm font-bold tracking-tight md:text-2xl">앱 업데이트</span>
-                  <span className="mt-1 flex items-center gap-0.5 text-xs font-semibold text-primary md:mt-2.5 md:text-sm">설정하기<ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></span>
+                <button type="button" className="flex size-24 flex-col items-center justify-center rounded-full border-8 border-[var(--gauge-track)] bg-card text-center transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:size-44 md:border-[16px]" onClick={() => setAppUpdatesOpen(true)} aria-label="Android와 iPhone 앱 업데이트 설정 열기">
+                  <span className="text-sm font-bold tracking-tight md:text-2xl">업데이트</span>
+                  <span className="mt-1 text-xs font-semibold text-primary md:mt-2.5 md:text-sm">설정하기</span>
                 </button>
               </div>
-              <p className="truncate border-t border-border/70 pt-3 text-center text-[11px] text-muted-foreground md:text-xs">Android · iPhone 업데이트 안내 설정</p>
+              <p className="truncate border-t border-border/70 pt-3 text-center text-[11px] text-muted-foreground md:text-xs">업데이트 안내 설정</p>
             </article>
           </div>
         </section>
