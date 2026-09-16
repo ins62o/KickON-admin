@@ -32,6 +32,7 @@ export function auditActionLabel(value: string) {
 export function auditEntityLabel(value: string) {
   return ({
     admin_users: "관리자 권한",
+    app_store_releases: "앱 업데이트 설정",
     user_data_reports: "사용자 데이터 제보",
     error_groups: "앱 오류",
     manual_overrides: "직접 수정 보호값",
@@ -59,6 +60,9 @@ export function auditEntityLabel(value: string) {
 export function auditFieldLabel(value: string) {
   return ({
     name: "이름",
+    platform: "플랫폼",
+    version: "출시 버전",
+    enabled: "업데이트 안내 표시",
     display_name: "표시 이름",
     image_url: "이미지",
     logo_url: "로고",
@@ -197,6 +201,7 @@ export function auditChangeSummary(log: AuditLogRecord) {
 }
 
 export function auditEntityHref(log: AuditLogRecord) {
+  if (log.entityType === "app_store_releases") return "/app-updates/";
   const value = log.afterValue ?? log.beforeValue;
   const scope = new URLSearchParams();
   const leagueId = value?.league_id ?? value?.leagueId;
