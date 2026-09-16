@@ -6,12 +6,13 @@ import { PageHeader } from "@/components/admin/page-header";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { invalidateAdminData, useClientData } from "@/lib/client-data";
 import { environmentLabel, useConsoleEnvironment } from "@/lib/environment";
 import { formatKoreaFullDateTime } from "@/lib/format";
 import { auditRoleLabel } from "@/lib/data/audit";
-import { getAppReleaseHistory, getAppReleases, saveAppRelease, type AppRelease } from "@/lib/admin/app-releases";
+import { cancelAppRelease, getLatestAppReleaseChange, getAppReleaseHistory, getAppReleases, saveAppRelease, type AppRelease } from "@/lib/admin/app-releases";
 
 function ReleaseForm({ platform, release, canEdit, onSaved }: {
   platform: AppRelease["platform"]; release?: AppRelease; canEdit: boolean; onSaved: () => void;
@@ -22,7 +23,34 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const latest = useClientData(() => getLatestAppReleaseChange(platform), [platform, release?.updated_at]);
+  const canCancel = Boolean(release && latest.data && latest.data.action !== "APP_RELEASE_CANCEL" &&
+    latest.data.after_value.updated_at === release.updated_at);
   const label = platform === "android" ? "Android · Google Play" : "iPhone · App Store";
+
+  function resetInputs() {
+    setVersion(release?.version ?? ""); setEnabled(release?.enabled ?? false);
+    setReason(""); setMessage(null); setFailed(false);
+  }
+
+  async function cancelSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canEdit || !canCancel || !latest.data || pending) return;
+    setPending(true); setMessage(null); setFailed(false);
+    try {
+      await cancelAppRelease(platform, String(latest.data.id), cancelReason);
+      setVersion(latest.data.before_value?.version ?? release?.version ?? "");
+      setEnabled(latest.data.before_value?.enabled ?? false);
+      setReason(""); setCancelReason(""); setCancelOpen(false);
+      setMessage(`${label} 저장을 취소했습니다.`);
+      onSaved();
+    } catch (error) {
+      setFailed(true);
+      setMessage(error instanceof Error ? error.message : "저장 취소에 실패했습니다.");
+    } finally { setPending(false); }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,7 +67,7 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
     } finally { setPending(false); }
   }
 
-  return <form onSubmit={submit} className="space-y-5 rounded-xl border border-border bg-card p-5">
+  return <><form onSubmit={submit} className="space-y-5 rounded-xl border border-border bg-card p-5">
     <div className="space-y-1">
       <h2 className="text-base font-semibold">{label}</h2>
       <p className="text-sm text-muted-foreground">이 플랫폼에서 입력한 버전보다 낮은 버전의 사용자에게만 표시합니다.</p>
@@ -59,8 +87,33 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
       <Input id={`${platform}-reason`} value={reason} onChange={event => setReason(event.target.value)} placeholder="예: 새 버전 스토어 배포 완료" minLength={3} maxLength={1000} required disabled={!canEdit || pending} />
     </div>
     {message ? <p role={failed ? "alert" : "status"} className={`text-sm ${failed ? "text-danger" : "text-success"}`}>{message}</p> : null}
-    <Button type="submit" disabled={!canEdit || pending}>{pending ? "저장 중…" : "설정 저장"}</Button>
-  </form>;
+    <div className="flex flex-wrap gap-2">
+      <Button type="submit" disabled={!canEdit || pending}>{pending ? "처리 중…" : "설정 저장"}</Button>
+      <Button type="button" variant="outline" disabled={pending} onClick={resetInputs}>입력 취소</Button>
+      <Button type="button" variant="outline" disabled={!canEdit || pending || latest.loading || !canCancel} onClick={() => { setCancelReason(""); setMessage(null); setFailed(false); setCancelOpen(true); }}>저장 취소</Button>
+    </div>
+    {latest.error ? <p role="alert" className="text-sm text-danger">{latest.error} <button type="button" className="underline" onClick={() => void latest.reload()}>다시 시도</button></p> : null}
+  </form>
+    <AlertDialog open={cancelOpen} onOpenChange={open => { if (!pending) setCancelOpen(open); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{label} 저장 취소</AlertDialogTitle>
+          <AlertDialogDescription>이 플랫폼의 마지막 저장을 취소합니다. {latest.data?.before_value ? `이전 설정(${releaseSummary(latest.data.before_value)})으로 되돌립니다.` : "처음 등록한 설정은 업데이트 안내를 끕니다."} 취소 사유와 변경 전후 값은 이력에 기록됩니다.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <form onSubmit={cancelSave} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor={`${platform}-cancel-reason`} className="text-sm font-medium">취소 사유</label>
+            <Input id={`${platform}-cancel-reason`} value={cancelReason} onChange={event => setCancelReason(event.target.value)} required minLength={3} maxLength={1000} disabled={pending} placeholder="예: 출시 버전을 잘못 입력함" />
+          </div>
+          {failed && message ? <p role="alert" className="text-sm text-danger">{message}</p> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={pending}>돌아가기</AlertDialogCancel>
+            <Button type="submit" disabled={pending || !canCancel}>{pending ? "취소 중…" : "저장 취소하기"}</Button>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>;
 }
 
 export function AppReleaseManager({ embedded = false }: { embedded?: boolean }) {
@@ -104,7 +157,7 @@ function ReleaseHistory({ userId }: { userId: string }) {
               </Link>
               <span className="text-muted-foreground">{auditRoleLabel(item.actor_role)}</span>
             </div>
-            <p>{releaseSummary(item.before_value)} → {releaseSummary(item.after_value)}</p>
+            <p>{item.action === "APP_RELEASE_CANCEL" ? "저장 취소 · " : ""}{releaseSummary(item.before_value)} → {releaseSummary(item.after_value)}</p>
             <p className="break-words text-muted-foreground">{item.reason}</p>
           </li>)}
         </ul>}

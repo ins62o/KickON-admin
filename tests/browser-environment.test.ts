@@ -230,3 +230,21 @@ test("개발 전용 배포는 운영 저장값·모드 전환을 무시하고 �
   assert.ok(requests.every(request => new URL(request.url).hostname === "development.example"));
   await app.signOutAction();
 });
+
+test("저장 취소는 선택한 플랫폼·이력 ID·취소 사유를 관리자 RPC로 전달한다", async () => {
+  const { app, requests } = browser(true);
+  const credentials = new FormData();
+  credentials.set("email", "qa@example.invalid");
+  credentials.set("password", "test-only");
+  await app.signInAction({ error: null, email: "" }, credentials);
+  await app.cancelAppRelease("ios", "123", "  잘못 저장한 설정 취소  ");
+  const request = requests.at(-1)!;
+  assert.equal(new URL(request.url).hostname, "development.example");
+  assert.equal(new URL(request.url).pathname, "/rest/v1/rpc/admin_cancel_app_store_release");
+  assert.equal(request.authorization, "Bearer test-access-development");
+  assert.deepEqual(JSON.parse(request.body!), { target_platform: "ios", target_audit_id: "123", change_reason: "잘못 저장한 설정 취소" });
+  const count = requests.length;
+  await assert.rejects(app.cancelAppRelease("ios", "123", " "), /취소 사유/);
+  assert.equal(requests.length, count);
+  await app.signOutAction();
+});

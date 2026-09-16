@@ -19,6 +19,7 @@ export type AuditLogRecord = {
 export function auditActionLabel(value: string) {
   return ({
     INSERT: "새로 추가", UPDATE: "수정", DELETE: "삭제", RETENTION_CLEANUP: "보관 기한 정리",
+    APP_RELEASE_CANCEL: "앱 업데이트 저장 취소",
     SUPPORT_INQUIRY_UPDATE: "문의 처리", SUPPORT_INQUIRY_NOTE_ADD: "문의 메모 추가",
     USER_WARN: "사용자 경고", USER_SUSPEND: "커뮤니티 활동 정지", USER_UNSUSPEND: "커뮤니티 활동 정지 해제",
     USER_ACCOUNT_SUSPEND: "계정 정지", USER_ACCOUNT_UNSUSPEND: "계정 정지 해제",
