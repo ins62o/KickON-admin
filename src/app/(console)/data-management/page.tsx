@@ -140,7 +140,7 @@ export default function DataManagementPage() {
                 <h3 className="text-xs font-semibold md:text-sm">업데이트</h3>
               </header>
               <div className="flex flex-1 items-center justify-center py-4">
-                <button type="button" className="flex size-24 flex-col items-center justify-center rounded-full border-8 border-[var(--gauge-track)] bg-card text-center transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:size-44 md:border-[16px]" onClick={() => setAppUpdatesOpen(true)} aria-label="Android와 iPhone 앱 업데이트 설정 열기">
+                <button type="button" className="flex size-24 cursor-pointer flex-col items-center justify-center rounded-full border-8 border-[var(--gauge-track)] bg-card text-center transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:size-44 md:border-[16px]" onClick={() => setAppUpdatesOpen(true)} aria-label="Android와 iPhone 앱 업데이트 설정 열기">
                   <span className="text-sm font-bold tracking-tight md:text-2xl">업데이트</span>
                   <span className="mt-1 text-xs font-semibold text-primary md:mt-2.5 md:text-sm">설정하기</span>
                 </button>
@@ -155,7 +155,7 @@ export default function DataManagementPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>앱 업데이트</DialogTitle>
-            <DialogDescription>Android와 iPhone의 출시 버전과 업데이트 안내를 각각 관리합니다.</DialogDescription>
+            <DialogDescription className="sr-only">플랫폼별 업데이트 설정</DialogDescription>
           </DialogHeader>
           <AppReleaseManager key={environment} embedded />
         </DialogContent>
