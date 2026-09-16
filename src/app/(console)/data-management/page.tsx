@@ -132,14 +132,21 @@ export default function DataManagementPage() {
             <CompactUsageGauge compactOnMobile title="데이터베이스 사용량" icon={Database} centerValue={usage.database.centerValue} rate={usage.database.rate} status={usage.database.status} note={`전체 한도 ${usage.database.limitLabel}`} />
             <CompactUsageGauge compactOnMobile title="파일 스토리지 사용량" icon={HardDrive} centerValue={usage.fileStorage.centerValue} rate={usage.fileStorage.rate} status={usage.fileStorage.status} note={`전체 한도 ${usage.fileStorage.limitLabel}`} />
             <CompactUsageGauge compactOnMobile title="SportsMonks 전체 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
-            <div className="flex flex-col justify-between gap-5 bg-card p-5">
-              <h3 className="flex items-center gap-2 text-sm font-semibold"><Smartphone className="size-5 text-primary" aria-hidden="true" />앱 업데이트</h3>
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Android·iPhone 출시 버전과 홈의 업데이트 안내를 관리합니다.</p>
-                <Button type="button" className="w-full" onClick={() => setAppUpdatesOpen(true)}>앱 업데이트</Button>
+            <article className="flex min-h-44 flex-col bg-card p-3.5 md:min-h-72 md:px-5 md:py-5">
+              <header className="flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+                  <Smartphone className="size-4" aria-hidden="true" />
+                </span>
+                <h3 className="text-xs font-semibold md:text-sm">업데이트</h3>
+              </header>
+              <div className="flex flex-1 items-center justify-center py-4">
+                <button type="button" className="flex size-24 cursor-pointer flex-col items-center justify-center rounded-full border-8 border-[var(--gauge-track)] bg-card text-center transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:size-44 md:border-[16px]" onClick={() => setAppUpdatesOpen(true)} aria-label="Android와 iPhone 앱 업데이트 설정 열기">
+                  <span className="text-sm font-bold tracking-tight md:text-2xl">업데이트</span>
+                  <span className="mt-1 text-xs font-semibold text-primary md:mt-2.5 md:text-sm">설정하기</span>
+                </button>
               </div>
-              <p className="border-t border-border pt-3 text-center text-xs text-muted-foreground">플랫폼별 업데이트 안내 설정</p>
-            </div>
+              <p className="truncate border-t border-border/70 pt-3 text-center text-[11px] text-muted-foreground md:text-xs">업데이트 안내 설정</p>
+            </article>
           </div>
         </section>
       ) : null}
@@ -148,7 +155,7 @@ export default function DataManagementPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>앱 업데이트</DialogTitle>
-            <DialogDescription>Android와 iPhone의 출시 버전과 업데이트 안내를 각각 관리합니다.</DialogDescription>
+            <DialogDescription className="sr-only">플랫폼별 업데이트 설정</DialogDescription>
           </DialogHeader>
           <AppReleaseManager key={environment} embedded />
         </DialogContent>
