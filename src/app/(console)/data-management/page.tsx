@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Activity, ChevronLeft, ChevronRight, CircleAlert, Database, HardDrive, RefreshCcw } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, CircleAlert, Database, HardDrive, RefreshCcw, Smartphone } from "lucide-react";
+import { AppReleaseManager } from "@/components/admin/app-release-manager";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { useAdminAuth } from "@/components/auth/admin-auth-provider";
@@ -37,6 +39,13 @@ export default function DataManagementPage() {
   const environment = useConsoleEnvironment();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const appUpdatesOpen = searchParams.get("appUpdates") === "1";
+  const setAppUpdatesOpen = (open: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (open) params.set("appUpdates", "1");
+    else params.delete("appUpdates");
+    router.replace(`/data-management${params.size ? `?${params}` : ""}`, { scroll: false });
+  };
   const auditPage = positiveInteger(searchParams.get("auditPage"));
   const canViewSync = Boolean(admin && hasAdminPermission(admin.role, "sync.read"));
   const canViewUsage = Boolean(admin && hasAdminPermission(admin.role, "system.read"));
@@ -54,7 +63,7 @@ export default function DataManagementPage() {
       canViewAudit ? getAuditLogList(auditPage, auditPageSize) : Promise.resolve(null),
     ]);
     return { usage, syncOptions, syncHistory, audit };
-  }, [canViewSync, canViewUsage, canViewAudit, auditPage]);
+  }, [canViewSync, canViewUsage, canViewAudit, auditPage, environment]);
 
   const auditPageCount = Math.max(1, Math.ceil((data?.audit?.total ?? 0) / auditPageSize));
   useEffect(() => {
@@ -119,13 +128,31 @@ export default function DataManagementPage() {
       {canViewUsage && usage ? (
         <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-border/70" aria-labelledby="usage-summary-title">
           <h2 id="usage-summary-title" className="sr-only">서비스 사용량</h2>
-          <div className="grid grid-cols-2 gap-px md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-px xl:grid-cols-4">
             <CompactUsageGauge compactOnMobile title="데이터베이스 사용량" icon={Database} centerValue={usage.database.centerValue} rate={usage.database.rate} status={usage.database.status} note={`전체 한도 ${usage.database.limitLabel}`} />
             <CompactUsageGauge compactOnMobile title="파일 스토리지 사용량" icon={HardDrive} centerValue={usage.fileStorage.centerValue} rate={usage.fileStorage.rate} status={usage.fileStorage.status} note={`전체 한도 ${usage.fileStorage.limitLabel}`} />
-            <CompactUsageGauge compactOnMobile className="col-span-2 md:col-span-1" title="SportsMonks 전체 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
+            <CompactUsageGauge compactOnMobile title="SportsMonks 전체 사용량" icon={Activity} centerValue={usage.provider.centerValue} rate={usage.provider.rate} status={usage.provider.status} note={providerAllowance === null ? "시간당 호출 한도 설정 필요" : `시간당 ${formatNumber(providerAllowance)}회`} />
+            <div className="flex flex-col justify-between gap-5 bg-card p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold"><Smartphone className="size-5 text-primary" aria-hidden="true" />앱 업데이트</h3>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Android·iPhone 출시 버전과 홈의 업데이트 안내를 관리합니다.</p>
+                <Button type="button" className="w-full" onClick={() => setAppUpdatesOpen(true)}>앱 업데이트</Button>
+              </div>
+              <p className="border-t border-border pt-3 text-center text-xs text-muted-foreground">플랫폼별 업데이트 안내 설정</p>
+            </div>
           </div>
         </section>
       ) : null}
+
+      {canViewUsage ? <Dialog open={appUpdatesOpen} onOpenChange={setAppUpdatesOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>앱 업데이트</DialogTitle>
+            <DialogDescription>Android와 iPhone의 출시 버전과 업데이트 안내를 각각 관리합니다.</DialogDescription>
+          </DialogHeader>
+          <AppReleaseManager key={environment} embedded />
+        </DialogContent>
+      </Dialog> : null}
 
       {canViewAudit && audit ? (
         <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35" aria-labelledby="audit-log-title">

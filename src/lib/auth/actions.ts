@@ -3,6 +3,7 @@
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { isAdminRole } from "@/lib/auth/permissions";
 import type { ConsoleEnvironment } from "@/lib/environment";
+import { developmentOnly } from "@/lib/environment";
 
 export type LoginState = {
   error: string | null;
@@ -12,10 +13,11 @@ export type LoginState = {
 
 function safeNextPath(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return "/";
-  return value;
+  const basePath = process.env.NEXT_PUBLIC_ADMIN_BASE_PATH ?? "";
+  return basePath && (value === basePath || value.startsWith(`${basePath}/`)) ? value.slice(basePath.length) || "/" : value;
 }
 
-const loginEnvironments = ["production", "development"] as const satisfies readonly ConsoleEnvironment[];
+const loginEnvironments: readonly ConsoleEnvironment[] = developmentOnly ? ["development"] : ["production", "development"];
 
 async function signOutEveryEnvironment() {
   await Promise.allSettled(loginEnvironments.map(async (environment) => {
@@ -33,7 +35,7 @@ export async function signInAction(_previous: LoginState, formData: FormData): P
     return client ? [{ environment, client }] : [];
   });
 
-  if (!clients.some(({ environment }) => environment === "production")) {
+  if (!clients.some(({ environment }) => environment === (developmentOnly ? "development" : "production"))) {
     return { error: "Supabase 공개 환경 변수가 설정되지 않았습니다.", email };
   }
   if (!email || !password) {

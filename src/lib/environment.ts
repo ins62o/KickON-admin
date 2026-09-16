@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 export type ConsoleEnvironment = "development" | "production";
+export const developmentOnly = process.env.NEXT_PUBLIC_KICKON_DEVELOPMENT_ONLY === "true";
 
 const STORAGE_KEY = "kickon-console-environment";
 export const CONSOLE_ENVIRONMENT_EVENT = "kickon-console-environment-changed";
@@ -15,11 +16,13 @@ export function getBuildEnvironment(): ConsoleEnvironment {
 }
 
 export function getActiveConsoleEnvironment(): ConsoleEnvironment {
+  if (developmentOnly) return "development";
   if (typeof window === "undefined") return getBuildEnvironment();
   return normalizeEnvironment(window.localStorage.getItem(STORAGE_KEY)) ?? getBuildEnvironment();
 }
 
 export function setActiveConsoleEnvironment(environment: ConsoleEnvironment) {
+  if (developmentOnly && environment !== "development") return;
   if (typeof window === "undefined") return;
   if (getActiveConsoleEnvironment() === environment) return;
   window.localStorage.setItem(STORAGE_KEY, environment);

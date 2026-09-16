@@ -156,6 +156,50 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
 
+      - name: Build development-only static console
+        env:
+          KICKON_ENVIRONMENT: development
+          NEXT_PUBLIC_KICKON_ENVIRONMENT: development
+          NEXT_PUBLIC_KICKON_DEFAULT_ENVIRONMENT: development
+          NEXT_PUBLIC_KICKON_DEVELOPMENT_ONLY: "true"
+          NEXT_PUBLIC_ADMIN_BASE_PATH: /development
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL }}
+          NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_ADMIN_API_BASE_URL }}
+          NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL: ""
+          NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY: ""
+          NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB: ${{ vars.NEXT_PUBLIC_SUPABASE_DATABASE_LIMIT_GB }}
+          NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB: ${{ vars.NEXT_PUBLIC_SUPABASE_STORAGE_LIMIT_GB }}
+          NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE: ${{ vars.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE }}
+        run: npm run build:static
+
+      - name: Deploy development static console
+        env:
+          S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          DISTRIBUTION_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+          SITE_URL: ${{ vars.ADMIN_SITE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$S3_BUCKET"
+          test -n "$DISTRIBUTION_ID"
+          test -n "$SITE_URL"
+          test -s out/data-management/index.html
+          aws s3 sync out/_next/static/ "s3://$S3_BUCKET/development/_next/static/" \
+            --cache-control "public,max-age=31536000,immutable" --only-show-errors
+          aws s3 sync out/ "s3://$S3_BUCKET/development/" \
+            --delete --exclude "_next/static/*" \
+            --cache-control "no-cache,max-age=0,must-revalidate" --only-show-errors
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" --paths "/development/*" \
+            --query 'Invalidation.Id' --output text)"
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$invalidation_id"
+          curl --fail --silent --show-error "$SITE_URL/development/login/" -o "$RUNNER_TEMP/development-login.html"
+          grep -q '킥온 데이터 센터' "$RUNNER_TEMP/development-login.html"
+          echo "- Development console: $SITE_URL/development/" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Validate and deploy development Lambda
         shell: bash
         run: |
@@ -193,7 +237,7 @@ jobs:
 
           echo "### Development deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Admin API: $function_name (version $version)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Production Lambda, S3, and CloudFront: unchanged" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production Lambda and production static files: unchanged" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-production:
     name: Deploy production
@@ -483,7 +527,7 @@ jobs:
         run: |
           aws s3 sync out/ "s3://$S3_BUCKET" \
             --delete \
-            --exclude "_next/static/*" \
+            --exclude "_next/static/*" --exclude "development/*" \
             --cache-control "no-cache,max-age=0,must-revalidate" \
             --only-show-errors
 

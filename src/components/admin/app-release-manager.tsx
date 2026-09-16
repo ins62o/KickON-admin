@@ -22,7 +22,7 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const label = platform === "android" ? "Android · Google Play" : "iOS · App Store";
+  const label = platform === "android" ? "Android · Google Play" : "iPhone · App Store";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,15 +63,15 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
   </form>;
 }
 
-export function AppReleaseManager() {
+export function AppReleaseManager({ embedded = false }: { embedded?: boolean }) {
   const admin = useRequiredAdminPermission("system.read");
   const environment = useConsoleEnvironment();
   const { data, error, loading, reload } = useClientData(getAppReleases, [admin?.userId, environment]);
   if (!admin || loading) return <ClientPageLoading label="앱 업데이트 설정을 불러오고 있습니다." />;
   if (error || !data) return <ClientPageError message={error ?? "설정을 불러오지 못했습니다."} retry={reload} />;
   const canEdit = admin.role === "admin" || admin.role === "super_admin";
-  return <div className="mx-auto w-full max-w-[1720px] space-y-6 px-4 py-6 lg:px-6 lg:py-7">
-    <PageHeader title="앱 업데이트" description="Android와 iOS의 출시 버전과 업데이트 안내를 각각 관리합니다." />
+  return <div className={embedded ? "space-y-6" : "mx-auto w-full max-w-[1720px] space-y-6 px-4 py-6 lg:px-6 lg:py-7"}>
+    {!embedded ? <PageHeader title="앱 업데이트" description="Android와 iOS의 출시 버전과 업데이트 안내를 각각 관리합니다." /> : null}
     <p className="text-sm font-medium">{environmentLabel(environment)}의 실제 설정입니다. 저장하면 이 서버를 사용하는 앱에 반영됩니다.</p>
     <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">스토어에 업데이트가 배포된 후 안내를 켜 주세요. 같은 버전 또는 상위 버전에는 표시하지 않습니다. 사용자가 라벨을 누르면 해당 플랫폼의 스토어로 이동합니다.</p>
     {!canEdit ? <p className="text-sm text-muted-foreground">설정 변경은 관리자 또는 최고 관리자만 가능합니다.</p> : null}

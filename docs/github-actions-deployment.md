@@ -5,7 +5,7 @@
 `.github/workflows/deploy.yml`은 다음처럼 동작합니다.
 
 - Pull Request: lint, typecheck, 테스트, 정적 빌드, Lambda 번들 빌드만 실행합니다.
-- `Dev` push: lint, typecheck, 테스트, 정적 빌드, Lambda 번들 빌드만 실행합니다.
+- `Dev` push: 검증 후 개발 Lambda와 `/development/` 하위의 개발 전용 정적 콘솔을 배포합니다. 개발 콘솔은 개발 DB만 사용하며 운영 모드 전환을 제공하지 않습니다.
 - `Prod` push: 같은 검증을 통과한 뒤 운영 배포를 실행합니다.
 - 수동 실행: 실행 기준 ref가 `Prod`일 때만 운영 배포합니다.
 - `Dev` 또는 `Prod` 대상 Pull Request: 검증만 실행합니다.

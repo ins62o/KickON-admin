@@ -201,7 +201,7 @@ export function auditChangeSummary(log: AuditLogRecord) {
 }
 
 export function auditEntityHref(log: AuditLogRecord) {
-  if (log.entityType === "app_store_releases") return "/app-updates/";
+  if (log.entityType === "app_store_releases") return "/data-management/?appUpdates=1";
   const value = log.afterValue ?? log.beforeValue;
   const scope = new URLSearchParams();
   const leagueId = value?.league_id ?? value?.leagueId;

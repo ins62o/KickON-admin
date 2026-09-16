@@ -11,7 +11,7 @@ import type * as AppReleases from "../src/lib/admin/app-releases.ts";
 
 // Run the actual browser bundle (including @supabase/ssr), so its default
 // singleton behavior is exercised rather than mocked out.
-const bundle = buildSync({
+const bundles = [false, true].map(developmentOnly => buildSync({
   stdin: {
     contents: `export * from "./src/lib/supabase/browser";
       export * from "./src/lib/environment";
@@ -28,6 +28,8 @@ const bundle = buildSync({
   write: false,
   define: {
     "process.env.NODE_ENV": JSON.stringify("test"),
+    "process.env.NEXT_PUBLIC_KICKON_DEVELOPMENT_ONLY": JSON.stringify(String(developmentOnly)),
+    "process.env.NEXT_PUBLIC_ADMIN_BASE_PATH": JSON.stringify(developmentOnly ? "/development" : ""),
     "process.env.NEXT_PUBLIC_KICKON_ENVIRONMENT": JSON.stringify("development"),
     "process.env.NEXT_PUBLIC_KICKON_DEFAULT_ENVIRONMENT": JSON.stringify("development"),
     ...Object.fromEntries(["DEVELOPMENT", "PRODUCTION"].flatMap((env) => [
@@ -36,9 +38,9 @@ const bundle = buildSync({
       [`process.env.NEXT_PUBLIC_KICKON_${env}_ADMIN_API_BASE_URL`, JSON.stringify(`https://${env.toLowerCase()}-api.example/api`)],
     ])),
   },
-}).outputFiles[0].text;
+}).outputFiles[0].text);
 
-function browser() {
+function browser(developmentOnly = false) {
   const cookies = new Map<string, string>();
   const storage = new Map<string, string>();
   const requests: { url: string; authorization: string | null; body: string | null }[] = [];
@@ -94,7 +96,7 @@ function browser() {
       return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
     },
   });
-  vm.runInContext(bundle, context);
+  vm.runInContext(bundles[developmentOnly ? 1 : 0], context);
   const app = context.app as typeof Environment & typeof AppReleases & {
     getBrowserSupabaseClient: typeof getBrowserSupabaseClient;
     callAdminApi: typeof callAdminApi;
@@ -209,4 +211,22 @@ test("전체 동기화 요청은 Edge Function 완료를 기다릴 수 있는 �
 
   assert.equal(result.status, "success");
   assert.deepEqual(timeouts.slice(before), [58_000]);
+});
+
+test("개발 전용 배포는 운영 저장값·모드 전환을 무시하고 개발 인증만 수행한다", async () => {
+  const { app, requests, storage } = browser(true);
+  storage.set("kickon-console-environment", "production");
+  assert.equal(app.getActiveConsoleEnvironment(), "development");
+  app.setActiveConsoleEnvironment("production");
+  assert.equal(app.getActiveConsoleEnvironment(), "development");
+  const credentials = new FormData();
+  credentials.set("email", "qa@example.invalid");
+  credentials.set("password", "test-only");
+  credentials.set("next", "/development/data-management/?appUpdates=1");
+  const result = await app.signInAction({ error: null, email: "" }, credentials);
+  assert.equal(result.error, null);
+  assert.equal(result.redirectTo, "/data-management/?appUpdates=1");
+  await app.saveAppRelease("android", "1.0.3", false, "개발 전용 배포 검증");
+  assert.ok(requests.every(request => new URL(request.url).hostname === "development.example"));
+  await app.signOutAction();
 });

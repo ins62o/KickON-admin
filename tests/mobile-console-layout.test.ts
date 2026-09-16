@@ -239,8 +239,7 @@ test("모바일 데이터 관리는 동기화·사용량·로그를 카드형으
   const auditTable = fs.readFileSync(path.join(root, "src/components/admin/audit-log-table.tsx"), "utf8");
 
   assert.match(dataPage, /lastSync=\{syncHistory\}[\s\S]*compactOnMobile/);
-  assert.match(dataPage, /grid grid-cols-2 gap-px md:grid-cols-2 xl:grid-cols-3/);
-  assert.match(dataPage, /className="col-span-2 md:col-span-1"/);
+  assert.match(dataPage, /grid grid-cols-2 gap-px xl:grid-cols-4/);
   assert.match(dataPage, /<AuditLogTable[^>]*compactOnMobile/);
   assert.match(usageGauge, /min-h-44 p-3\.5 md:min-h-72/);
   assert.match(auditTable, /divide-y divide-border\/70 md:hidden/);

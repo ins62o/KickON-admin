@@ -16,7 +16,7 @@ import { signOutAction } from "@/lib/auth/actions";
 import { adminRoleLabels } from "@/lib/auth/permissions";
 import type { AdminIdentity } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
-import { environmentLabel, setActiveConsoleEnvironment, useConsoleEnvironment, type ConsoleEnvironment } from "@/lib/environment";
+import { developmentOnly, environmentLabel, setActiveConsoleEnvironment, useConsoleEnvironment, type ConsoleEnvironment } from "@/lib/environment";
 import { MobileNavigation } from "./mobile-navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { TopNavigation } from "./top-navigation";
@@ -91,7 +91,7 @@ export function Header({ admin, loading = false, switching = false }: {
               </div>
               <DropdownMenuSeparator className="my-1.5" />
               <DropdownMenuLabel className="px-2.5 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">모드 전환</DropdownMenuLabel>
-              {environmentOptions.map((option) => {
+              {environmentOptions.filter(option => !developmentOnly || option.key === "development").map((option) => {
                 const isCurrent = option.key === currentEnvironment;
                 const content = (
                   <>

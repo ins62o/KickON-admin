@@ -27,6 +27,7 @@ const productionSupabasePublishableKey = process.env.NEXT_PUBLIC_KICKON_PRODUCTI
 
 const nextConfig: NextConfig = {
   output: "export",
+  basePath: process.env.NEXT_PUBLIC_ADMIN_BASE_PATH ?? "",
   trailingSlash: true,
   env: {
     NEXT_PUBLIC_KICKON_ENVIRONMENT: kickonEnvironment,
