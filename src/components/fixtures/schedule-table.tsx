@@ -6,7 +6,7 @@ import { useActionState, useCallback, useEffect, useMemo, useState } from "react
 import { CalendarDays, CircleCheck, MapPin, Navigation, SlidersHorizontal, UsersRound } from "lucide-react";
 import { ScheduleDateTimePicker } from "@/components/fixtures/schedule-date-time-picker";
 import { TeamSelectOptions } from "@/components/admin/team-select-options";
-import { EntityOverrideControl } from "@/components/operations/entity-override-control";
+import { EntityOverrideControl, EntityOverrideStatusDialog } from "@/components/operations/entity-override-control";
 import { StatusBadge } from "@/components/status-badge";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -130,7 +130,10 @@ function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixt
   return <article className="group flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/75 bg-background/55 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg hover:shadow-black/10 md:min-h-96">
     <header className="flex items-center justify-between gap-4 border-b border-border/60 px-4 py-4 md:px-5">
       <p className="text-sm font-semibold tabular-nums">{date.date} ({date.weekday}) · {date.time}</p>
-      <StatusBadge status={statusVisual.health} label={fixtureStatusLabels[fixture.status]} className={statusVisual.badgeClass} />
+      <div className="flex items-center gap-2">
+        <StatusBadge status={statusVisual.health} label={fixtureStatusLabels[fixture.status]} className={statusVisual.badgeClass} />
+        <EntityOverrideStatusDialog overrides={overrides} canEdit={canEdit} />
+      </div>
     </header>
     <div className="flex flex-1 flex-col p-4 md:p-5">
       <div className="grid min-h-28 grid-cols-[1fr_72px_1fr] items-center gap-3 text-center">
@@ -149,7 +152,6 @@ function ScheduleCard({ fixture, stadium, stadiums, overrides, canEdit }: { fixt
         <ScheduleEditDialog fixture={fixture} stadiums={stadiums} disabled={!canEdit} triggerClassName="h-11! w-full" />
         <EntityOverrideControl entityType="fixture" entityId={fixture.id} leagueId={fixture.leagueId} season={CURRENT_SEASON} overrides={overrides} currentValues={fixtureComparableValue(fixture)} canEdit={canEdit} triggerLabel="경기 관리" triggerVariant="outline" dialogTitle="경기 정보 수정" dialogDescription={false} submitLabel="수정" triggerClassName="h-11! w-full" showTriggerIcon={false} showSubmitIcon={false} showActiveOverrides={false} />
       </div>
-      <EntityOverrideControl entityType="fixture" entityId={fixture.id} leagueId={fixture.leagueId} season={CURRENT_SEASON} overrides={overrides} currentValues={fixtureComparableValue(fixture)} canEdit={canEdit} showApplyTrigger={false} showEmptyOverrides={false} />
     </div>
   </article>;
 }
