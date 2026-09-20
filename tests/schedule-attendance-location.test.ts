@@ -85,7 +85,8 @@ test("일정 화면은 카드와 커스텀 필터, 한국 시간 입력을 제�
   assert.match(scheduleCards, /export function ScheduleCards/);
   assert.match(scheduleCards, /md:grid-cols-2 2xl:grid-cols-3/);
   assert.match(scheduleCards, /<ScheduleDateTimePicker/);
-  assert.match(scheduleCards, /showApplyTrigger=\{false\}/);
+  assert.match(scheduleCards, /<EntityOverrideStatusDialog overrides=\{overrides\} canEdit=\{canEdit\} \/>/);
+  assert.doesNotMatch(scheduleCards, /showApplyTrigger=\{false\}/);
   assert.match(scheduleCards, /overrides=\{overrides\.get\(fixture\.id\) \?\? \[\]\}/);
   assert.match(scheduleCards, /name="kickoffAt" value={`\$\{kickoffDate\}T\$\{kickoffTime\}`}/);
   assert.doesNotMatch(scheduleCards, /인증 반경 \(m\)/);

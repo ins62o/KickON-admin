@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScheduleDateTimePicker } from "@/components/fixtures/schedule-date-time-picker";
 import { applyFixtureOverrideAction, applyStandingOverrideAction, releaseEntityOverrideAction, type OperationActionState } from "@/lib/operations/actions";
 import type { EntityOverrideRecord } from "@/lib/data/provider-diffs";
+import { getActiveOverrideStatus } from "@/lib/data/override-status";
 
 type EntityType = "fixture" | "standing";
 type FieldOption = { value: string; label: string; kind: "number" | "datetime" | "status"; step?: string };
@@ -32,8 +33,32 @@ const initialState: OperationActionState = { status: "idle", message: null, comp
 export function EntityOverrideControl({ entityType, entityId, season, leagueId, overrides, currentValues, canEdit, openApply = false, defaultReason = "", triggerLabel = "직접 수정", triggerVariant = "default", dialogTitle, dialogDescription, submitLabel = "수정", triggerClassName = "w-full", showTriggerIcon = true, showSubmitIcon = true, showApplyTrigger = true, showActiveOverrides = true, showEmptyOverrides = true }: {
   entityType: EntityType; entityId: string; season: number; leagueId: string; overrides: EntityOverrideRecord[]; currentValues: Record<string, unknown>; canEdit: boolean; openApply?: boolean; defaultReason?: string; triggerLabel?: string; triggerVariant?: "default" | "outline"; dialogTitle?: string; dialogDescription?: string | false; submitLabel?: string; triggerClassName?: string; showTriggerIcon?: boolean; showSubmitIcon?: boolean; showApplyTrigger?: boolean; showActiveOverrides?: boolean; showEmptyOverrides?: boolean;
 }) {
-  const active = overrides.filter((item) => !item.releasedAt);
+  const { active } = getActiveOverrideStatus(overrides);
   return <div className={showActiveOverrides ? "space-y-4" : undefined}>{showApplyTrigger ? <ApplyDialog season={season} leagueId={leagueId} entityType={entityType} entityId={entityId} currentValues={currentValues} canEdit={canEdit} open={openApply && canEdit} defaultReason={defaultReason} triggerLabel={triggerLabel} triggerVariant={triggerVariant} dialogTitle={dialogTitle} dialogDescription={dialogDescription} submitLabel={submitLabel} triggerClassName={triggerClassName} showTriggerIcon={showTriggerIcon} showSubmitIcon={showSubmitIcon} /> : null}{showActiveOverrides ? <>{active.length > 0 || showEmptyOverrides ? <div className="space-y-2">{active.length > 0 ? active.map((item) => <ActiveOverride key={item.id} item={item} canEdit={canEdit} />) : <p className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">보호 중인 직접 수정값이 없습니다.</p>}</div> : null}{!canEdit && active.length > 0 ? <p className="text-[11px] leading-5 text-muted-foreground">직접 수정은 관리자 권한이 필요합니다.</p> : null}</> : null}</div>;
+}
+
+export function EntityOverrideStatusDialog({ overrides, canEdit }: { overrides: EntityOverrideRecord[]; canEdit: boolean }) {
+  const { active, count, label } = getActiveOverrideStatus(overrides);
+  if (count === 0) return null;
+
+  return <Dialog>
+    <DialogTrigger asChild>
+      <Button type="button" variant="outline" size="icon" className="relative size-8 rounded-full border-primary/30 text-primary hover:border-primary/50 hover:text-primary" aria-label={label} title={label}>
+        <LockKeyhole className="size-3.5" />
+        <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] leading-4 font-bold text-primary-foreground" aria-hidden="true">{count}</span>
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle className="text-xl">보호 중인 수동 수정값</DialogTitle>
+        <DialogDescription>외부 데이터 동기화로 덮어쓰지 않도록 보호 중인 항목입니다.</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-2 overflow-y-auto pr-1">
+        {active.map((item) => <ActiveOverride key={item.id} item={item} canEdit={canEdit} />)}
+      </div>
+      {!canEdit ? <p className="text-[11px] leading-5 text-muted-foreground">수정값 보호 해제는 관리자 권한이 필요합니다.</p> : null}
+    </DialogContent>
+  </Dialog>;
 }
 
 function ApplyDialog({ entityType, entityId, season, leagueId, currentValues, canEdit, open, defaultReason, triggerLabel, triggerVariant, dialogTitle, dialogDescription, submitLabel, triggerClassName, showTriggerIcon, showSubmitIcon }: { entityType: EntityType; entityId: string; season: number; leagueId: string; currentValues: Record<string, unknown>; canEdit: boolean; open: boolean; defaultReason: string; triggerLabel: string; triggerVariant: "default" | "outline"; dialogTitle?: string; dialogDescription?: string | false; submitLabel: string; triggerClassName: string; showTriggerIcon: boolean; showSubmitIcon: boolean }) {
