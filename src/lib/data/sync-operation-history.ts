@@ -6,7 +6,10 @@ import { formatRelativeTime } from "@/lib/format";
 import {
   cronSyncOperation,
   getSyncOperation,
+  isCurrentTeamSquadKey,
+  syncOperationFromStateKey,
   syncOperations,
+  syncStateOperations,
   type SyncOperation,
   type SyncOperationLastSyncMap,
 } from "@/lib/sync/catalog";
@@ -25,19 +28,6 @@ type SyncStateHistoryRow = {
   last_succeeded_at: string | null;
 };
 
-const syncStateOperation: Record<string, SyncOperation> = {
-  "sportmonks-live": "live",
-  [`sportmonks-post-match-${CURRENT_SEASON}`]: "post-match",
-  [`sportmonks-history-2024-${CURRENT_SEASON}`]: "history-backfill",
-  [`team-metrics-${CURRENT_SEASON}-v2`]: "team-metrics",
-};
-
-function operationFromSyncState(scopedKey: string) {
-  const syncKey = scopedKey.replace(/:\d{4}:kleague2?$/, "");
-  if (syncKey.startsWith(`team-squad-${CURRENT_SEASON}-`)) return "team-squad";
-  return syncStateOperation[syncKey] ?? null;
-}
-
 function operationFromMetadata(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const operationKey = (value as Record<string, unknown>).operationKey;
@@ -50,6 +40,7 @@ function operationFromRun(row: SyncRunHistoryRow) {
 
   const cronOperation = cronSyncOperation[row.job_key];
   if (cronOperation) return cronOperation;
+  if (isCurrentTeamSquadKey(row.job_key)) return "team-squad";
 
   const directOperations = syncOperations.filter((operation) => operation.functionName === row.job_key);
   if (directOperations.length === 1) return directOperations[0].key;
@@ -96,12 +87,12 @@ export const getSyncOperationHistory = cache(async (league: LeagueFilter = "all"
   }
 
   if (!statesResult.error) {
-    for (const operation of [...Object.values(syncStateOperation), "team-squad" as const]) {
+    for (const operation of syncStateOperations) {
       available[operation] = true;
     }
     for (const row of (statesResult.data ?? []) as SyncStateHistoryRow[]) {
       if (league !== "all" && (row.league_id !== league || row.season !== CURRENT_SEASON)) continue;
-      const operation = operationFromSyncState(row.sync_key);
+      const operation = syncOperationFromStateKey(row.sync_key);
       if (!operation) continue;
       available[operation] = true;
       timestamps[operation] = latestTimestamp(timestamps[operation], row.last_succeeded_at);
