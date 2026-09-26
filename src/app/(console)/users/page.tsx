@@ -34,6 +34,11 @@ function normalizedPage(value: string | undefined) {
   return Number.isFinite(page) && page > 0 ? page : 1;
 }
 
+function joinedTime(value: string | null) {
+  const time = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(time) ? time : 0;
+}
+
 function userPageHref(query: UserSearchParams, page: number) {
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set("q", query.q.trim());
@@ -133,7 +138,9 @@ export default function UsersPage() {
     if (accountStatusFilter !== "all" && accountStatusFilter !== "COMMUNITY_SUSPENDED" && userStatus !== accountStatusFilter) return false;
     if (teamFilter !== "all" && user.teamId !== teamFilter) return false;
     return true;
-  });
+  }).sort((left, right) => (
+    joinedTime(right.createdAt) - joinedTime(left.createdAt) || left.id.localeCompare(right.id)
+  ));
   const totalPages = Math.max(1, Math.ceil(rows.length / USERS_PER_PAGE));
   const currentPage = Math.min(normalizedPage(query.page), totalPages);
   const pageOffset = (currentPage - 1) * USERS_PER_PAGE;
