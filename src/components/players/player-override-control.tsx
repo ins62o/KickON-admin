@@ -76,8 +76,8 @@ function PlayerDeleteForm({ player, onSuccess }: { player: EditablePlayer; onSuc
         <AlertDialogTitle>선수를 삭제할까요?</AlertDialogTitle>
         <AlertDialogDescription className="sr-only">{displayName} 선수 삭제 확인</AlertDialogDescription>
       </AlertDialogHeader>
-      <Field label="삭제 이유" htmlFor="player-delete-reason">
-        <Textarea id="player-delete-reason" name="reason" minLength={3} maxLength={1000} required disabled={pending} className="min-h-24 rounded-xl px-3.5 py-3 text-sm" placeholder="예: 잘못 등록된 선수" />
+      <Field label="삭제 이유 (선택)" htmlFor="player-delete-reason">
+        <Textarea id="player-delete-reason" name="reason" maxLength={1000} disabled={pending} className="min-h-24 rounded-xl px-3.5 py-3 text-sm" placeholder="예: 잘못 등록된 선수" />
       </Field>
       {state.status === "error" && state.message ? <p role="alert" className="text-xs text-rose-300">{state.message}</p> : null}
       <AlertDialogFooter>
@@ -134,6 +134,9 @@ function PlayerEditDialog({ player, teams, canEdit, open, defaultReason }: { pla
 function PlayerEditForm({ player, teams, defaultReason, onSuccess }: { player: EditablePlayer; teams: TeamOption[]; defaultReason: string; onSuccess: () => void }) {
   const [state, action, pending] = useActionState(updatePlayerDetailsAction, initialState);
   const [teamId, setTeamId] = useState(player.teamId);
+  // SportsMonks players change teams only through membership evidence and the
+  // transfer-candidate workflow; manual players keep admin-set teams.
+  const teamLocked = /^[1-9][0-9]*$/.test(player.id);
   const [position, setPosition] = useState(player.position ?? "__none");
   const selectedTeam = teams.find((team) => team.id === teamId);
   const selectedTeamLogo = selectedTeam ? getTeamLogoPath(selectedTeam.id) : null;
@@ -152,12 +155,14 @@ function PlayerEditForm({ player, teams, defaultReason, onSuccess }: { player: E
             <Field label="영어 이름" htmlFor="player-name"><Input id="player-name" name="playerName" defaultValue={player.name} maxLength={160} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
             <Field label="한국 이름" htmlFor="player-name-ko"><Input id="player-name-ko" name="displayNameKo" defaultValue={player.koreanName ?? ""} maxLength={160} className="h-11 rounded-xl px-3.5 text-sm" placeholder="없음" /></Field>
             <Field label="소속 구단" htmlFor="player-team">
-              <Select name="teamId" value={teamId} onValueChange={setTeamId}>
+              {teamLocked ? <input type="hidden" name="teamId" value={player.teamId} /> : null}
+              <Select name={teamLocked ? undefined : "teamId"} value={teamId} onValueChange={setTeamId} disabled={teamLocked}>
                 <SelectTrigger id="player-team" className="h-11! w-full cursor-pointer rounded-xl border-border/80 bg-muted/35 px-3.5 text-sm font-medium shadow-inner shadow-black/5 hover:bg-muted/50 data-[state=open]:border-primary/50 data-[state=open]:ring-3 data-[state=open]:ring-primary/15 dark:bg-muted/35 dark:hover:bg-muted/50"><span className="flex min-w-0 flex-1 items-center gap-2 text-left">{selectedTeamLogo ? <Image src={selectedTeamLogo} width={20} height={20} alt="" className="size-5 shrink-0 object-contain" /> : <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true"><UsersRound className="size-3" /></span>}<span className="truncate text-foreground">{selectedTeam?.name ?? "팀 선택"}</span></span></SelectTrigger>
                 <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width) rounded-xl border border-border/80 bg-popover p-1 shadow-2xl">
                   <TeamSelectOptions teams={teams} itemClassName="py-2.5" />
                 </SelectContent>
               </Select>
+              {teamLocked ? <p className="text-xs text-muted-foreground">이적·임대는 자동 동기화가 이적 후보로 기록한 뒤 반영합니다.</p> : null}
             </Field>
             <Field label="등번호" htmlFor="player-shirt-number"><Input id="player-shirt-number" name="shirtNumber" type="number" min={0} max={999} defaultValue={player.shirtNumber ?? ""} placeholder="없음" className="h-11 rounded-xl px-3.5 text-sm" /></Field>
             <Field label="포지션" htmlFor="player-position">
@@ -178,7 +183,7 @@ function PlayerEditForm({ player, teams, defaultReason, onSuccess }: { player: E
             <Field label="득점" htmlFor="player-goals"><Input id="player-goals" name="goals" type="number" min={0} max={9999} defaultValue={player.goals} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
             <Field label="도움" htmlFor="player-assists"><Input id="player-assists" name="assists" type="number" min={0} max={9999} defaultValue={player.assists} required className="h-11 rounded-xl px-3.5 text-sm" /></Field>
           </div>
-          <Field label="수정 이유" htmlFor="override-reason"><Textarea id="override-reason" name="reason" defaultValue={defaultReason} minLength={3} maxLength={1000} required className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></Field>
+          <Field label="수정 이유 (선택)" htmlFor="override-reason"><Textarea id="override-reason" name="reason" defaultValue={defaultReason} maxLength={1000} className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></Field>
           {state.status === "error" && state.message ? <p role="alert" className="text-xs text-rose-300">{state.message}</p> : null}
           <DialogFooter className="mx-0 mb-0 rounded-lg px-0 pb-0"><DialogClose asChild><Button type="button" variant="outline" className="h-11 px-5 text-base">취소</Button></DialogClose><Button type="submit" disabled={pending} className="h-11 px-6 text-base">{pending ? "수정 중" : "선수 정보 수정"}</Button></DialogFooter>
     </form>

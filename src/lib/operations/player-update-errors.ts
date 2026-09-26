@@ -19,7 +19,17 @@ const playerUpdateMessages: Record<string, string> = {
   INVALID_PLAYER_WEIGHT: "체중 값이 올바르지 않습니다.",
   INVALID_PLAYER_BIRTH_DATE: "생년월일 값이 올바르지 않습니다.",
   PLAYER_NOT_FOUND: "수정할 선수를 DB에서 찾을 수 없습니다. 선수단을 새로고침한 뒤 다시 시도해 주세요.",
+  PLAYER_TEAM_CHANGE_REQUIRES_TRANSFER_WORKFLOW: "소속 구단은 여기서 바꿀 수 없습니다. 이적·임대는 자동 동기화가 이적 후보로 기록한 뒤 검토해서 반영합니다.",
+  PROVIDER_PLAYER_KOREAN_NAME_REQUIRED: "SportsMonks 선수의 한국 이름은 비울 수 없습니다. 바꿀 이름을 입력해 주세요.",
 };
+
+export function getPlayerDeleteErrorMessage(error: PlayerUpdateError, schemaMissing: boolean) {
+  if (schemaMissing) return "선수 삭제 데이터베이스 기능이 아직 적용되지 않았습니다.";
+  if ((error.message ?? "").includes("PLAYER_HAS_OPEN_MEMBERSHIP")) {
+    return "SportsMonks 명단에 현재 소속으로 기록된 선수라 삭제할 수 없습니다. 제공사 명단에서 빠지면 다음 동기화 때 자동으로 정리됩니다.";
+  }
+  return "선수를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
 
 export function getPlayerUpdateErrorMessage(error: PlayerUpdateError, schemaMissing: boolean) {
   if (schemaMissing) return "선수 상세 수정 SQL을 먼저 적용해 주세요.";

@@ -223,8 +223,8 @@ function SyncOperationForm({ operation, teams, fixtures, environment, initialTea
       ) : null}
 
       <div className="grid gap-4">
-        <label htmlFor={`reason-${operation.key}`} className="block text-sm leading-none font-medium">실행 이유</label>
-        <Textarea className="min-h-24" id={`reason-${operation.key}`} name="reason" minLength={3} maxLength={500} required placeholder="예: 사용자 제보 확인을 위해 선수단 다시 가져오기" />
+        <label htmlFor={`reason-${operation.key}`} className="block text-sm leading-none font-medium">실행 이유 (선택)</label>
+        <Textarea className="min-h-24" id={`reason-${operation.key}`} name="reason" maxLength={500} placeholder="예: 사용자 제보 확인을 위해 선수단 다시 가져오기" />
       </div>
 
       {providerQuotaLow ? (

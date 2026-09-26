@@ -112,3 +112,27 @@ export const syncCoverage: SyncCoverage[] = [
 export function getSyncOperation(value: string) {
   return syncOperations.find((operation) => operation.key === value) ?? null;
 }
+
+const syncStateOperation: Record<string, SyncOperation> = {
+  "sportmonks-live": "live",
+  [`sportmonks-post-match-${CURRENT_SEASON}`]: "post-match",
+  [`sportmonks-history-2024-${CURRENT_SEASON}`]: "history-backfill",
+  [`team-metrics-${CURRENT_SEASON}-v2`]: "team-metrics",
+};
+
+// Current squad keys are `team-squad:<season>:<league>:<team>` (sync_runs.job_key
+// and football_sync_state.sync_key); older state rows used `team-squad-<season>-<team>`.
+const CURRENT_TEAM_SQUAD_KEY = new RegExp(`^team-squad:${CURRENT_SEASON}:kleague2?:[a-z0-9-]+$`);
+
+export function isCurrentTeamSquadKey(key: string) {
+  return CURRENT_TEAM_SQUAD_KEY.test(key);
+}
+
+export function syncOperationFromStateKey(scopedKey: string): SyncOperation | null {
+  if (isCurrentTeamSquadKey(scopedKey)) return "team-squad";
+  const syncKey = scopedKey.replace(/:\d{4}:kleague2?$/, "");
+  if (syncKey.startsWith(`team-squad-${CURRENT_SEASON}-`)) return "team-squad";
+  return syncStateOperation[syncKey] ?? null;
+}
+
+export const syncStateOperations = [...new Set([...Object.values(syncStateOperation), "team-squad" as const])];

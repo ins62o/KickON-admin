@@ -141,10 +141,10 @@ test("앱 업데이트 조회·변경·이력은 선택한 환경의 관리자 �
       assert.equal(url.searchParams.get("limit"), "50");
     }
     const count = requests.length;
-    for (const [version, reason] of [["1.0.3-beta", "배포 대기"], ["1.0.3", "  "], ["1.0.3", "a".repeat(1001)]]) {
-      await assert.rejects(app.saveAppRelease("ios", version, true, reason), /버전 형식과 변경 사유/);
-    }
+    await assert.rejects(app.saveAppRelease("ios", "1.0.3-beta", true, "배포 대기"), /버전 형식/);
     assert.equal(requests.length, count);
+    await app.saveAppRelease("ios", "1.0.3", true, "  ");
+    assert.equal(JSON.parse(requests.at(-1)!.body!).change_reason, "관리자 콘솔에서 앱 업데이트 설정 저장");
   } finally {
     await app.signOutAction();
   }
@@ -243,8 +243,7 @@ test("저장 취소는 선택한 플랫폼·이력 ID·취소 사유를 관리�
   assert.equal(new URL(request.url).pathname, "/rest/v1/rpc/admin_cancel_app_store_release");
   assert.equal(request.authorization, "Bearer test-access-development");
   assert.deepEqual(JSON.parse(request.body!), { target_platform: "ios", target_audit_id: "123", change_reason: "잘못 저장한 설정 취소" });
-  const count = requests.length;
-  await assert.rejects(app.cancelAppRelease("ios", "123", " "), /취소 사유/);
-  assert.equal(requests.length, count);
+  await app.cancelAppRelease("ios", "123", " ");
+  assert.equal(JSON.parse(requests.at(-1)!.body!).change_reason, "관리자 콘솔에서 앱 업데이트 설정 저장 취소");
   await app.signOutAction();
 });

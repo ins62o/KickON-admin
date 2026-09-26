@@ -91,8 +91,8 @@ function ReleaseForm({ platform, release, canEdit, onSaved }: {
         </AlertDialogHeader>
         <form onSubmit={cancelSave} className="space-y-4">
           <div className="space-y-2.5">
-            <label htmlFor={`${platform}-cancel-reason`} className="block text-sm font-semibold">취소 사유</label>
-            <Input className="h-11 rounded-xl px-3.5 text-sm" id={`${platform}-cancel-reason`} value={cancelReason} onChange={event => setCancelReason(event.target.value)} required minLength={3} maxLength={1000} disabled={pending} placeholder="예: 출시 버전을 잘못 입력함" />
+            <label htmlFor={`${platform}-cancel-reason`} className="block text-sm font-semibold">취소 사유 (선택)</label>
+            <Input className="h-11 rounded-xl px-3.5 text-sm" id={`${platform}-cancel-reason`} value={cancelReason} onChange={event => setCancelReason(event.target.value)} maxLength={1000} disabled={pending} placeholder="예: 출시 버전을 잘못 입력함" />
           </div>
           {failed && message ? <p role="alert" className="text-sm text-danger">{message}</p> : null}
           <AlertDialogFooter>

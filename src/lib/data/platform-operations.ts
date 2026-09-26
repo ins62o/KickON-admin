@@ -1,6 +1,5 @@
 "use client";
 
-import { CURRENT_SEASON } from "@/lib/football/config";
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
@@ -11,24 +10,13 @@ import { getKickonApiHealth } from "@/lib/health/kickon-api";
 import { formatKoreaDateTime } from "@/lib/format";
 import { assessProviderHealth, type ProviderHealthAssessment } from "./provider-health";
 import { assessCronSystemHealth } from "./cron-system-health";
+import { buildCronJobs, type CronJobState, type CronJobView, type CronRuntimeRow } from "@/lib/cron/jobs";
 import { getPushDeliveryData, type PushDeliveryData } from "./push-delivery";
 import { assessPushDeliveryHealth, type PushDeliveryHealthAssessment } from "./push-health";
 import { getSupabaseConnection } from "./supabase";
 import { buildProviderUsageTrends, type ProviderUsageTrendSeries } from "./provider-usage-trends";
 import { resolveProviderQuota } from "./provider-quota";
 import type { HealthStatus } from "./types";
-
-type CronRpcRow = {
-  job_id: number;
-  job_name: string;
-  schedule: string;
-  active: boolean;
-  last_status: string | null;
-  last_started_at: string | null;
-  last_finished_at: string | null;
-  last_message: string | null;
-  failure_count_24h: number;
-};
 
 type ProviderUsageRow = {
   observed_at: string;
@@ -40,29 +28,9 @@ type ProviderUsageRow = {
   status_code: number;
 };
 
-type SyncStateRow = {
-  sync_key: string;
-  last_attempted_at: string;
-  last_succeeded_at: string | null;
-  last_error: string | null;
-};
-
-export type CronJobRecord = {
-  key: string;
-  name: string;
-  role: string;
-  expression: string;
+export type CronJobRecord = CronJobView & {
   environment: "development" | "production";
-  active: boolean | null;
-  lastStartedAt: string | null;
-  lastFinishedAt: string | null;
-  nextRunAt: string | null;
-  durationMs: number | null;
-  lastResult: string | null;
-  lastMessage: string | null;
-  failureCount24h: number | null;
   status: HealthStatus;
-  delayed: boolean;
   source: "pg_cron" | "migration";
 };
 
@@ -184,14 +152,6 @@ export type OperationalDashboardSnapshot = {
   supabaseMetricsConfigured: boolean;
 };
 
-const CRON_CATALOG = [
-  { key: "kickon-live-football-sync", name: "실시간 경기 동기화", role: "라이브 스코어·이벤트·라인업 갱신", expression: "* * * * *", syncKey: "sportmonks-live" },
-  { key: "kickon-post-match-football-sync", name: "경기 종료 후 동기화", role: "종료 경기 기록과 순위 보강", expression: "*/5 * * * *", syncKey: `sportmonks-post-match-${CURRENT_SEASON}` },
-  { key: "kickon-initial-football-history-backfill", name: "과거 시즌 초기 적재", role: `2024~${CURRENT_SEASON} 시즌 누락 데이터 재시도`, expression: "*/5 * * * *", syncKey: `sportmonks-history-2024-${CURRENT_SEASON}` },
-  { key: "kickon-football-provider-usage-retention", name: "API 사용 기록 정리", role: "60일이 지난 SportsMonks 호출 기록 삭제", expression: "17 3 * * *", syncKey: null },
-  { key: "kickon-fixture-cheer-retention", name: "경기 응원 메시지 정리", role: "48시간이 지난 경기 응원 메시지 삭제", expression: "43 3 * * *", syncKey: null },
-] as const;
-
 const COUNT_TABLES = [
   ["teams", "구단"],
   ["team_players", "선수 시즌 레코드"],
@@ -213,127 +173,40 @@ function isMissingAdminRpc(code?: string) {
   return code === "PGRST202" || code === "42883" || code === "42501";
 }
 
-function nextCronRun(expression: string, now = new Date()) {
-  const next = new Date(now);
-  next.setUTCSeconds(0, 0);
-
-  if (expression === "* * * * *") {
-    next.setUTCMinutes(next.getUTCMinutes() + 1);
-    return next.toISOString();
-  }
-  if (expression === "*/5 * * * *") {
-    next.setUTCMinutes(Math.floor(next.getUTCMinutes() / 5) * 5 + 5);
-    return next.toISOString();
-  }
-
-  const hourly = expression.match(/^(\d{1,2}) \* \* \* \*$/);
-  if (hourly) {
-    const minute = Number(hourly[1]);
-    next.setUTCMinutes(minute);
-    if (next <= now) next.setUTCHours(next.getUTCHours() + 1);
-    return next.toISOString();
-  }
-
-  const daily = expression.match(/^(\d{1,2}) (\d{1,2}) \* \* \*$/);
-  if (daily) {
-    next.setUTCHours(Number(daily[2]), Number(daily[1]), 0, 0);
-    if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
-    return next.toISOString();
-  }
-  return null;
-}
-
-function cronDelayMs(expression: string) {
-  if (expression === "* * * * *") return 3 * 60_000;
-  if (expression === "*/5 * * * *") return 15 * 60_000;
-  if (/^\d{1,2} \* \* \* \*$/.test(expression)) return 3 * 60 * 60_000;
-  return 36 * 60 * 60_000;
-}
-
-function cronIsDelayed(active: boolean | null, lastFinishedAt: string | null, expression: string) {
-  if (active === false || !lastFinishedAt) return false;
-  const finishedAt = new Date(lastFinishedAt).getTime();
-  return Number.isFinite(finishedAt) && Date.now() - finishedAt > cronDelayMs(expression);
-}
-
-function cronMessage(value: string | null | undefined) {
-  return value ? value.slice(0, 2_000) : null;
-}
-
-function cronHealth(active: boolean | null, result: string | null, lastFinishedAt: string | null, delayed: boolean): HealthStatus {
-  if (active === false) return "unknown";
-  if (result && !["succeeded", "running"].includes(result.toLowerCase())) return "danger";
-  if (result?.toLowerCase() === "running") return "warning";
-  if (!lastFinishedAt) return "unknown";
-  if (delayed) return "warning";
-  return "normal";
-}
+const CRON_STATE_HEALTH: Record<CronJobState, HealthStatus> = {
+  normal: "normal",
+  running: "warning",
+  delayed: "warning",
+  failed: "danger",
+  missing: "unknown",
+  waiting: "unknown",
+  inactive: "unknown",
+  unknown: "unknown",
+};
 
 export const getCronData = cache(async (): Promise<CronData> => {
   const connection = getSupabaseConnection();
   const client = await getAdminReadClient();
-  if (!client) {
-    return {
-      jobs: CRON_CATALOG.map((job) => ({
-        key: job.key, name: job.name, role: job.role, expression: job.expression,
-        environment: connection.environment, active: null, lastStartedAt: null, lastFinishedAt: null,
-        nextRunAt: nextCronRun(job.expression), durationMs: null, lastResult: null, lastMessage: null,
-        failureCount24h: null, status: "unknown", delayed: false, source: "migration",
-      })),
-      environment: connection.environment,
-      runtimeConnected: false,
-      error: "Supabase 환경 변수가 설정되지 않았습니다.",
-    };
-  }
-
-  const [cronResult, syncResult] = await Promise.all([
-    client.rpc("get_admin_cron_jobs"),
-    client.from("football_sync_state").select("sync_key,last_attempted_at,last_succeeded_at,last_error"),
-  ]);
-  const runtimeRows = (cronResult.data ?? []) as CronRpcRow[];
-  const runtimeByKey = new Map(runtimeRows.map((row) => [row.job_name, row]));
-  const syncByKey = new Map(((syncResult.data ?? []) as SyncStateRow[]).map((row) => [row.sync_key, row]));
-
-  const jobs = CRON_CATALOG.map((definition): CronJobRecord => {
-    const runtime = runtimeByKey.get(definition.key);
-    const sync = definition.syncKey ? syncByKey.get(definition.syncKey) : null;
-    const lastStartedAt = runtime?.last_started_at ?? sync?.last_attempted_at ?? null;
-    const lastFinishedAt = runtime?.last_finished_at ?? sync?.last_succeeded_at ?? null;
-    const lastResult = runtime?.last_status ?? (sync?.last_error ? "failed" : sync?.last_succeeded_at ? "succeeded" : null);
-    const expression = runtime?.schedule ?? definition.expression;
-    const active = runtime?.active ?? null;
-    const delayed = cronIsDelayed(active, lastFinishedAt, expression);
-    return {
-      key: definition.key,
-      name: definition.name,
-      role: definition.role,
-      expression,
-      environment: connection.environment,
-      active,
-      lastStartedAt,
-      lastFinishedAt,
-      nextRunAt: nextCronRun(expression),
-      durationMs: runtime?.last_started_at && runtime.last_finished_at
-        ? Math.max(0, new Date(runtime.last_finished_at).getTime() - new Date(runtime.last_started_at).getTime())
-        : null,
-      lastResult,
-      lastMessage: cronMessage(runtime?.last_message ?? sync?.last_error),
-      failureCount24h: runtime?.failure_count_24h ?? null,
-      status: cronHealth(active, lastResult, lastFinishedAt, delayed),
-      delayed,
-      source: runtime ? "pg_cron" : "migration",
-    };
-  });
+  const cronResult = client ? await client.rpc("get_admin_cron_jobs") : null;
+  const rows = cronResult && !cronResult.error ? (cronResult.data ?? []) as CronRuntimeRow[] : null;
+  const jobs = buildCronJobs(rows).map((job): CronJobRecord => ({
+    ...job,
+    environment: connection.environment,
+    status: CRON_STATE_HEALTH[job.state],
+    source: job.registered ? "pg_cron" : "migration",
+  }));
 
   return {
     jobs,
     environment: connection.environment,
-    runtimeConnected: !cronResult.error,
-    error: cronResult.error
-      ? isMissingAdminRpc(cronResult.error.code)
-        ? "관리자 크론 조회 RPC 적용이 필요합니다. 현재는 마이그레이션에 선언된 작업만 표시합니다."
-        : "pg_cron 실행 상태를 조회할 수 없습니다."
-      : null,
+    runtimeConnected: rows !== null,
+    error: !client
+      ? "Supabase 환경 변수가 설정되지 않았습니다."
+      : cronResult?.error
+        ? isMissingAdminRpc(cronResult.error.code)
+          ? "관리자 크론 조회 RPC 적용이 필요합니다. 현재는 마이그레이션에 선언된 작업만 표시합니다."
+          : "pg_cron 실행 상태를 조회할 수 없습니다."
+        : null,
   };
 });
 
