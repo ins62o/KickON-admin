@@ -142,8 +142,8 @@ test("일정 카드에서 일정과 경기 정보를 각각 모달로 수정한�
 test("경기 정보 수정 이유는 상한 없이 저장된다", () => {
   const migrationNames = readdirSync(migrationsDirectory).filter((name) => name.endsWith(".sql")).sort();
   assert.ok(migrationNames.indexOf(longReasonMigrationName) > migrationNames.indexOf("202609120006_preserve_verified_player_names_on_sync.sql"));
-  assert.match(entityOverrideControl, /name="reason" defaultValue=\{defaultReason\} minLength=\{3\} required/);
-  assert.match(actions, /if \(reason\.length < 3\) return \{ status: "error", message: "수정 이유를 3자 이상 입력해 주세요\./);
+  assert.match(entityOverrideControl, /name="reason" defaultValue=\{defaultReason\} className/);
+  assert.match(actions, /reasonOrDefault\(formData\.get\("reason"\), "경기 정보 수정", Number\.POSITIVE_INFINITY\)/);
   assert.match(longReasonMigration, /check \(char_length\(reason\) >= 3\)/);
   assert.doesNotMatch(longReasonMigration, /char_length\(p_reason\) > 1000/);
 });

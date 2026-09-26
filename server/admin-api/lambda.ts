@@ -2,6 +2,7 @@ import { CURRENT_SEASON, isLeagueId, SUPPORTED_LEAGUES, seasonBounds, type Leagu
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { hasAdminPermission, isAdminRole, type AdminRole } from "../../src/lib/auth/permissions.ts";
 import { getSyncOperation } from "../../src/lib/sync/catalog.ts";
+import { reasonOrDefault } from "../../src/lib/admin/reason.ts";
 import { getSupabaseProjectMetrics } from "./project-metrics.ts";
 import { getSupabaseStorageUsage } from "./storage-usage.ts";
 
@@ -196,13 +197,12 @@ async function runUserAccountAction(context: AdminContext, payload: Record<strin
 
   const userId = String(payload.userId ?? "").trim();
   const action = String(payload.action ?? "").trim().toUpperCase();
-  const reason = String(payload.reason ?? "").trim();
+  const reason = reasonOrDefault(payload.reason, action === "ACCOUNT_SUSPEND" ? "계정 정지" : "계정 정지 해제");
   const reportId = String(payload.reportId ?? "").trim();
   const suspensionDays = Number(payload.suspensionDays);
   if (!uuidPattern.test(userId) || !["ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) {
     throw new Error("사용자 또는 계정 조치 유형이 올바르지 않습니다.");
   }
-  if (reason.length < 3 || reason.length > 1_000) throw new Error("조치 사유를 3자 이상 1,000자 이하로 입력해 주세요.");
   if (reportId && !uuidPattern.test(reportId)) throw new Error("연결할 신고 ID가 올바르지 않습니다.");
   if (action === "ACCOUNT_SUSPEND" && (!Number.isInteger(suspensionDays) || !allowedSuspensionDays.has(suspensionDays))) {
     throw new Error("정지 기간을 선택해 주세요.");
@@ -262,12 +262,11 @@ async function runSync(context: AdminContext, payload: Record<string, unknown>) 
   if (season !== CURRENT_SEASON) throw new Error("동기화할 시즌을 확인해 주세요.");
   const operationKey = String(payload.operation ?? "");
   const operation = getSyncOperation(operationKey);
-  const reason = String(payload.reason ?? "").trim();
+  const reason = reasonOrDefault(payload.reason, `${operation?.label ?? "데이터"} 동기화 실행`, 500);
   const teamId = String(payload.teamId ?? "").trim();
   const fixtureId = String(payload.fixtureId ?? "").trim();
   const confirmedLowQuota = payload.confirmLowQuota === "yes";
   if (!operation) throw new Error("지원하지 않는 동기화 작업입니다.");
-  if (reason.length < 3 || reason.length > 500) throw new Error("실행 이유를 3자 이상 500자 이하로 입력해 주세요.");
   const targetId = operation.target === "team" ? teamId : operation.target === "fixture" ? fixtureId : null;
   const leagueId = await resolveTargetLeague(context.client, operation.target, targetId, season);
   const configs = leagueId === "all"

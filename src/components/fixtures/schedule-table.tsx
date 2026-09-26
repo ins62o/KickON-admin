@@ -258,7 +258,7 @@ function FixtureScheduleForm({ fixture, stadiums, onSuccess }: { fixture: Fixtur
         <div className="space-y-2"><label htmlFor={`fixture-longitude-${fixture.id}`} className="text-xs font-medium">경도</label><Input id={`fixture-longitude-${fixture.id}`} name="longitude" type="number" min={-180} max={180} step="any" value={longitude} onChange={(event) => setLongitude(event.target.value)} required className="h-12 rounded-xl px-3.5" /></div>
       </div>
     </div>
-    <div className="space-y-2.5"><label htmlFor={`fixture-reason-${fixture.id}`} className="block text-sm font-semibold">수정 이유</label><Textarea id={`fixture-reason-${fixture.id}`} name="reason" minLength={3} maxLength={1000} required className="min-h-24 rounded-xl px-3.5 py-3" placeholder="예: 경기 일정 및 경기장 변경" /></div>
+    <div className="space-y-2.5"><label htmlFor={`fixture-reason-${fixture.id}`} className="block text-sm font-semibold">수정 이유 (선택)</label><Textarea id={`fixture-reason-${fixture.id}`} name="reason" maxLength={1000} className="min-h-24 rounded-xl px-3.5 py-3" placeholder="예: 경기 일정 및 경기장 변경" /></div>
     {state.status === "error" && state.message ? <p role="alert" className="text-xs text-rose-300">{state.message}</p> : null}
     <DialogFooter className="mx-0 mb-0 rounded-lg px-0 pb-0"><DialogClose asChild><Button type="button" variant="outline" className="px-5" disabled={pending}>취소</Button></DialogClose><Button type="submit" className="px-6" disabled={pending || !stadiumId}>{pending ? "저장 중" : "일정 저장"}</Button></DialogFooter>
   </form>;

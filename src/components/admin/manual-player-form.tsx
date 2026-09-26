@@ -67,7 +67,7 @@ export function ManualPlayerForm({ teams }: { teams: Array<{ id: string; name: s
     <FormField label="영어 이름" htmlFor="manual-player-name"><Input id="manual-player-name" name="playerName" required maxLength={120} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
     <FormField label="한국 이름" htmlFor="manual-player-name-ko"><Input id="manual-player-name-ko" name="displayNameKo" maxLength={120} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
     <FormField label="등번호" htmlFor="manual-player-number" className="sm:col-span-2"><Input id="manual-player-number" name="shirtNumber" type="number" min={0} max={999} className="h-11 rounded-xl px-3.5 text-sm" /></FormField>
-    <FormField label="등록 사유" htmlFor="manual-player-reason" className="sm:col-span-2"><Textarea id="manual-player-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></FormField>
+    <FormField label="등록 사유 (선택)" htmlFor="manual-player-reason" className="sm:col-span-2"><Textarea id="manual-player-reason" name="reason" maxLength={1000} rows={4} className="min-h-28 rounded-xl px-3.5 py-3 text-sm" placeholder="내용을 입력하세요." /></FormField>
     <div className="sm:col-span-2">{state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-sm text-danger" : "text-sm text-success"}>{state.message}</p> : null}<div className="mt-4 flex justify-end"><ActionSubmit className="h-11 px-6 text-sm">선수 등록</ActionSubmit></div></div>
   </form>;
 }

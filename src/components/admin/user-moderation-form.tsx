@@ -78,8 +78,8 @@ export function UserModerationForm({ userId, nickname, accountStatus, reportId }
       </div>
     </div>
     <div className="space-y-2">
-      <label htmlFor="user-moderation-reason" className="block text-sm font-medium">조치 사유</label>
-      <Textarea id="user-moderation-reason" name="reason" required minLength={3} maxLength={1000} rows={4} className="min-h-28 px-4 py-3.5 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
+      <label htmlFor="user-moderation-reason" className="block text-sm font-medium">조치 사유 (선택)</label>
+      <Textarea id="user-moderation-reason" name="reason" maxLength={1000} rows={4} className="min-h-28 px-4 py-3.5 text-sm" placeholder="사용자 조치 근거와 확인 내용을 입력하세요." />
     </div>
     {state.message ? <p role={state.status === "error" ? "alert" : "status"} className={state.status === "error" ? "text-xs text-danger" : "text-xs text-success"}>{state.message}</p> : null}
     <div className="flex justify-end"><ActionSubmit pendingLabel="적용 중…" className="inline-flex h-11! min-w-32 items-center justify-center px-6 text-base leading-none" variant={destructiveAction ? "destructive" : accountSuspended || communitySuspended ? "outline" : "default"}>적용</ActionSubmit></div>

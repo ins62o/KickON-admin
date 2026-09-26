@@ -6,6 +6,7 @@ import { hasAdminPermission, type AdminPermission } from "@/lib/auth/permissions
 import { invalidateAdminData } from "@/lib/client-data";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { callAdminAction } from "@/lib/admin-api";
+import { reasonOrDefault } from "@/lib/admin/reason";
 import {
   buildCommunityNoticeRpcArgs,
   communityNoticeErrorMessage,
@@ -109,11 +110,10 @@ export async function applyUserModerationAction(_state: AdminActionState, formDa
   if (context.error) return { status: "error", message: context.error };
   const userId = textValue(formData, "userId", 36);
   const action = textValue(formData, "action", 20).toUpperCase();
-  const reason = textValue(formData, "reason", 1000);
+  const reason = reasonOrDefault(formData.get("reason"), "사용자 조치");
   const suspensionDays = Number(textValue(formData, "suspensionDays", 3));
   const reportIdInput = textValue(formData, "reportId", 36);
   if (!uuidPattern.test(userId) || !["SUSPEND", "UNSUSPEND", "ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) return { status: "error", message: "사용자 또는 조치 유형이 올바르지 않습니다." };
-  if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "조치 사유를 3자 이상 1,000자 이하로 입력해 주세요." };
   let suspendedUntil: string | null = null;
   if (["SUSPEND", "ACCOUNT_SUSPEND"].includes(action)) {
     if (!Number.isInteger(suspensionDays) || !allowedSuspensionDays.has(suspensionDays)) return { status: "error", message: "정지 기간을 선택해 주세요." };
@@ -143,11 +143,11 @@ export async function updateContentReportAction(_state: AdminActionState, formDa
   if (context.error) return { status: "error", message: context.error };
   const reportId = textValue(formData, "reportId", 36);
   const status = textValue(formData, "status", 20);
-  const resolutionNote = textValue(formData, "resolutionNote", 2000);
-  const reason = textValue(formData, "reason", 1000);
+  const reason = reasonOrDefault(formData.get("reason"), "신고 처리 상태 변경");
   if (!uuidPattern.test(reportId) || !["OPEN", "REVIEWED", "RESOLVED", "DISMISSED"].includes(status)) return { status: "error", message: "신고 또는 처리 상태가 올바르지 않습니다." };
-  if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "변경 사유를 3자 이상 1,000자 이하로 입력해 주세요." };
-  if (["RESOLVED", "DISMISSED"].includes(status) && resolutionNote.length === 0) return { status: "error", message: "완료 또는 기각에는 처리 메모가 필요합니다." };
+  const resolutionNote = ["RESOLVED", "DISMISSED"].includes(status)
+    ? reasonOrDefault(formData.get("resolutionNote"), status === "DISMISSED" ? "신고 기각" : "신고 처리 완료", 2000)
+    : textValue(formData, "resolutionNote", 2000);
   const result = await context.supabase.rpc("admin_update_content_report", { p_report_id: reportId, p_status: status, p_resolution_note: resolutionNote || null, p_reason: reason });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
@@ -160,10 +160,9 @@ export async function setContentVisibilityAction(_state: AdminActionState, formD
   const targetType = textValue(formData, "targetType", 30);
   const targetId = textValue(formData, "targetId", 36);
   const reportId = textValue(formData, "reportId", 36);
-  const reason = textValue(formData, "reason", 1000);
   const hidden = textValue(formData, "hidden", 8) === "true";
+  const reason = reasonOrDefault(formData.get("reason"), hidden ? "콘텐츠 숨김" : "콘텐츠 복원");
   if (!uuidPattern.test(targetId) || !uuidPattern.test(reportId) || !["POST", "COMMENT", "FIXTURE_CHEER"].includes(targetType)) return { status: "error", message: "신고 대상 정보가 올바르지 않습니다." };
-  if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "숨김·복원 사유를 3자 이상 1,000자 이하로 입력해 주세요." };
   const result = await context.supabase.rpc("admin_set_content_visibility", { p_target_type: targetType, p_target_id: targetId, p_hidden: hidden, p_reason: reason, p_content_report_id: reportId });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
@@ -181,10 +180,10 @@ export async function createManualPlayerAction(_state: AdminActionState, formDat
   const positionInput = textValue(formData, "position", 80);
   const position = positionInput === "__none" ? "" : positionInput;
   const detailedPosition = textValue(formData, "detailedPosition", 80);
-  const reason = textValue(formData, "reason", 1000);
+  const reason = reasonOrDefault(formData.get("reason"), "선수 직접 등록");
   const shirtNumberInput = textValue(formData, "shirtNumber", 4);
   const shirtNumber = shirtNumberInput === "" ? null : Number(shirtNumberInput);
-  if (!teamId || playerName.length < 1 || reason.length < 3 || reason.length > 1000) return { status: "error", message: "팀, 선수 이름과 3자 이상의 등록 사유를 입력해 주세요." };
+  if (!teamId || playerName.length < 1) return { status: "error", message: "팀과 선수 이름을 입력해 주세요." };
   if (shirtNumber !== null && (!Number.isInteger(shirtNumber) || shirtNumber < 0 || shirtNumber > 999)) return { status: "error", message: "등번호는 0~999 정수로 입력해 주세요." };
   const result = await context.supabase.rpc("admin_create_manual_player", { p_team_id: teamId, p_player_name: playerName, p_reason: reason, p_display_name_ko: displayNameKo || null, p_shirt_number: shirtNumber, p_position: position || null, p_detailed_position: detailedPosition || null, p_season: scope.season, p_league_id: scope.leagueId });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
@@ -199,8 +198,8 @@ export async function setVerifiedPlayerNameAction(_state: AdminActionState, form
   if (context.error) return { status: "error", message: context.error };
   const playerId = textValue(formData, "playerId", 120);
   const nameKo = textValue(formData, "nameKo", 120);
-  const reason = textValue(formData, "reason", 1000);
-  if (!playerId || !nameKo || reason.length < 3 || reason.length > 1000) return { status: "error", message: "검증할 한글 이름과 3자 이상의 변경 사유를 입력해 주세요." };
+  const reason = reasonOrDefault(formData.get("reason"), "검증 한글명 변경");
+  if (!playerId || !nameKo) return { status: "error", message: "검증할 한글 이름을 입력해 주세요." };
   const result = await context.supabase.rpc("admin_set_verified_player_name", { p_provider_player_id: playerId, p_season: scope.season, p_league_id: scope.leagueId, p_name_ko: nameKo, p_reason: reason });
   if (result.error) return { status: "error", message: safeFailure(result.error.message) };
   invalidateAdminData();
@@ -213,8 +212,8 @@ export async function mergeManualPlayerAction(_state: AdminActionState, formData
   if (context.error) return { status: "error", message: context.error };
   const manualId = textValue(formData, "manualPlayerId", 120);
   const providerId = textValue(formData, "providerPlayerId", 120);
-  const reason = textValue(formData, "reason", 1000);
-  if (!scope || !manualId.startsWith("manual_") || !providerId || providerId.startsWith("manual_") || reason.length < 3) return { status: "error", message: "리그·시즌·병합 대상과 사유를 확인해 주세요." };
+  const reason = reasonOrDefault(formData.get("reason"), "직접 등록 선수 병합");
+  if (!scope || !manualId.startsWith("manual_") || !providerId || providerId.startsWith("manual_")) return { status: "error", message: "리그·시즌·병합 대상을 확인해 주세요." };
   const result = await context.supabase.rpc("admin_merge_manual_player", { p_manual_player_id: manualId, p_provider_player_id: providerId, p_season: scope.season, p_league_id: scope.leagueId, p_reason: reason });
   if (result.error || result.data !== true) return { status: "error", message: "선수를 병합하지 못했습니다. 리그와 검증 한글명을 확인해 주세요." };
   invalidateAdminData();

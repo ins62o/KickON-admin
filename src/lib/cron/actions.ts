@@ -4,6 +4,7 @@ import { getCurrentBrowserAdmin } from "@/lib/auth/client-session";
 import { invalidateAdminData } from "@/lib/client-data";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cronMaintenanceJobs, isCronMaintenanceJobKey } from "./catalog";
+import { reasonOrDefault } from "@/lib/admin/reason";
 import { getActiveConsoleEnvironment } from "@/lib/environment";
 
 export type CronMaintenanceActionState = {
@@ -20,12 +21,11 @@ function safeErrorText(value: string) {
 export async function runCronMaintenanceAction(_previous: CronMaintenanceActionState, formData: FormData): Promise<CronMaintenanceActionState> {
   const admin = await getCurrentBrowserAdmin();
   const jobKey = String(formData.get("jobKey") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "보관 기록 정리", 500);
 
   if (!isCronMaintenanceJobKey(jobKey)) return { status: "error", message: "허용되지 않은 보관 정리 작업입니다.", jobKey, runId: null };
   if (!admin) return { status: "error", message: "관리자 세션을 다시 확인해 주세요.", jobKey, runId: null };
   if (admin.role !== "admin" && admin.role !== "super_admin") return { status: "error", message: "보관 정리에는 관리자 이상의 권한이 필요합니다.", jobKey, runId: null };
-  if (reason.length < 3 || reason.length > 500) return { status: "error", message: "실행 이유를 3자 이상 500자 이하로 입력해 주세요.", jobKey, runId: null };
 
   const supabase = getBrowserSupabaseClient();
   if (!supabase) return { status: "error", message: "운영 데이터 연결 설정이 없습니다.", jobKey, runId: null };

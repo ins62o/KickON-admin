@@ -1,5 +1,6 @@
 "use client";
 
+import { reasonOrDefault } from "@/lib/admin/reason";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export type AppRelease = {
@@ -43,11 +44,10 @@ export async function getLatestAppReleaseChange(platform: AppRelease["platform"]
 }
 
 export async function cancelAppRelease(platform: AppRelease["platform"], auditId: string, reason: string) {
-  if (reason.trim().length < 3 || reason.trim().length > 1000) throw new Error("취소 사유를 3~1,000자로 입력해 주세요.");
   const client = getBrowserSupabaseClient();
   if (!client) throw new Error("관리자 연결을 확인해 주세요.");
   const { error } = await client.rpc("admin_cancel_app_store_release", {
-    target_platform: platform, target_audit_id: auditId, change_reason: reason.trim(),
+    target_platform: platform, target_audit_id: auditId, change_reason: reasonOrDefault(reason, "앱 업데이트 설정 저장 취소"),
   });
   if (error?.code === "40001") throw new Error("설정이 이미 변경됐습니다. 창을 다시 열어 최신 설정을 확인해 주세요.");
   if (error) throw new Error("저장 취소에 실패했습니다. 관리자 권한과 서버 연결을 확인해 주세요.");
@@ -63,13 +63,12 @@ export async function getAppReleases(): Promise<AppRelease[]> {
 }
 
 export async function saveAppRelease(platform: AppRelease["platform"], version: string, enabled: boolean, reason: string) {
-  if (!/^\d+(?:\.\d+){0,3}$/.test(version) || reason.trim().length < 3 || reason.trim().length > 1000)
-    throw new Error("버전 형식과 변경 사유를 확인해 주세요.");
+  if (!/^\d+(?:\.\d+){0,3}$/.test(version)) throw new Error("버전 형식을 확인해 주세요.");
   const client = getBrowserSupabaseClient();
   if (!client) throw new Error("관리자 연결을 확인해 주세요.");
   const { error } = await client.rpc("admin_set_app_store_release", {
     target_platform: platform, release_version: version,
-    release_enabled: enabled, change_reason: reason.trim(),
+    release_enabled: enabled, change_reason: reasonOrDefault(reason, "앱 업데이트 설정 저장"),
   });
   if (error) throw new Error("저장하지 못했습니다. 관리자 권한과 서버 연결을 확인해 주세요.");
 }
