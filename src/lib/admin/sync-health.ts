@@ -20,10 +20,24 @@ function syncRunScope(row: RecentSyncRunRow) {
   ].join(":");
 }
 
+function isFailedRun(row: RecentSyncRunRow) {
+  return row.status === "failed" || (
+    row.status === "partial" && (
+      (row.failed_count ?? 0) > 0 || Boolean(row.error_code?.trim()) || Boolean(row.error_message?.trim())
+    )
+  );
+}
+
+// A partial run without failure signals (e.g. a squad sync that completed with
+// quarantined players) recovers an earlier failure just like a full success.
+function isRecoveryRun(row: RecentSyncRunRow) {
+  return (row.status === "succeeded" || row.status === "partial") && !isFailedRun(row);
+}
+
 export function countUnrecoveredSyncFailures(rows: RecentSyncRunRow[]) {
   const latestSuccess = new Map<string, number>();
   for (const row of rows) {
-    if (row.status !== "succeeded") continue;
+    if (!isRecoveryRun(row)) continue;
     const timestamp = Date.parse(row.created_at);
     const current = latestSuccess.get(syncRunScope(row));
     if (Number.isFinite(timestamp) && (current === undefined || timestamp > current)) {
@@ -31,12 +45,7 @@ export function countUnrecoveredSyncFailures(rows: RecentSyncRunRow[]) {
     }
   }
   return rows.filter((row) => {
-    const failed = row.status === "failed" || (
-      row.status === "partial" && (
-        (row.failed_count ?? 0) > 0 || Boolean(row.error_code?.trim()) || Boolean(row.error_message?.trim())
-      )
-    );
-    if (!failed) return false;
+    if (!isFailedRun(row)) return false;
     const recoveredAt = latestSuccess.get(syncRunScope(row));
     return recoveredAt === undefined || recoveredAt <= Date.parse(row.created_at);
   }).length;

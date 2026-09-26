@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 
+import { parseActiveUserTrend, type ActiveUserTrend } from "@/lib/admin/active-users";
 import { getServiceAccountIds } from "@/lib/admin/user-visibility";
 import {
   countUnrecoveredSyncFailures,
@@ -551,6 +552,14 @@ function countValue(result: { count: number | null; error: DatabaseError | null 
   return result.error ? null : result.count;
 }
 
+function loadRecentSyncRuns(client: SupabaseClient, since: string) {
+  return client
+    .from("sync_runs")
+    .select("job_key,status,failed_count,error_code,error_message,metadata,created_at")
+    .in("status", ["succeeded", "failed", "partial"])
+    .gte("created_at", since);
+}
+
 async function getRecentFootballSyncFailureCount(
   client: SupabaseClient,
   since: string,
@@ -678,9 +687,10 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
   };
   if (!client) return unavailable;
 
-  const [summaryRpc, syncStateFailureResult, authProviders, adminUserIds] = await Promise.all([
+  const [summaryRpc, syncStateFailureResult, recentSyncRuns, authProviders, adminUserIds] = await Promise.all([
     client.rpc("admin_get_dashboard_summary"),
     getRecentFootballSyncFailureCount(client, twentyFourHoursAgo),
+    loadRecentSyncRuns(client, twentyFourHoursAgo),
     loadAdminUserAuthProviders(client),
     loadAdminUserIds(client),
   ]);
@@ -697,9 +707,13 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
       };
     }
 
-    const failedRunCount = summaryRpc.data.syncAvailable
-      ? summaryRpc.data.failedSyncCount
-      : null;
+    // Count from sync_runs so a clean partial run also clears an earlier
+    // failure; the RPC only treats 'succeeded' as recovery.
+    const failedRunCount = !recentSyncRuns.error
+      ? countUnrecoveredSyncFailures((recentSyncRuns.data ?? []) as RecentSyncRunRow[])
+      : summaryRpc.data.syncAvailable
+        ? summaryRpc.data.failedSyncCount
+        : null;
     const failedSyncCount24h = availableFailureCount(
       failedRunCount,
       syncStateFailureResult.count,
@@ -733,26 +747,19 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
     };
   }
 
-  const [profilesResult, failedSyncResult] = await Promise.all([
-    client
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .not("registration_completed_at", "is", null),
-    client
-      .from("sync_runs")
-      .select("job_key,status,failed_count,error_code,error_message,metadata,created_at")
-      .in("status", ["succeeded", "failed", "partial"])
-      .gte("created_at", twentyFourHoursAgo),
-  ]);
+  const profilesResult = await client
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .not("registration_completed_at", "is", null);
 
   const rawTotalProfiles = countValue(profilesResult);
   const totalProfiles = rawTotalProfiles === null || excludedProfileCount === null
     ? null
     : Math.max(0, rawTotalProfiles - excludedProfileCount);
   const failedSyncCount24h = availableFailureCount(
-    failedSyncResult.error
+    recentSyncRuns.error
       ? null
-      : countUnrecoveredSyncFailures((failedSyncResult.data ?? []) as RecentSyncRunRow[]),
+      : countUnrecoveredSyncFailures((recentSyncRuns.data ?? []) as RecentSyncRunRow[]),
     syncStateFailureResult.count,
   );
   const syncUnavailable = failedSyncCount24h === null;
@@ -1701,3 +1708,23 @@ export const getModerationData = cache(async (): Promise<AdminModerationData> =>
       : ["신고 대상 콘텐츠의 moderation_status가 없어 레거시 콘텐츠 스키마로 조회했습니다."],
   };
 });
+
+export type AdminActiveUserTrendData =
+  | { status: "ready"; trend: ActiveUserTrend }
+  | { status: "not-ready" | "error"; message: string };
+
+export async function getAdminActiveUserTrend(): Promise<AdminActiveUserTrendData> {
+  const client = await getOperationsClient();
+  if (!client) return { status: "error", message: "Supabase 연결을 확인해 주세요." };
+
+  const { data, error } = await client.rpc("admin_get_active_user_trend");
+  if (error) {
+    return isOperationsSchemaMissing(error.code)
+      ? { status: "not-ready", message: "이용자 수를 세기 위한 DB 업데이트가 아직 적용되지 않았습니다." }
+      : { status: "error", message: "잠시 후 다시 시도해 주세요." };
+  }
+  const trend = parseActiveUserTrend(data);
+  return trend
+    ? { status: "ready", trend }
+    : { status: "error", message: "받아온 데이터 형식이 맞지 않습니다." };
+}

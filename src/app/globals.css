@@ -69,6 +69,8 @@
   --gauge-danger: #d43f4e;
   --gauge-track: #dce4ee;
   --border: #d5dee9;
+  --series-mau: #2a78d6;
+  --series-dau: #eb6834;
   --input: #d5dee9;
   --ring: #006acc;
   --radius: 0.7rem;
@@ -107,6 +109,8 @@
   --gauge-danger: #ff6b6b;
   --gauge-track: #1c2a3b;
   --border: #203044;
+  --series-mau: #3987e5;
+  --series-dau: #d95926;
   --input: #2a3c51;
   --ring: #2b95f6;
 }

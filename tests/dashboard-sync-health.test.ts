@@ -49,3 +49,29 @@ test("운영 대시보드 RPC도 같은 범위의 후속 성공을 복구로 처
   assert.match(migration, /recovered_run\.metadata ->> ''operationKey''/);
   assert.match(migration, /recovered_run\.metadata ->> ''leagueId''/);
 });
+
+function squadRun(status: string, createdAt: string, failed = status === "failed"): RecentSyncRunRow {
+  return {
+    job_key: "team-squad:2026:kleague:ulsan",
+    status,
+    failed_count: failed ? 1 : 0,
+    error_code: failed ? "SQUAD_SYNC_FAILED" : null,
+    error_message: failed ? "current squad reconciliation scope conflict" : null,
+    metadata: { team: "ulsan", league: "kleague", season: 26894 },
+    created_at: createdAt,
+  };
+}
+
+test("격리만 있고 실패가 없는 partial 동기화도 이전 실패를 복구로 처리한다", () => {
+  assert.equal(countUnrecoveredSyncFailures([
+    squadRun("failed", "2026-09-26T12:00:58Z"),
+    squadRun("partial", "2026-09-26T12:17:04Z"),
+  ]), 0);
+});
+
+test("실패 신호가 있는 partial 동기화는 복구로 보지 않고 실패로 센다", () => {
+  assert.equal(countUnrecoveredSyncFailures([
+    squadRun("failed", "2026-09-26T12:00:58Z"),
+    squadRun("partial", "2026-09-26T12:17:04Z", true),
+  ]), 2);
+});
