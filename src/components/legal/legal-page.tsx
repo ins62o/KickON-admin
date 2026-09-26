@@ -31,12 +31,16 @@ export function LegalPage({
   title,
   description,
   effectiveDate,
+  version,
+  lastUpdatedDate,
   sections,
   aside,
 }: {
   title: string;
   description: string;
   effectiveDate: string;
+  version?: string;
+  lastUpdatedDate?: string;
   sections: LegalSection[];
   aside?: ReactNode;
 }) {
@@ -47,7 +51,24 @@ export function LegalPage({
           <p className="text-sm font-semibold text-primary">KICKON 이용자 안내</p>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">{title}</h1>
           <p className="mt-4 text-sm leading-7 text-muted-foreground md:whitespace-nowrap md:text-[13px] lg:text-sm xl:text-base">{description}</p>
-          <p className="mt-5 text-xs font-medium text-muted-foreground">시행일 {effectiveDate}</p>
+          <dl className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-xs font-medium text-muted-foreground">
+            {version ? (
+              <div className="flex gap-1.5">
+                <dt>버전</dt>
+                <dd>{version}</dd>
+              </div>
+            ) : null}
+            <div className="flex gap-1.5">
+              <dt>시행일</dt>
+              <dd>{effectiveDate}</dd>
+            </div>
+            {lastUpdatedDate ? (
+              <div className="flex gap-1.5">
+                <dt>최종 수정일</dt>
+                <dd>{lastUpdatedDate}</dd>
+              </div>
+            ) : null}
+          </dl>
         </div>
 
         {aside ? <div className="mt-8">{aside}</div> : null}

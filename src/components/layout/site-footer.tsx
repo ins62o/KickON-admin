@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const footerLinks = [
+  { href: "/terms", label: "이용약관" },
   { href: "/privacy", label: "개인정보 처리방침" },
   { href: "/account-deletion", label: "계정 삭제 요청" },
 ];
