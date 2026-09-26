@@ -6,10 +6,11 @@ import type { AdminRole } from "@/lib/auth/permissions";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { invalidateAdminData } from "@/lib/client-data";
 import { isOperationsSchemaMissing } from "@/lib/data/operations-client";
-import { formatPlayerUpdateErrorLog, getPlayerUpdateErrorMessage } from "@/lib/operations/player-update-errors";
+import { formatPlayerUpdateErrorLog, getPlayerDeleteErrorMessage, getPlayerUpdateErrorMessage } from "@/lib/operations/player-update-errors";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import type { PlayerChangeStatus, PlayerChangeType } from "@/lib/data/player-operations";
 import type { ReportPriority, ReportStatus } from "@/lib/data/reports";
+import { reasonOrDefault } from "@/lib/admin/reason";
 
 export type OperationActionState = {
   status: "idle" | "success" | "error";
@@ -58,12 +59,9 @@ export async function updateReportAction(_previous: OperationActionState, formDa
   const reportId = String(formData.get("reportId") ?? "");
   const status = String(formData.get("status") ?? "") as ReportStatus;
   const priority = String(formData.get("priority") ?? "") as ReportPriority;
-  const note = String(formData.get("note") ?? "").trim();
+  const note = reasonOrDefault(formData.get("note"), "제보 처리", 2000);
   if (!uuidPattern.test(reportId) || !reportStatuses.has(status) || !reportPriorities.has(priority)) {
     return { status: "error", message: "제보 처리 값이 올바르지 않습니다.", completedAt: null };
-  }
-  if (note.length < 3 || note.length > 2000) {
-    return { status: "error", message: "처리 메모를 3자 이상 2,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const isFinal = status === "resolved" || status === "rejected";
@@ -88,12 +86,9 @@ export async function updateErrorGroupAction(_previous: OperationActionState, fo
 
   const groupId = String(formData.get("groupId") ?? "");
   const status = String(formData.get("status") ?? "");
-  const note = String(formData.get("note") ?? "").trim();
+  const note = reasonOrDefault(formData.get("note"), "오류 처리", 2000);
   if (!uuidPattern.test(groupId) || !errorStatuses.has(status)) {
     return { status: "error", message: "오류 처리 값이 올바르지 않습니다.", completedAt: null };
-  }
-  if (note.length < 3 || note.length > 2000) {
-    return { status: "error", message: "처리 메모를 3자 이상 2,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const isFinal = status === "resolved" || status === "ignored";
@@ -119,12 +114,9 @@ export async function updatePlayerChangeAction(_previous: OperationActionState, 
   const playerId = String(formData.get("playerId") ?? "");
   const status = String(formData.get("status") ?? "") as PlayerChangeStatus;
   const changeType = String(formData.get("changeType") ?? "") as PlayerChangeType;
-  const note = String(formData.get("note") ?? "").trim();
+  const note = reasonOrDefault(formData.get("note"), "선수 변동 검토", 2000);
   if (!uuidPattern.test(changeId) || !playerIdPattern.test(playerId) || !playerChangeStatuses.has(status) || !playerChangeTypes.has(changeType)) {
     return { status: "error", message: "선수 변동 처리 값이 올바르지 않습니다.", completedAt: null };
-  }
-  if (note.length < 3 || note.length > 2000) {
-    return { status: "error", message: "처리 메모를 3자 이상 2,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const updateValues: Record<string, unknown> = {
@@ -187,7 +179,7 @@ export async function updatePlayerDetailsAction(_previous: OperationActionState,
   const positionValue = String(formData.get("position") ?? "").trim();
   const position = positionValue === "__none" ? null : positionValue || null;
   const dateOfBirth = String(formData.get("dateOfBirth") ?? "").trim() || null;
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "선수 정보 수정");
   const shirtNumber = parseNullableInteger(formData.get("shirtNumber"), "등번호", 0, 999);
   const appearances = parseRequiredInteger(formData.get("appearances"), "출전", 9999);
   const goals = parseRequiredInteger(formData.get("goals"), "득점", 9999);
@@ -206,9 +198,6 @@ export async function updatePlayerDetailsAction(_previous: OperationActionState,
   }
   for (const parsed of [shirtNumber, appearances, goals, assists, height, weight]) {
     if (!parsed.ok) return { status: "error", message: parsed.error, completedAt: null };
-  }
-  if (reason.length < 3 || reason.length > 1000) {
-    return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const { data, error } = await context.supabase.rpc("admin_update_player_details", {
@@ -249,13 +238,10 @@ export async function deletePlayerAction(_previous: OperationActionState, formDa
   const playerId = String(formData.get("playerId") ?? "").trim();
   const season = Number(String(formData.get("season") ?? ""));
   const leagueId = String(formData.get("leagueId") ?? "").trim();
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "선수 삭제");
 
   if (!playerIdPattern.test(playerId) || !Number.isInteger(season) || season < 2000 || season > 2200 || !isLeagueId(leagueId)) {
     return { status: "error", message: "삭제할 선수의 식별 정보가 올바르지 않습니다.", completedAt: null };
-  }
-  if (reason.length < 3 || reason.length > 1000) {
-    return { status: "error", message: "삭제 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const { data, error } = await context.supabase.rpc("admin_delete_player", {
@@ -265,10 +251,9 @@ export async function deletePlayerAction(_previous: OperationActionState, formDa
     p_reason: reason,
   });
   if (error) {
-    const schemaMissing = isOperationsSchemaMissing(error.code);
     return {
       status: "error",
-      message: schemaMissing ? "선수 삭제 데이터베이스 기능이 아직 적용되지 않았습니다." : "선수를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      message: getPlayerDeleteErrorMessage(error, isOperationsSchemaMissing(error.code)),
       completedAt: null,
     };
   }
@@ -289,13 +274,10 @@ export async function applyPlayerOverrideAction(_previous: OperationActionState,
 
   const playerId = String(formData.get("playerId") ?? "");
   const field = String(formData.get("field") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "선수 수정값 적용");
   const parsed = parseOverrideValue(field, String(formData.get("value") ?? ""));
   if (!playerIdPattern.test(playerId) || !overrideFields.has(field) || !parsed.ok) {
     return { status: "error", message: !parsed.ok ? parsed.error : "수동 수정 값이 올바르지 않습니다.", completedAt: null };
-  }
-  if (reason.length < 3 || reason.length > 1000) {
-    return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const { data, error } = await context.supabase.rpc("apply_player_manual_override", {
@@ -319,8 +301,8 @@ export async function releasePlayerOverrideAction(_previous: OperationActionStat
 
   const overrideId = String(formData.get("overrideId") ?? "");
   const playerId = String(formData.get("playerId") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
-  if (!uuidPattern.test(overrideId) || !playerIdPattern.test(playerId) || reason.length < 3 || reason.length > 1000) {
+  const reason = reasonOrDefault(formData.get("reason"), "선수 수정값 보호 해제");
+  if (!uuidPattern.test(overrideId) || !playerIdPattern.test(playerId)) {
     return { status: "error", message: "해제 대상과 이유를 확인해 주세요.", completedAt: null };
   }
   const { data, error } = await context.supabase.rpc("release_player_manual_override", {
@@ -352,10 +334,9 @@ export async function applyFixtureOverrideAction(_previous: OperationActionState
   if (context.error) return { status: "error", message: context.error, completedAt: null };
   const fixtureId = String(formData.get("entityId") ?? "");
   const field = String(formData.get("field") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "경기 정보 수정", Number.POSITIVE_INFINITY);
   const parsed = parseFixtureOverrideValue(field, String(formData.get("value") ?? ""));
   if (!entityIdPattern.test(fixtureId) || !fixtureOverrideFields.has(field) || !parsed.ok) return { status: "error", message: parsed.ok ? "경기 수정 값이 올바르지 않습니다." : parsed.error, completedAt: null };
-  if (reason.length < 3) return { status: "error", message: "수정 이유를 3자 이상 입력해 주세요.", completedAt: null };
   const { data, error } = await context.supabase.rpc("apply_fixture_manual_override", { p_fixture_id: fixtureId, p_league_id: leagueId, p_field_path: field, p_override_value: parsed.value, p_reason: reason });
   if (error || !data) return { status: "error", message: "경기 수동 수정값을 적용하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
@@ -378,7 +359,7 @@ export async function updateFixtureScheduleAction(_previous: OperationActionStat
   const latitude = Number(String(formData.get("latitude") ?? ""));
   const longitude = Number(String(formData.get("longitude") ?? ""));
   const radiusMeters = 300;
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "경기 일정 수정");
 
   if (!entityIdPattern.test(fixtureId) || !entityIdPattern.test(stadiumId)) {
     return { status: "error", message: "경기 또는 경기장 정보가 올바르지 않습니다.", completedAt: null };
@@ -388,9 +369,6 @@ export async function updateFixtureScheduleAction(_previous: OperationActionStat
   }
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
     return { status: "error", message: "직관 인증 좌표가 올바르지 않습니다.", completedAt: null };
-  }
-  if (reason.length < 3 || reason.length > 1000) {
-    return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
   }
 
   const { data, error } = await context.supabase.rpc("admin_update_fixture_schedule", {
@@ -429,10 +407,9 @@ export async function applyStandingOverrideAction(_previous: OperationActionStat
   if (context.error) return { status: "error", message: context.error, completedAt: null };
   const teamId = String(formData.get("entityId") ?? "");
   const field = String(formData.get("field") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = reasonOrDefault(formData.get("reason"), "순위 수정");
   const parsed = parseStandingOverrideValue(field, String(formData.get("value") ?? ""));
   if (!entityIdPattern.test(teamId) || !standingOverrideFields.has(field) || !parsed.ok) return { status: "error", message: parsed.ok ? "순위 수정 값이 올바르지 않습니다." : parsed.error, completedAt: null };
-  if (reason.length < 3 || reason.length > 1000) return { status: "error", message: "수정 이유를 3자 이상 1,000자 이하로 입력해 주세요.", completedAt: null };
   const { data, error } = await context.supabase.rpc("apply_standing_manual_override", { p_team_id: teamId, p_season: scope.season, p_league_id: scope.leagueId, p_field_path: field, p_override_value: parsed.value, p_reason: reason });
   if (error || !data) return { status: "error", message: "순위 수동 수정값을 적용하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
@@ -446,8 +423,8 @@ export async function releaseEntityOverrideAction(_previous: OperationActionStat
   const overrideId = String(formData.get("overrideId") ?? "");
   const entityId = String(formData.get("entityId") ?? "");
   const entityType = String(formData.get("entityType") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
-  if (!uuidPattern.test(overrideId) || !entityIdPattern.test(entityId) || !["fixture", "standing"].includes(entityType) || reason.length < 3 || reason.length > 1000) return { status: "error", message: "해제 대상과 이유를 확인해 주세요.", completedAt: null };
+  const reason = reasonOrDefault(formData.get("reason"), "수정값 보호 해제");
+  if (!uuidPattern.test(overrideId) || !entityIdPattern.test(entityId) || !["fixture", "standing"].includes(entityType)) return { status: "error", message: "해제 대상을 확인해 주세요.", completedAt: null };
   const { data, error } = await context.supabase.rpc("release_entity_manual_override", { p_override_id: overrideId, p_entity_type: entityType, p_release_reason: reason });
   if (error || data !== true) return { status: "error", message: "수동 수정 잠금을 해제하지 못했습니다.", completedAt: null };
   const completedAt = new Date().toISOString();
