@@ -10,6 +10,7 @@ import { ClientPageError, ClientPageLoading } from "@/components/admin/client-pa
 import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { PageHeader } from "@/components/admin/page-header";
 import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
+import { CronJobStatusSection } from "@/components/cron/cron-job-status";
 import { SyncControl } from "@/components/sync/sync-control";
 import { Button } from "@/components/ui/button";
 import { hasAdminPermission } from "@/lib/auth/permissions";
@@ -150,6 +151,8 @@ export default function DataManagementPage() {
           </div>
         </section>
       ) : null}
+
+      {canViewSync ? <CronJobStatusSection /> : null}
 
       {canViewUsage ? <Dialog open={appUpdatesOpen} onOpenChange={setAppUpdatesOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
