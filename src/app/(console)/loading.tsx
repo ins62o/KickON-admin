@@ -55,29 +55,6 @@ export default function Loading() {
       </section>
 
       <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35">
-        <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-4 sm:px-5">
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-9 rounded-md" />
-            <Skeleton className="h-5 w-32" />
-          </div>
-          <Skeleton className="h-7 w-14 rounded-md" />
-        </header>
-        <div className="p-3 sm:p-5 md:overflow-x-auto">
-          <div className="grid grid-cols-2 gap-2 overflow-hidden rounded-xl md:min-w-[1260px] md:grid-cols-7 md:gap-px md:border md:border-border/80 md:bg-border/70">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <div key={index} className="flex h-28 flex-col rounded-lg border border-border/80 bg-card px-3 py-3 last:col-span-2 md:h-36 md:rounded-none md:border-0 md:px-4 md:py-4 md:last:col-span-1">
-                <Skeleton className="size-9 rounded-lg" />
-                <Skeleton className="mt-3 h-4 w-24" />
-                <div className="mt-auto border-t border-border/60 pt-3">
-                  <Skeleton className="h-3 w-28" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35">
         <header className="flex items-center gap-3 border-b border-border/70 px-4 py-4 sm:px-5">
           <Skeleton className="size-9 rounded-md" />
           <Skeleton className="h-5 w-20" />

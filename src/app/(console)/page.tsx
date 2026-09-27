@@ -18,7 +18,6 @@ import {
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/status-badge";
 import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
 import { PageHeader } from "@/components/admin/page-header";
-import { ActiveUserTrendSection } from "@/components/dashboard/active-user-trend";
 import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
 import { SyncControl } from "@/components/sync/sync-control";
 import {
@@ -285,8 +284,6 @@ export default function AdminDashboardPage() {
           />
         </div>
       </section>
-
-      <ActiveUserTrendSection />
 
       <section
         className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35"
