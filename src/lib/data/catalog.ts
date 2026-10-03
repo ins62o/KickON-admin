@@ -52,6 +52,43 @@ export const SUPPORTED_TEAM_IDS = [
   ...KLEAGUE_TWO_TEAM_IDS,
 ] as const;
 
+// Representative colors used by the team emblems in public/teams.
+const teamColors: Record<(typeof SUPPORTED_TEAM_IDS)[number], string> = {
+  incheon: "#1d4c97",
+  seoul: "#b01313",
+  jeonbuk: "#087d3e",
+  ulsan: "#1042aa",
+  daejeon: "#007c54",
+  pohang: "#ab1515",
+  anyang: "#6520a0",
+  bucheon: "#ae1716",
+  gangwon: "#e56b1f",
+  jeju: "#ef6c00",
+  gwangju: "#f5c400",
+  gimcheon: "#b7191a",
+  daegu: "#37b6ef",
+  "suwon-fc": "#0e2b69",
+  "seoul-eland": "#23368e",
+  "chungnam-asan": "#dbba39",
+  "chungbuk-cheongju": "#0c1d60",
+  jeonnam: "#e4c014",
+  yongin: "#6d0817",
+  paju: "#091e87",
+  "cheonan-city": "#125dab",
+  "suwon-bluewings": "#113b94",
+  seongnam: "#222222",
+  gyeongnam: "#cb0e11",
+  "ansan-greeners": "#0c6b57",
+  "busan-ipark": "#a5151a",
+  gimpo: "#a6ef1a",
+  hwaseong: "#cf4f10",
+  gimhae: "#b01718",
+};
+
+export function getTeamColor(teamId: string) {
+  return teamColors[teamId as keyof typeof teamColors] ?? "#64748b";
+}
+
 export function getTeamName(teamId: string) {
   return teamNames[teamId] ?? teamId;
 }

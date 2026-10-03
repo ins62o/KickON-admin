@@ -1,0 +1,46 @@
+[
+  {
+    "id": "f30ba10d-7765-46e8-b6dc-3858062ba36c",
+    "team_id": "jeonnam",
+    "board": "TEAM",
+    "category": "NOTICE",
+    "title": "10월 24일 대구전 경기장 변경 안내",
+    "content": "10월 24일(토) 오후 2시에 예정된 전남드래곤즈와 대구FC의 경기 장소가 변경되었습니다.\n\n- 기존: 광양축구전용구장\n- 변경: 순천팔마종합운동장\n- 경기 시간: 14:00 (변경 없음)\n\n경기 관람 및 직관 인증을 이용하실 팬분들은 변경된 경기장을 확인해주세요.\n\n※ K리그 공식 발표 기준으로 반영되었습니다.",
+    "moderation_status": "VISIBLE",
+    "created_at": "2026-10-03T13:36:50.94515+00:00",
+    "author_nickname": "관리자"
+  },
+  {
+    "id": "3c4d722d-5ead-455f-959e-ffee34a28b6a",
+    "team_id": "suwon-fc",
+    "board": "TEAM",
+    "category": "NOTICE",
+    "title": "10월 25일 충남아산전 경기 장소 안내",
+    "content": "10월 25일(일) 오후 2시에 예정된 수원FC와 충남아산FC의 경기는 수원종합운동장에서 진행됩니다.\n\n- 경기장: 수원종합운동장\n- 경기 시간: 14:00\n\n기존 홈·원정 일정 조정에 따라 해당 경기는 수원FC의 홈경기로 진행됩니다.\n\n경기 관람 및 직관 인증을 이용하실 팬분들은 경기 장소를 확인해주세요.",
+    "moderation_status": "VISIBLE",
+    "created_at": "2026-10-03T13:38:25.112689+00:00",
+    "author_nickname": "관리자"
+  },
+  {
+    "id": "feb2b74c-f31d-4945-8d4c-256639650c77",
+    "team_id": "chungnam-asan",
+    "board": "TEAM",
+    "category": "NOTICE",
+    "title": "10월 25일 수원FC전 경기 장소 안내",
+    "content": "10월 25일(일) 오후 2시에 예정된 충남아산FC와 수원FC의 경기는 수원종합운동장에서 진행됩니다.\n\n- 경기장: 수원종합운동장\n- 경기 시간: 14:00\n\n기존 홈·원정 일정 조정에 따라 해당 경기는 수원FC의 홈경기로 진행됩니다.\n\n원정 관람 예정인 팬분들은 경기 장소를 확인해주세요.",
+    "moderation_status": "VISIBLE",
+    "created_at": "2026-10-03T13:39:00.978435+00:00",
+    "author_nickname": "관리자"
+  },
+  {
+    "id": "27a38d5f-1623-4044-9e4d-d7416fb0ed2b",
+    "team_id": "daegu",
+    "board": "TEAM",
+    "category": "NOTICE",
+    "title": "10월 24일 전남전 경기장 변경 안내",
+    "content": "10월 24일(토) 오후 2시에 예정된 대구FC와 전남드래곤즈의 경기 장소가 변경되었습니다.\n\n- 기존: 광양축구전용구장\n- 변경: 순천팔마종합운동장\n- 경기 시간: 14:00 (변경 없음)\n\n원정 관람 예정인 팬분들은 변경된 경기장을 확인해주세요.\n\n※ K리그 공식 발표 기준으로 반영되었습니다.",
+    "moderation_status": "VISIBLE",
+    "created_at": "2026-10-03T13:37:46.250635+00:00",
+    "author_nickname": "관리자"
+  }
+]

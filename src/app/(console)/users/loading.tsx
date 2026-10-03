@@ -1,4 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { TEAM_IDS_BY_LEAGUE } from "@/lib/data/catalog";
+import { DEFAULT_LEAGUE_ID, type LeagueId } from "@/lib/football/config";
 
 function TeamRowSkeleton() {
   return (
@@ -24,7 +26,9 @@ function UserRowSkeleton() {
   );
 }
 
-export default function UsersLoading() {
+export default function UsersLoading({ leagueId = DEFAULT_LEAGUE_ID }: { leagueId?: LeagueId } = {}) {
+  const teamCount = TEAM_IDS_BY_LEAGUE[leagueId].length;
+  const usersPerPage = Math.max(1, teamCount - 3);
   return (
     <div
       className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7"
@@ -39,8 +43,8 @@ export default function UsersLoading() {
         </div>
       </header>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <section className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35">
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
+        <section className="flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35">
           <header className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-5">
             <div className="flex items-center gap-3">
               <Skeleton className="size-10 rounded-lg" />
@@ -50,13 +54,13 @@ export default function UsersLoading() {
           </header>
 
           <div className="grid flex-1 grid-cols-2 content-start gap-2 p-4 sm:p-5 md:grid-cols-1">
-            {Array.from({ length: 12 }).map((_, index) => (
+            {Array.from({ length: teamCount }).map((_, index) => (
               <TeamRowSkeleton key={index} />
             ))}
           </div>
         </section>
 
-        <section className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35">
+        <section className="flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35">
           <header className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-5">
             <Skeleton className="h-5 w-24" />
           </header>
@@ -83,8 +87,8 @@ export default function UsersLoading() {
             <Skeleton className="h-3 w-10" />
           </div>
 
-          <div className="flex-1 divide-y divide-border/70">
-            {Array.from({ length: 8 }).map((_, index) => (
+          <div className="divide-y divide-border/70">
+            {Array.from({ length: usersPerPage }).map((_, index) => (
               <UserRowSkeleton key={index} />
             ))}
           </div>
