@@ -2,6 +2,10 @@ export function inquiryStatusLabel(status: string) {
   return ({ RECEIVED: "새 문의", IN_PROGRESS: "새 문의", ANSWERED: "답변 완료", CLOSED: "답변 완료" } as Record<string, string>)[status] ?? status;
 }
 
+export function communityCategoryLabel(category: string) {
+  return ({ FREE: "자유", CHEER: "응원", REVIEW: "직관 후기", NOTICE: "공지", CHAT: "수다", HUMOR: "유머", NEWS: "뉴스", QUESTION: "질문" } as Record<string, string>)[category] ?? category;
+}
+
 export const inquiryCategoryLabels = {
   APP_ERROR: "앱 오류",
   DATA_ERROR: "데이터 오류",
@@ -23,6 +27,10 @@ export function reportStatusLabel(status: string) {
 
 export function reportTargetLabel(target: string) {
   return ({ POST: "게시글", COMMENT: "댓글", FIXTURE_CHEER: "경기 응원" } as Record<string, string>)[target] ?? target;
+}
+
+export function reportReasonLabel(reason: string) {
+  return ({ SPAM: "스팸·광고", ABUSE: "욕설·비방", HATE: "혐오·차별", PRIVACY: "개인정보 침해", INAPPROPRIATE: "부적절한 내용", OTHER: "기타" } as Record<string, string>)[reason] ?? reason;
 }
 
 export function accountStatusLabel(status: string | null) {

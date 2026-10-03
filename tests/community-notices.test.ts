@@ -244,7 +244,7 @@ test("신고 처리 화면은 문의 용어를 섞지 않고 오류 뒤 입력�
   assert.match(labels, /DISMISSED: "기각"/);
   assert.doesNotMatch(form, /새 문의|답변 완료/);
   assert.match(form, /onReset=\{\(event\) => event\.preventDefault\(\)\}/);
-  assert.match(detail, /처리 완료에는 처리 메모가 필요합니다/);
+  assert.match(detail, /게시글 숨김은 ‘콘텐츠 숨김’ 버튼으로 처리합니다/);
 });
 
 test("팀 상세는 활성 수동 수정값을 조회해 보호 해제 기능에 연결한다", () => {

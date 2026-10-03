@@ -2,13 +2,30 @@
 
 import { useActionState } from "react";
 import { ActionSubmit } from "@/components/admin/action-submit";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { initialAdminActionState, setContentVisibilityAction, updateContentReportAction } from "@/lib/admin/actions";
 
 export function ReportStatusForm({ reportId, status }: { reportId: string; status: string }) {
   const [state, action] = useActionState(updateContentReportAction, initialAdminActionState);
   const visibleStatus = ["RESOLVED", "DISMISSED"].includes(status) ? "RESOLVED" : "OPEN";
-  return <form action={action} onReset={(event) => event.preventDefault()} className="space-y-4"><input type="hidden" name="reportId" value={reportId} /><label className="block text-xs font-medium">신고 처리 상태<select key={visibleStatus} name="status" defaultValue={visibleStatus} className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-xs"><option value="OPEN">신규 신고</option><option value="RESOLVED">처리 완료</option></select></label><label className="block text-xs font-medium">처리 메모 (선택)<Textarea name="resolutionNote" maxLength={2000} rows={3} className="mt-1.5 text-xs" placeholder="비워두면 자동으로 기록됩니다" /></label><label className="block text-xs font-medium">변경 사유 (선택)<Textarea name="reason" maxLength={1000} rows={2} className="mt-1.5 text-xs" placeholder="감사 로그에 남길 사유" /></label><ActionMessage state={state} /><div className="flex justify-end"><ActionSubmit>처리 상태 저장</ActionSubmit></div></form>;
+  return <form action={action} onReset={(event) => event.preventDefault()} className="space-y-4">
+    <input type="hidden" name="reportId" value={reportId} />
+    <div>
+      <label htmlFor={`report-status-${reportId}`} className="block text-xs font-medium">신고 처리 상태</label>
+      <Select key={visibleStatus} name="status" defaultValue={visibleStatus}>
+        <SelectTrigger id={`report-status-${reportId}`} className="mt-1.5 h-11! w-full"><SelectValue /></SelectTrigger>
+        <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)">
+          <SelectItem value="OPEN"><span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />신규 신고</SelectItem>
+          <SelectItem value="RESOLVED"><span className="size-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />처리 완료</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <label className="block text-xs font-medium">처리 메모 (선택)<Textarea name="resolutionNote" maxLength={2000} rows={3} className="mt-1.5 text-xs" placeholder="처리 완료 시 비우면 ‘관리자 콘솔에서 신고 처리 완료’로 기록됩니다" /></label>
+    <label className="block text-xs font-medium">변경 사유 (선택)<Textarea name="reason" maxLength={1000} rows={2} className="mt-1.5 text-xs" placeholder="감사 로그에 남길 사유" /></label>
+    <ActionMessage state={state} />
+    <div className="flex justify-end"><ActionSubmit>처리 상태 저장</ActionSubmit></div>
+  </form>;
 }
 
 export function ContentVisibilityForm({ reportId, targetType, targetId, hidden }: { reportId: string; targetType: string; targetId: string; hidden: boolean }) {

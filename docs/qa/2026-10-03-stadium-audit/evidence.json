@@ -1,0 +1,641 @@
+{
+  "production_project": "smihjaucucffmsbktnmp",
+  "before_checked_at": "2026-10-03T13:26:23.849083+00:00",
+  "after_checked_at": "2026-10-03T13:42:39.201882+00:00",
+  "before": [
+    {
+      "id": "sportmonks-19648053",
+      "home_team_id": "pohang",
+      "away_team_id": "seoul",
+      "kickoff_at": "2026-09-20T10:00:00+00:00",
+      "stadium_id": "sangju-civic-stadium",
+      "attendance_latitude": 36.43228,
+      "attendance_longitude": 128.16156,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 36.43228,
+      "gps_longitude": 128.16156,
+      "stadium_name": "상주시민운동장",
+      "stadium_name_ko": "상주시민운동장",
+      "stadium_name_en": "Sangju Civic Stadium",
+      "address": "경상북도 상주시 북상주로 24-7",
+      "latitude": 36.43228,
+      "longitude": 128.16156
+    },
+    {
+      "id": "sportmonks-19648065",
+      "home_team_id": "pohang",
+      "away_team_id": "gimcheon",
+      "kickoff_at": "2026-09-09T10:30:00+00:00",
+      "stadium_id": "sangju-civic-stadium",
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 36.43228,
+      "gps_longitude": 128.16156,
+      "stadium_name": "상주시민운동장",
+      "stadium_name_ko": "상주시민운동장",
+      "stadium_name_en": "Sangju Civic Stadium",
+      "address": "경상북도 상주시 북상주로 24-7",
+      "latitude": 36.43228,
+      "longitude": 128.16156
+    },
+    {
+      "id": "sportmonks-19676442",
+      "home_team_id": "suwon-fc",
+      "away_team_id": "chungnam-asan",
+      "kickoff_at": "2026-10-25T05:00:00+00:00",
+      "stadium_id": "sportmonks-venue-14076",
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 37.2977947,
+      "gps_longitude": 127.0113949,
+      "stadium_name": "수원종합운동장(캐슬파크)",
+      "stadium_name_ko": "수원종합운동장(캐슬파크)",
+      "stadium_name_en": "Suwon Civil Stadium",
+      "address": "경기도 수원시 장안구 경수대로 893",
+      "latitude": 37.2977947,
+      "longitude": 127.0113949
+    },
+    {
+      "id": "sportmonks-19676305",
+      "home_team_id": "jeonnam",
+      "away_team_id": "daegu",
+      "kickoff_at": "2026-10-24T05:00:00+00:00",
+      "stadium_id": "sportmonks-venue-5186",
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 34.9330583,
+      "gps_longitude": 127.7274262,
+      "stadium_name": "광양축구전용구장",
+      "stadium_name_ko": "광양축구전용구장",
+      "stadium_name_en": "Gwangyang Stadium",
+      "address": "전라남도 광양시 백운로 1641",
+      "latitude": 34.9330583,
+      "longitude": 127.7274262
+    }
+  ],
+  "after": [
+    {
+      "id": "sportmonks-19648053",
+      "home_team_id": "pohang",
+      "away_team_id": "seoul",
+      "kickoff_at": "2026-09-20T10:00:00+00:00",
+      "stadium_id": "sangju-civic-stadium",
+      "attendance_latitude": 36.43228,
+      "attendance_longitude": 128.16156,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 36.43228,
+      "gps_longitude": 128.16156,
+      "stadium_name": "상주시민운동장",
+      "stadium_name_ko": "상주시민운동장",
+      "stadium_name_en": "Sangju Civic Stadium",
+      "address": "경상북도 상주시 북상주로 24-7",
+      "latitude": 36.43228,
+      "longitude": 128.16156
+    },
+    {
+      "id": "sportmonks-19648065",
+      "home_team_id": "pohang",
+      "away_team_id": "gimcheon",
+      "kickoff_at": "2026-09-09T10:30:00+00:00",
+      "stadium_id": "sangju-civic-stadium",
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 36.43228,
+      "gps_longitude": 128.16156,
+      "stadium_name": "상주시민운동장",
+      "stadium_name_ko": "상주시민운동장",
+      "stadium_name_en": "Sangju Civic Stadium",
+      "address": "경상북도 상주시 북상주로 24-7",
+      "latitude": 36.43228,
+      "longitude": 128.16156
+    },
+    {
+      "id": "sportmonks-19676442",
+      "home_team_id": "suwon-fc",
+      "away_team_id": "chungnam-asan",
+      "kickoff_at": "2026-10-25T05:00:00+00:00",
+      "stadium_id": "sportmonks-venue-14076",
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 37.2977947,
+      "gps_longitude": 127.0113949,
+      "stadium_name": "수원종합운동장(캐슬파크)",
+      "stadium_name_ko": "수원종합운동장(캐슬파크)",
+      "stadium_name_en": "Suwon Civil Stadium",
+      "address": "경기도 수원시 장안구 경수대로 893",
+      "latitude": 37.2977947,
+      "longitude": 127.0113949
+    },
+    {
+      "id": "sportmonks-19676305",
+      "home_team_id": "jeonnam",
+      "away_team_id": "daegu",
+      "kickoff_at": "2026-10-24T05:00:00+00:00",
+      "stadium_id": "suncheon-palma-stadium",
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "attendance_radius_meters": 300,
+      "gps_latitude": 34.9383274,
+      "gps_longitude": 127.5194672,
+      "stadium_name": "순천팔마종합운동장",
+      "stadium_name_ko": "순천팔마종합운동장",
+      "stadium_name_en": "Suncheon Palma Stadium",
+      "address": "전라남도 순천시 팔마로 333",
+      "latitude": 34.9383274,
+      "longitude": 127.5194672
+    }
+  ],
+  "pohang_after": [
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "anyang",
+      "home_team_id": "pohang",
+      "id": "sportmonks-19648041",
+      "kickoff_at": "2026-10-18T07:30:00+00:00",
+      "latitude": 35.99768,
+      "longitude": 129.38444,
+      "name": "포항스틸야드",
+      "stadium_id": "sportmonks-venue-709"
+    }
+  ],
+  "gangwon_2026": [
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "anyang",
+      "id": "sportmonks-19648216",
+      "kickoff_at": "2026-03-15T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "jeju",
+      "id": "sportmonks-19648204",
+      "kickoff_at": "2026-03-22T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "gwangju",
+      "id": "sportmonks-19648199",
+      "kickoff_at": "2026-04-04T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "jeonbuk",
+      "id": "sportmonks-19648190",
+      "kickoff_at": "2026-04-18T05:00:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "seoul",
+      "id": "sportmonks-19648178",
+      "kickoff_at": "2026-04-25T05:00:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "pohang",
+      "id": "sportmonks-19648162",
+      "kickoff_at": "2026-05-05T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "daejeon",
+      "id": "sportmonks-19648154",
+      "kickoff_at": "2026-05-12T10:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "ulsan",
+      "id": "sportmonks-19648144",
+      "kickoff_at": "2026-05-17T10:00:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "gimcheon",
+      "id": "sportmonks-19648129",
+      "kickoff_at": "2026-07-18T10:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "bucheon",
+      "id": "sportmonks-19648112",
+      "kickoff_at": "2026-08-01T10:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "gwangju",
+      "id": "sportmonks-19648083",
+      "kickoff_at": "2026-08-26T10:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "pohang",
+      "id": "sportmonks-19648077",
+      "kickoff_at": "2026-08-30T10:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": 37.77363,
+      "attendance_longitude": 128.89757,
+      "away_team_id": "jeonbuk",
+      "id": "sportmonks-19648067",
+      "kickoff_at": "2026-09-09T10:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "jeju",
+      "id": "sportmonks-19648056",
+      "kickoff_at": "2026-09-20T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "incheon",
+      "id": "sportmonks-19648104",
+      "kickoff_at": "2026-09-27T10:00:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "bucheon",
+      "id": "sportmonks-19648051",
+      "kickoff_at": "2026-10-09T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    },
+    {
+      "attendance_latitude": null,
+      "attendance_longitude": null,
+      "away_team_id": "incheon",
+      "id": "sportmonks-19648042",
+      "kickoff_at": "2026-10-18T07:30:00+00:00",
+      "latitude": 37.77363,
+      "longitude": 128.89757,
+      "name": "강릉종합운동장",
+      "stadium_id": "api-venue-5166"
+    }
+  ],
+  "teams_unchanged": true,
+  "pohang_after_unchanged": true,
+  "gangwon_2026_unchanged": true,
+  "coordinate_evidence": {
+    "stadium_id": "suncheon-palma-stadium",
+    "name": "순천팔마종합운동장",
+    "name_ko": "순천팔마종합운동장",
+    "name_en": "Suncheon Palma Stadium",
+    "address": "전라남도 순천시 팔마로 333",
+    "address_ko": "전라남도 순천시 팔마로 333",
+    "address_en": "333 Palma-ro, Suncheon-si, Jeollanam-do, South Korea",
+    "latitude": 34.9383274,
+    "longitude": 127.5194672,
+    "coordinate_source": "https://www.openstreetmap.org/way/480425370",
+    "coordinate_method": "bounding box midpoint of the main athletics pitch within Palma Sports Complex; auxiliary soccer pitch way 490617007 and baseball way 655635186 excluded",
+    "address_source": "https://www.suncheon.go.kr/yeyak/training/intro"
+  },
+  "gps_checks": [
+    {
+      "accepted_by_distance": true,
+      "distance_meters": 0,
+      "label": "centre"
+    },
+    {
+      "accepted_by_distance": true,
+      "distance_meters": 299.000000000285,
+      "label": "299m"
+    },
+    {
+      "accepted_by_distance": false,
+      "distance_meters": 300.999999999642,
+      "label": "301m"
+    },
+    {
+      "accepted_by_distance": false,
+      "distance_meters": 18965.983197361,
+      "label": "old_gwangyang"
+    }
+  ],
+  "trigger_retained_stadium": "suncheon-palma-stadium",
+  "app_code_checks": {
+    "stadium": {
+      "id": "suncheon-palma-stadium",
+      "name": "순천팔마종합운동장",
+      "nameEn": "Suncheon Palma Stadium",
+      "nameKo": "순천팔마종합운동장",
+      "latitude": 34.9383274,
+      "longitude": 127.5194672,
+      "address": "전라남도 순천시 팔마로 333",
+      "addressEn": "333 Palma-ro, Suncheon-si, Jeollanam-do, South Korea",
+      "addressKo": "전라남도 순천시 팔마로 333"
+    },
+    "gps": [
+      {
+        "label": "centre",
+        "code": "ELIGIBLE",
+        "eligible": true,
+        "distanceMeters": 0
+      },
+      {
+        "label": "299m",
+        "code": "ELIGIBLE",
+        "eligible": true,
+        "distanceMeters": 299
+      },
+      {
+        "label": "301m",
+        "code": "TOO_FAR",
+        "eligible": false,
+        "distanceMeters": 301
+      },
+      {
+        "label": "old_gwangyang",
+        "code": "TOO_FAR",
+        "eligible": false,
+        "distanceMeters": 18966
+      }
+    ],
+    "notices": [
+      {
+        "teamId": "jeonnam",
+        "id": "f30ba10d-7765-46e8-b6dc-3858062ba36c",
+        "scopedNotices": 1
+      },
+      {
+        "teamId": "daegu",
+        "id": "27a38d5f-1623-4044-9e4d-d7416fb0ed2b",
+        "scopedNotices": 1
+      },
+      {
+        "teamId": "suwon-fc",
+        "id": "3c4d722d-5ead-455f-959e-ffee34a28b6a",
+        "scopedNotices": 1
+      },
+      {
+        "teamId": "chungnam-asan",
+        "id": "feb2b74c-f31d-4945-8d4c-256639650c77",
+        "scopedNotices": 1
+      }
+    ],
+    "otherTeamNotices": 0,
+    "leagueNotices": 0
+  },
+  "notice_user_checks": [
+    {
+      "league_new_notice_count": 0,
+      "team_feed": [
+        {
+          "id": "f30ba10d-7765-46e8-b6dc-3858062ba36c",
+          "team_id": "jeonnam",
+          "title": "10월 24일 대구전 경기장 변경 안내"
+        }
+      ],
+      "unread_team": [
+        {
+          "id": "f30ba10d-7765-46e8-b6dc-3858062ba36c",
+          "team_id": "jeonnam",
+          "title": "10월 24일 대구전 경기장 변경 안내"
+        }
+      ],
+      "viewer_team": "jeonnam",
+      "visible_other_team_count": 0
+    },
+    {
+      "league_new_notice_count": 0,
+      "team_feed": [
+        {
+          "id": "27a38d5f-1623-4044-9e4d-d7416fb0ed2b",
+          "team_id": "daegu",
+          "title": "10월 24일 전남전 경기장 변경 안내"
+        }
+      ],
+      "unread_team": [
+        {
+          "id": "27a38d5f-1623-4044-9e4d-d7416fb0ed2b",
+          "team_id": "daegu",
+          "title": "10월 24일 전남전 경기장 변경 안내"
+        }
+      ],
+      "viewer_team": "daegu",
+      "visible_other_team_count": 0
+    },
+    {
+      "league_new_notice_count": 0,
+      "team_feed": [
+        {
+          "id": "3c4d722d-5ead-455f-959e-ffee34a28b6a",
+          "team_id": "suwon-fc",
+          "title": "10월 25일 충남아산전 경기 장소 안내"
+        }
+      ],
+      "unread_team": [
+        {
+          "id": "3c4d722d-5ead-455f-959e-ffee34a28b6a",
+          "team_id": "suwon-fc",
+          "title": "10월 25일 충남아산전 경기 장소 안내"
+        }
+      ],
+      "viewer_team": "suwon-fc",
+      "visible_other_team_count": 0
+    },
+    {
+      "league_new_notice_count": 0,
+      "team_feed": [
+        {
+          "id": "feb2b74c-f31d-4945-8d4c-256639650c77",
+          "team_id": "chungnam-asan",
+          "title": "10월 25일 수원FC전 경기 장소 안내"
+        }
+      ],
+      "unread_team": [
+        {
+          "id": "feb2b74c-f31d-4945-8d4c-256639650c77",
+          "team_id": "chungnam-asan",
+          "title": "10월 25일 수원FC전 경기 장소 안내"
+        }
+      ],
+      "viewer_team": "chungnam-asan",
+      "visible_other_team_count": 0
+    }
+  ],
+  "other_team_access_check": {
+    "foreign_team_rpc_rows": 0,
+    "new_notice_rows": 0,
+    "viewer_team": "incheon"
+  },
+  "cron": [
+    {
+      "active": true,
+      "has_sync": false,
+      "jobname": "kickon-fixture-cheer-retention",
+      "schedule": "43 3 * * *"
+    },
+    {
+      "active": true,
+      "has_sync": false,
+      "jobname": "kickon-push-outbox-recovery",
+      "schedule": "* * * * *"
+    },
+    {
+      "active": true,
+      "has_sync": true,
+      "jobname": "kickon-live-football-sync",
+      "schedule": "* * * * *"
+    },
+    {
+      "active": true,
+      "has_sync": false,
+      "jobname": "kickon-football-provider-usage-retention",
+      "schedule": "17 3 * * *"
+    },
+    {
+      "active": true,
+      "has_sync": true,
+      "jobname": "kickon-post-match-football-sync",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "active": true,
+      "has_sync": false,
+      "jobname": "kickon-initial-football-history-backfill",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "active": true,
+      "has_sync": true,
+      "jobname": "kickon-team-metrics-reconciliation",
+      "schedule": "40 19 * * *"
+    },
+    {
+      "active": true,
+      "has_sync": true,
+      "jobname": "kickon-team-squad-refresh",
+      "schedule": "10 19 * * *"
+    },
+    {
+      "active": true,
+      "has_sync": true,
+      "jobname": "kickon-team-squad-retry",
+      "schedule": "15-40/5 19 * * *"
+    },
+    {
+      "active": true,
+      "has_sync": false,
+      "jobname": "kickon-attendance-reminder",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "cron_targets": [
+    {
+      "edge_endpoint": null,
+      "jobname": "kickon-live-football-sync",
+      "public_function": "invoke_live_football_sync"
+    },
+    {
+      "edge_endpoint": null,
+      "jobname": "kickon-post-match-football-sync",
+      "public_function": "invoke_due_post_match_football_sync"
+    },
+    {
+      "edge_endpoint": null,
+      "jobname": "kickon-initial-football-history-backfill",
+      "public_function": "invoke_initial_football_history_backfill"
+    },
+    {
+      "edge_endpoint": null,
+      "jobname": "kickon-team-metrics-reconciliation",
+      "public_function": "invoke_daily_team_metrics_sync"
+    },
+    {
+      "edge_endpoint": null,
+      "jobname": "kickon-team-squad-refresh",
+      "public_function": "invoke_scheduled_team_squad_sync"
+    },
+    {
+      "edge_endpoint": null,
+      "jobname": "kickon-team-squad-retry",
+      "public_function": "invoke_scheduled_team_squad_sync"
+    }
+  ],
+  "deployed_source_sha256": {
+    "supabase/functions/sync-football-data/index.ts": "21d8709a00d516e8f27bff3f65c7bb1fea94b7127f98f8cdc5a1b975bedf034e",
+    "supabase/functions/sync-live-football/index.ts": "78166062eddddf752d58e9926457c15397c385e3f5ea78c27c07b42ea69ad6f6",
+    "supabase/functions/_shared/canonicalFixtureStadium.ts": "e8077e02b71d48474d3bc55ce6dee4bf07f2e52920934d8c7fc1146e0a8a9969"
+  }
+}

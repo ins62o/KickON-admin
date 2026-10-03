@@ -9,6 +9,7 @@ import { ClientPageError, ClientPageLoading } from "@/components/admin/client-pa
 import { DataState } from "@/components/admin/data-state";
 import { MetricStrip } from "@/components/admin/metric-strip";
 import { PageHeader } from "@/components/admin/page-header";
+import { UserNickname } from "@/components/admin/user-nickname";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,7 +21,7 @@ import {
   type AdminModerationData,
   type AdminSupportInquiryData,
 } from "@/lib/admin/console-data";
-import { inquiryCategoryLabels, reportTargetLabel } from "@/lib/admin/labels";
+import { inquiryCategoryLabels, reportReasonLabel, reportTargetLabel } from "@/lib/admin/labels";
 import { useAdminAuth } from "@/components/auth/admin-auth-provider";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
@@ -235,6 +236,7 @@ function ReportHistoryPanel({
       keyword &&
       ![
         report.reason,
+        reportReasonLabel(report.reason),
         report.details,
         report.target?.title,
         report.target?.content,
@@ -333,7 +335,7 @@ function ReportHistoryPanel({
               </span>
               <span className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
                 <span className="shrink-0">신고자</span>
-                <strong className="truncate font-medium text-foreground/80">{report.reporter?.nickname ?? "확인 불가"}</strong>
+                <strong className="min-w-0 font-medium text-foreground/80"><UserNickname nickname={report.reporter?.nickname ?? "확인 불가"} teamId={report.reporter?.teamId ?? null} /></strong>
               </span>
             </Link>
           )) : (
@@ -365,7 +367,7 @@ function ReportHistoryPanel({
                     </Link>
                   </TableCell>
                   <TableCell className="w-52 px-4 py-4 text-sm">
-                    {report.reporter?.nickname ?? "확인 불가"}
+                    <UserNickname nickname={report.reporter?.nickname ?? "확인 불가"} teamId={report.reporter?.teamId ?? null} />
                   </TableCell>
                   <TableCell className="w-52 px-4 py-4 text-sm text-muted-foreground">
                     {formatKoreaReadableDateTime(report.createdAt)}

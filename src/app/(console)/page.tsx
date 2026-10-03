@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Activity,
-  BellRing,
   CircleAlert,
+  ChevronRight,
   Database,
   DatabaseZap,
   HardDrive,
   Headphones,
+  MapPinCheck,
+  MessageSquareText,
   ShieldAlert,
   UsersRound,
   type LucideIcon,
@@ -22,8 +24,8 @@ import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
 import { SyncControl } from "@/components/sync/sync-control";
 import {
   getAdminDashboardAttention,
+  getAdminDashboardActivity,
   getAdminDashboardSummary,
-  type AdminDashboardAttentionItem,
 } from "@/lib/admin/console-data";
 import { useRequiredAdminPermission } from "@/lib/auth/client";
 import { hasAdminPermission } from "@/lib/auth/permissions";
@@ -57,6 +59,7 @@ function DashboardMobileMetric({
   note,
   rate,
   rateLabel = "사용률",
+  href,
 }: {
   title: string;
   value: string;
@@ -65,6 +68,7 @@ function DashboardMobileMetric({
   note: string;
   rate?: number | null;
   rateLabel?: string;
+  href?: string;
 }) {
   const normalizedRate = rate === null ? null : rate === undefined ? undefined : Math.min(100, Math.max(0, rate));
   const statusMeta = mobileStatus[status];
@@ -74,7 +78,7 @@ function DashboardMobileMetric({
       ? "var(--gauge-warning)"
       : "var(--gauge-normal)";
 
-  return (
+  const content = (
     <article className="flex min-h-44 min-w-0 flex-col bg-card p-3.5">
       <header className="flex items-center justify-between gap-2">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
@@ -112,41 +116,20 @@ function DashboardMobileMetric({
             </div>
           </>
         ) : (
-          <p className="truncate text-[11px] text-muted-foreground">{note}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-[11px] text-muted-foreground">{note}</p>
+            {href ? <ChevronRight className="size-4 shrink-0 text-primary" aria-hidden="true" /> : null}
+          </div>
         )}
       </div>
     </article>
   );
-}
 
-function DashboardAttentionLink({ href, title, item, icon: Icon }: {
-  href: string;
-  title: string;
-  item: AdminDashboardAttentionItem;
-  icon: typeof Headphones;
-}) {
-  const count = item.count ?? 0;
-  const hasItems = count > 0;
-
-  return (
-    <Link
-      href={href}
-      className="flex min-h-32 flex-col items-stretch gap-3 bg-card p-3.5 transition-colors hover:bg-primary/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:min-h-28 md:flex-row md:items-center md:justify-between md:gap-5 md:px-5 md:py-5"
-      aria-label={`${title} ${formatNumber(count)}건 보기`}
-    >
-      <div className="flex min-w-0 items-center gap-2.5 md:gap-3.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground md:text-lg">{title}</h3>
-        </div>
-      </div>
-      <p className={hasItems ? "tabular mt-auto shrink-0 self-end text-xl font-bold text-foreground md:mt-0 md:self-auto md:text-2xl" : "tabular mt-auto shrink-0 self-end text-xl font-bold text-muted-foreground md:mt-0 md:self-auto md:text-2xl"}>
-        {formatNumber(count)}건
-      </p>
+  return href ? (
+    <Link href={href} aria-label={`${title} ${value} 상세 보기`} className="block min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&>article]:transition-colors hover:[&>article]:bg-accent/40">
+      {content}
     </Link>
-  );
+  ) : content;
 }
 
 export default function AdminDashboardPage() {
@@ -154,18 +137,19 @@ export default function AdminDashboardPage() {
   const environment = useConsoleEnvironment();
   const searchParams = useSearchParams();
   const { data, error, loading, reload } = useClientData(async () => {
-    const [dashboard, attention, usage, syncOptions, syncHistory] = await Promise.all([
+    const [dashboard, activity, attention, usage, syncOptions, syncHistory] = await Promise.all([
       getAdminDashboardSummary(),
+      getAdminDashboardActivity(),
       getAdminDashboardAttention(),
       getDashboardUsageSnapshotsClient(),
       getSyncControlOptions("all"),
       getSyncOperationHistory("all"),
     ]);
-    return { dashboard, attention, usage, syncOptions, syncHistory };
+    return { dashboard, activity, attention, usage, syncOptions, syncHistory };
   });
   if (!admin || loading) return <ClientPageLoading />;
   if (error || !data) return <ClientPageError message={error ?? "대시보드 데이터를 확인할 수 없습니다."} retry={reload} />;
-  const { dashboard, attention, usage, syncOptions, syncHistory } = data;
+  const { dashboard, activity, attention, usage, syncOptions, syncHistory } = data;
   const query = { reason: searchParams.get("reason") ?? undefined };
   const profileRate = dashboard.totalProfiles === null
     ? null
@@ -286,6 +270,47 @@ export default function AdminDashboardPage() {
       </section>
 
       <section
+        className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-border/70"
+        aria-labelledby="activity-title"
+      >
+        <h2 id="activity-title" className="sr-only">커뮤니티 및 운영 내역 요약</h2>
+        <div className="grid grid-cols-2 gap-px xl:grid-cols-4">
+          <DashboardMobileMetric
+            title="커뮤니티 글"
+            href="/community/posts"
+            icon={MessageSquareText}
+            value={activity.posts.count === null ? "-" : `${formatNumber(activity.posts.count)}개`}
+            status={activity.posts.count === null ? "unknown" : "normal"}
+            note={activity.posts.error ?? "현재 등록된 전체 글 · 공지 포함"}
+          />
+          <DashboardMobileMetric
+            title="직관 인증"
+            href="/attendances"
+            icon={MapPinCheck}
+            value={activity.attendances.count === null ? "-" : `${formatNumber(activity.attendances.count)}건`}
+            status={activity.attendances.count === null ? "unknown" : "normal"}
+            note={activity.attendances.error ?? "전체 경기 누적 인증"}
+          />
+          <DashboardMobileMetric
+            title="1:1 문의"
+            href={canReadInquiries ? "/inquiries?tab=inquiries&status=new" : undefined}
+            icon={Headphones}
+            value={!canReadInquiries ? "권한 필요" : attention.inquiries.count === null ? "-" : `${formatNumber(attention.inquiries.count)}건`}
+            status={!canReadInquiries || attention.inquiries.count === null ? "unknown" : attention.inquiries.count > 0 ? "warning" : "normal"}
+            note={!canReadInquiries ? "문의 조회 권한이 필요합니다" : attention.inquiries.error ?? "새 문의 · 접수 및 처리 중"}
+          />
+          <DashboardMobileMetric
+            title="신고 내역"
+            href={canReadReports ? "/inquiries?tab=reports&status=new" : undefined}
+            icon={ShieldAlert}
+            value={!canReadReports ? "권한 필요" : attention.reports.count === null ? "-" : `${formatNumber(attention.reports.count)}건`}
+            status={!canReadReports || attention.reports.count === null ? "unknown" : attention.reports.count > 0 ? "warning" : "normal"}
+            note={!canReadReports ? "신고 조회 권한이 필요합니다" : attention.reports.error ?? "새 신고 · 접수 및 검토 중"}
+          />
+        </div>
+      </section>
+
+      <section
         className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35"
         aria-labelledby="sync-control-title"
       >
@@ -331,43 +356,6 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
-      {canReadInquiries || canReadReports ? (
-        <section
-          className="mt-6 overflow-hidden rounded-xl border border-border/80 bg-card/35"
-          aria-labelledby="attention-title"
-        >
-          <header className="border-b border-border/70 px-4 py-4 sm:px-5">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
-                <BellRing className="size-4" aria-hidden="true" />
-              </span>
-              <h2 id="attention-title" className="text-base font-semibold">운영 알림</h2>
-            </div>
-          </header>
-          <div className="p-3 sm:p-5">
-            <div className="overflow-hidden rounded-xl border border-border/80 bg-border/70">
-              <div className={canReadInquiries && canReadReports ? "grid grid-cols-2 gap-px" : "grid gap-px"}>
-                {canReadInquiries ? (
-                  <DashboardAttentionLink
-                    href="/inquiries?tab=inquiries&status=new"
-                    title="1:1 문의"
-                    item={attention.inquiries}
-                    icon={Headphones}
-                  />
-                ) : null}
-                {canReadReports ? (
-                  <DashboardAttentionLink
-                    href="/inquiries?tab=reports&status=new"
-                    title="신고 내역"
-                    item={attention.reports}
-                    icon={ShieldAlert}
-                  />
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

@@ -82,6 +82,11 @@ export type AdminDashboardAttentionData = {
   reports: AdminDashboardAttentionItem;
 };
 
+export type AdminDashboardActivityData = {
+  posts: AdminDashboardAttentionItem;
+  attendances: AdminDashboardAttentionItem;
+};
+
 export type AdminUserRecord = {
   id: string;
   nickname: string;
@@ -778,6 +783,25 @@ export const getAdminDashboardSummary = cache(async (): Promise<AdminDashboardSu
         : "none",
     failedSyncCount24h,
     syncError,
+  };
+});
+
+export const getAdminDashboardActivity = cache(async (): Promise<AdminDashboardActivityData> => {
+  const client = await getOperationsClient();
+  // The dashboard RPC counts all records, regardless of the operator's
+  // team or the row-level permissions on posts and attendances.
+  const result = client ? await client.rpc("admin_get_dashboard_metrics") : null;
+  const payload = result && !result.error && isRecord(result.data) ? result.data : null;
+  const activityItem = (value: unknown, error: string): AdminDashboardAttentionItem => {
+    const count = typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+      ? value
+      : null;
+    return { count, error: count === null ? error : null };
+  };
+
+  return {
+    posts: activityItem(payload?.posts, "커뮤니티 글 집계를 확인할 수 없습니다."),
+    attendances: activityItem(payload?.attendances, "직관 인증 집계를 확인할 수 없습니다."),
   };
 });
 

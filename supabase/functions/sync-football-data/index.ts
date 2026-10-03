@@ -730,39 +730,6 @@ function getDetailValue(
   return detail ? Math.max(0, Math.trunc(toNumber(detail.value))) : 0;
 }
 
-function getTeamStatisticValue(
-  statistics: TeamStatistic[] | undefined,
-  seasonId: number,
-  typeId: number,
-) {
-  const statistic = (statistics ?? []).find(
-    item => item.season_id === seasonId || item.season_id == null,
-  );
-  const detail = statistic?.details?.find(item => item.type_id === typeId);
-  if (!detail) return null;
-
-  const readValue = (value: unknown): number | null => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string') {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : null;
-    }
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Record<string, unknown>;
-    for (const key of ['average', 'percentage', 'value', 'total', 'count']) {
-      const parsed = readValue(record[key]);
-      if (parsed !== null) return parsed;
-    }
-    for (const key of ['all', 'overall']) {
-      const parsed = readValue(record[key]);
-      if (parsed !== null) return parsed;
-    }
-    return null;
-  };
-
-  return readValue(detail.value);
-}
-
 function normalizeKickoff(value: string) {
   if (/([zZ]|[+-]\d\d:\d\d)$/.test(value)) return value;
   return `${value.replace(' ', 'T')}Z`;
@@ -1547,14 +1514,6 @@ async function handleSyncRequest(request: Request) {
         const teamId = teamIdBySportmonksId.get(standing.participant_id);
         if (!teamId) return [];
         const details = standing.details;
-        const providerTeam = teamsPayload.find(
-          team => team.id === standing.participant_id,
-        );
-        const possession = getTeamStatisticValue(
-          providerTeam?.statistics,
-          seasonId,
-          45,
-        );
         return [
           {
             season,
@@ -1596,10 +1555,8 @@ async function handleSyncRequest(request: Request) {
               fixturesPayload,
               standing.participant_id,
             ),
-            average_possession:
-              possession === null
-                ? null
-                : Math.min(100, Math.max(0, possession)),
+            // average_possession is owned by sync-team-metrics.
+            // Omit it from full-sync upserts to preserve existing values/NULL.
             updated_at: new Date().toISOString(),
           },
         ];

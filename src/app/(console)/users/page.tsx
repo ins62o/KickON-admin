@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Mail, UsersRound } from "lucide-react";
 import { siApple } from "simple-icons";
-import { ClientPageError, ClientPageLoading } from "@/components/admin/client-page-state";
+import { ClientPageError } from "@/components/admin/client-page-state";
+import UsersLoading from "./loading";
 import { DataState } from "@/components/admin/data-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,6 @@ type UserSearchParams = {
   page?: string;
   leagueId?: string;
 };
-
-const USERS_PER_PAGE = 9;
 
 function normalizedPage(value: string | undefined) {
   const page = Number.parseInt(value ?? "1", 10);
@@ -112,7 +111,9 @@ export default function UsersPage() {
   const pathname = usePathname();
   const router = useRouter();
   const { data, error, loading, reload } = useClientData(getAdminUsersData);
-  if (!admin || loading) return <ClientPageLoading />;
+  const leagueParam = searchParams.get("leagueId");
+  const leagueId = isLeagueId(leagueParam) ? leagueParam : DEFAULT_LEAGUE_ID;
+  if (!admin || loading) return <UsersLoading leagueId={leagueId} />;
   if (error || !data) return <ClientPageError message={error ?? "사용자 데이터를 확인할 수 없습니다."} retry={reload} />;
   const query: UserSearchParams = {
     q: searchParams.get("q") ?? undefined,
@@ -121,8 +122,9 @@ export default function UsersPage() {
     page: searchParams.get("page") ?? undefined,
     leagueId: searchParams.get("leagueId") ?? undefined,
   };
-  const leagueId = isLeagueId(query.leagueId) ? query.leagueId : DEFAULT_LEAGUE_ID;
   const selectedLeague = SUPPORTED_LEAGUES.find((league) => league.id === leagueId)!;
+  // The search controls and pagination occupy about three team rows of height.
+  const usersPerPage = Math.max(1, TEAM_IDS_BY_LEAGUE[leagueId].length - 3);
   const keyword = query.q?.trim().toLocaleLowerCase("ko-KR") ?? "";
   const accountStatusFilter = ["ACTIVE", "SUSPENDED", "COMMUNITY_SUSPENDED", "ACCOUNT_SUSPENDED"].includes(query.status ?? "")
     ? query.status
@@ -141,10 +143,10 @@ export default function UsersPage() {
   }).sort((left, right) => (
     joinedTime(right.createdAt) - joinedTime(left.createdAt) || left.id.localeCompare(right.id)
   ));
-  const totalPages = Math.max(1, Math.ceil(rows.length / USERS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / usersPerPage));
   const currentPage = Math.min(normalizedPage(query.page), totalPages);
-  const pageOffset = (currentPage - 1) * USERS_PER_PAGE;
-  const paginatedRows = rows.slice(pageOffset, pageOffset + USERS_PER_PAGE);
+  const pageOffset = (currentPage - 1) * usersPerPage;
+  const paginatedRows = rows.slice(pageOffset, pageOffset + usersPerPage);
 
   const teamUserCounts = new Map<string, number>(SUPPORTED_TEAM_IDS.map((teamId) => [teamId, 0]));
   const teamNamesFromUsers = new Map(
@@ -191,9 +193,9 @@ export default function UsersPage() {
         actionsLabel="사용자 통계"
       />
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
         <section
-          className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35"
+          className="flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35"
           aria-labelledby="team-users-title"
         >
           <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-4 sm:px-5">
@@ -264,7 +266,7 @@ export default function UsersPage() {
         </section>
 
         <section
-          className="flex h-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35"
+          className="flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card/35"
           aria-labelledby="user-search-title"
         >
           <header className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-5">
@@ -358,7 +360,7 @@ export default function UsersPage() {
           </div>
 
           {rows.length > 0 ? (
-            <div className="flex-1 divide-y divide-border/70">
+            <div className="divide-y divide-border/70">
               {paginatedRows.map((user) => {
                 const teamLogoPath = user.teamId ? getTeamLogoPath(user.teamId) : null;
                 const teamName = user.teamId ? getTeamName(user.teamId) : user.teamName;
@@ -398,11 +400,11 @@ export default function UsersPage() {
               })}
             </div>
           ) : (
-            <DataState kind="empty" title="조건에 맞는 사용자가 없습니다" hideDescription compact className="flex-1" />
+            <DataState kind="empty" title="조건에 맞는 사용자가 없습니다" hideDescription compact />
           )}
 
           {rows.length > 0 ? (
-            <nav className="mt-auto flex flex-wrap items-center justify-end gap-3 border-t border-border/70 px-4 py-3.5 sm:px-5" aria-label="사용자 목록 페이지">
+            <nav className="flex flex-wrap items-center justify-end gap-3 border-t border-border/70 px-4 py-3.5 sm:px-5" aria-label="사용자 목록 페이지">
               <div className="flex items-center gap-2">
                 {currentPage > 1 ? (
                   <Button asChild variant="outline" size="sm">
