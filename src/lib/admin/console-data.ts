@@ -3,6 +3,7 @@ import { cache } from "react";
 
 import { parseActiveUserTrend, type ActiveUserTrend } from "@/lib/admin/active-users";
 import { getServiceAccountIds } from "@/lib/admin/user-visibility";
+import { loadUserAuthProviders } from "@/lib/admin/user-auth-providers";
 import {
   countUnrecoveredSyncFailures,
   type RecentSyncRunRow,
@@ -235,11 +236,6 @@ type AdminUsersRpcRow = {
   account_status: string;
   suspended_until: string | null;
   warning_count: number;
-};
-
-type AdminUserAuthProviderRpcRow = {
-  user_id: string;
-  auth_provider: string | null;
 };
 
 type AdminUserIdRow = {
@@ -1142,14 +1138,7 @@ async function loadAdminUserAuthProviders(client: SupabaseClient) {
     }
   }
 
-  const result = await client.rpc("admin_get_user_auth_providers");
-  if (result.error) return new Map<string, string>();
-
-  return new Map(
-    ((result.data ?? []) as AdminUserAuthProviderRpcRow[])
-      .filter((row) => typeof row.user_id === "string" && typeof row.auth_provider === "string")
-      .map((row) => [row.user_id, row.auth_provider as string]),
-  );
+  return loadUserAuthProviders(client);
 }
 
 async function loadAdminUserIds(client: SupabaseClient) {
