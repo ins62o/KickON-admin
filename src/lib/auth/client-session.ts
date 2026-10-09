@@ -3,9 +3,10 @@
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { isAdminRole } from "@/lib/auth/permissions";
 import type { AdminIdentity } from "@/lib/auth/types";
+import type { ConsoleEnvironment } from "@/lib/environment";
 
-export async function getCurrentBrowserAdmin(): Promise<AdminIdentity | null> {
-  const supabase = getBrowserSupabaseClient();
+export async function getCurrentBrowserAdmin(environment?: ConsoleEnvironment): Promise<AdminIdentity | null> {
+  const supabase = getBrowserSupabaseClient(environment);
   if (!supabase) return null;
 
   const { data: userData, error: userError } = await supabase.auth.getUser();

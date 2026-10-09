@@ -71,3 +71,10 @@ test("알 수 없는 역할은 관리자 역할로 인정하지 않는다", () =
   assert.equal(isAdminRole("member"), false);
   assert.equal(isAdminRole(null), false);
 });
+
+test("객체 프로토타입의 이름을 관리자 역할로 인정하지 않는다", () => {
+  for (const name of ["toString", "constructor", "__proto__", "hasOwnProperty", "valueOf"]) {
+    assert.equal(isAdminRole(name), false, name);
+    assert.equal(hasAdminPermission(name as AdminRole, "dashboard.read"), false, name);
+  }
+});

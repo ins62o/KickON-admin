@@ -7,6 +7,7 @@ import { invalidateAdminData } from "@/lib/client-data";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { callAdminAction } from "@/lib/admin-api";
 import { reasonOrDefault } from "@/lib/admin/reason";
+import { getActiveConsoleEnvironment } from "@/lib/environment";
 import {
   buildCommunityNoticeRpcArgs,
   communityNoticeErrorMessage,
@@ -23,12 +24,14 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const allowedSuspensionDays = new Set([1, 3, 7, 30, 90, 365]);
 
 async function mutationContext(permission: AdminPermission) {
-  const admin = await getCurrentBrowserAdmin();
+  const environment = getActiveConsoleEnvironment();
+  const admin = await getCurrentBrowserAdmin(environment);
+  if (getActiveConsoleEnvironment() !== environment) return { error: "서버가 변경되었습니다. 선택한 서버를 확인한 뒤 다시 시도해 주세요." } as const;
   if (!admin) return { error: "관리자 세션을 다시 확인해 주세요." } as const;
   if (!hasAdminPermission(admin.role, permission)) return { error: "이 작업을 수행할 관리자 권한이 없습니다." } as const;
-  const supabase = getBrowserSupabaseClient();
+  const supabase = getBrowserSupabaseClient(environment);
   if (!supabase) return { error: "Supabase 관리자 연결을 확인해 주세요." } as const;
-  return { admin, supabase, error: null } as const;
+  return { admin, supabase, environment, error: null } as const;
 }
 
 function textValue(formData: FormData, key: string, maximum: number) {
@@ -122,7 +125,7 @@ export async function applyUserModerationAction(_state: AdminActionState, formDa
   if (reportIdInput && !uuidPattern.test(reportIdInput)) return { status: "error", message: "연결할 신고 ID가 올바르지 않습니다." };
   if (["ACCOUNT_SUSPEND", "ACCOUNT_UNSUSPEND"].includes(action)) {
     try {
-      const result = await callAdminAction<AdminActionState>("applyUserAccountAction", formData);
+      const result = await callAdminAction<AdminActionState>("applyUserAccountAction", formData, undefined, context.environment);
       if (result.status === "success") invalidateAdminData();
       return result;
     } catch (error) {

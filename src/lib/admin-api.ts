@@ -69,9 +69,10 @@ export async function callAdminAction<T>(
   action: string,
   formData: FormData,
   timeoutMs = ADMIN_API_TIMEOUT_MS,
+  environment: ConsoleEnvironment = getActiveConsoleEnvironment(),
 ): Promise<T> {
   return callAdminApi<T>("/admin/actions", {
     method: "POST",
     body: JSON.stringify({ action, payload: formDataPayload(formData) }),
-  }, undefined, timeoutMs);
+  }, environment, timeoutMs);
 }

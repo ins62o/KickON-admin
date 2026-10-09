@@ -52,7 +52,7 @@ test("계정 정지는 브라우저 RPC가 아니라 서버 전용 관리자 API
   const actions = source("src/lib/admin/actions.ts");
   const lambda = source("server/admin-api/lambda.ts");
 
-  assert.match(actions, /callAdminAction<AdminActionState>\("applyUserAccountAction", formData\)/);
+  assert.match(actions, /callAdminAction<AdminActionState>\("applyUserAccountAction", formData, undefined, context\.environment\)/);
   assert.match(lambda, /SUPABASE_ADMIN_SECRET_KEY\?\.trim\(\)[\s\S]*SUPABASE_METRICS_SECRET_KEY\?\.trim\(\)/);
   assert.match(lambda, /auth\.admin\.getUserById\(userId\)/);
   assert.match(lambda, /auth\.admin\.updateUserById\(userId, \{ ban_duration: banDuration \}\)/);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Activity, ChevronLeft, ChevronRight, CircleAlert, Database, HardDrive, RefreshCcw, Smartphone } from "lucide-react";
 import { AppReleaseManager } from "@/components/admin/app-release-manager";
@@ -13,7 +14,7 @@ import { CompactUsageGauge } from "@/components/dashboard/compact-usage-gauge";
 import { CronJobStatusSection } from "@/components/cron/cron-job-status";
 import { SyncControl } from "@/components/sync/sync-control";
 import { Button } from "@/components/ui/button";
-import { hasAdminPermission } from "@/lib/auth/permissions";
+import { canAccessMembershipDiagnostic, hasAdminPermission } from "@/lib/auth/permissions";
 import { useClientData } from "@/lib/client-data";
 import { getAuditLogList } from "@/lib/data/audit";
 import { getDashboardUsageSnapshotsClient } from "@/lib/data/client-usage";
@@ -36,7 +37,7 @@ function positiveInteger(value: string | null) {
 }
 
 export default function DataManagementPage() {
-  const { admin } = useAdminAuth();
+  const { admin, loading: authLoading, switching } = useAdminAuth();
   const environment = useConsoleEnvironment();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,7 +99,7 @@ export default function DataManagementPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1720px] px-4 py-6 lg:px-6 lg:py-7">
-      <PageHeader title="데이터 관리" />
+      <PageHeader title="데이터 관리" actions={canAccessMembershipDiagnostic(admin, authLoading, switching) ? <Button variant="outline" asChild><Link href="/data-management/membership-diagnostic">Membership 인증 진단</Link></Button> : undefined} />
 
       {canViewSync && usage && syncOptions && syncHistory ? (
         <section className="mt-6" aria-labelledby="sync-operations-title">

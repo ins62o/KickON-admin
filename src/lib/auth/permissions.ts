@@ -78,9 +78,18 @@ const permissionsByRole: Record<AdminRole, readonly AdminPermission[]> = {
 };
 
 export function hasAdminPermission(role: AdminRole, permission: AdminPermission) {
-  return permissionsByRole[role]?.includes(permission) ?? false;
+  return isAdminRole(role) && permissionsByRole[role].includes(permission);
 }
 
 export function isAdminRole(value: unknown): value is AdminRole {
-  return typeof value === "string" && value in permissionsByRole;
+  return typeof value === "string" && Object.hasOwn(permissionsByRole, value);
+}
+
+/** AdminAuthProvider supplies an identity only after getUser + active role validation. */
+export function canAccessMembershipDiagnostic(
+  admin: { userId: string | null; role: AdminRole; isDevelopmentBypass: boolean } | null,
+  loading: boolean,
+  switching: boolean,
+) {
+  return Boolean(!loading && !switching && admin?.userId && !admin.isDevelopmentBypass && admin.role === "super_admin");
 }

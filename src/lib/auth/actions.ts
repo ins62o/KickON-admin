@@ -4,18 +4,13 @@ import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { isAdminRole } from "@/lib/auth/permissions";
 import type { ConsoleEnvironment } from "@/lib/environment";
 import { developmentOnly } from "@/lib/environment";
+import { safeNextPath } from "@/lib/auth/safe-next-path";
 
 export type LoginState = {
   error: string | null;
   email: string;
   redirectTo?: string | null;
 };
-
-function safeNextPath(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return "/";
-  const basePath = process.env.NEXT_PUBLIC_ADMIN_BASE_PATH ?? "";
-  return basePath && (value === basePath || value.startsWith(`${basePath}/`)) ? value.slice(basePath.length) || "/" : value;
-}
 
 const loginEnvironments: readonly ConsoleEnvironment[] = developmentOnly ? ["development"] : ["production", "development"];
 

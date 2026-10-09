@@ -4,7 +4,7 @@ import vm from "node:vm";
 import { buildSync } from "esbuild";
 import type { getBrowserSupabaseClient } from "../src/lib/supabase/browser.ts";
 import type * as Environment from "../src/lib/environment.ts";
-import type { callAdminApi } from "../src/lib/admin-api.ts";
+import type { callAdminApi, callAdminAction } from "../src/lib/admin-api.ts";
 import type { signInAction, signOutAction } from "../src/lib/auth/actions.ts";
 import type { runSyncAction } from "../src/lib/sync/actions.ts";
 import type * as AppReleases from "../src/lib/admin/app-releases.ts";
@@ -100,6 +100,7 @@ function browser(developmentOnly = false) {
   const app = context.app as typeof Environment & typeof AppReleases & {
     getBrowserSupabaseClient: typeof getBrowserSupabaseClient;
     callAdminApi: typeof callAdminApi;
+    callAdminAction: typeof callAdminAction;
     signInAction: typeof signInAction;
     signOutAction: typeof signOutAction;
     runSyncAction: typeof runSyncAction;
@@ -246,4 +247,17 @@ test("저장 취소는 선택한 플랫폼·이력 ID·취소 사유를 관리�
   await app.cancelAppRelease("ios", "123", " ");
   assert.equal(JSON.parse(requests.at(-1)!.body!).change_reason, "관리자 콘솔에서 앱 업데이트 설정 저장 취소");
   await app.signOutAction();
+});
+
+test("명시한 관리자 조치 환경은 현재 선택 환경과 달라도 해당 인증·API를 함께 사용한다", async () => {
+  const { app, requests } = browser();
+  const credentials = new FormData(); credentials.set("email", "qa@example.invalid"); credentials.set("password", "test-only");
+  await app.signInAction({ error: null, email: "" }, credentials);
+  try {
+    app.setActiveConsoleEnvironment("development");
+    await app.callAdminAction("syntheticAction", new FormData(), undefined, "production");
+    const request = requests.at(-1)!;
+    assert.equal(new URL(request.url).hostname, "production-api.example");
+    assert.equal(request.authorization, "Bearer test-access-production");
+  } finally { await app.signOutAction(); }
 });
