@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {automaticSyncLight,liveLeagueLight,schedulerLight,type SyncHealth,type LiveLeagueHealth} from '../src/management/sync-health.ts';
+import {automaticSyncErrors,automaticSyncLight,liveLeagueLight,schedulerLight,type SyncHealth,type LiveLeagueHealth} from '../src/management/sync-health.ts';
 import {readSyncHealth} from '../src/management/sync-reads.ts';
 import type {CronJob} from '../src/management/sync-model.ts';
 const at='2026-10-20T05:30:00Z',now=Date.parse(at),old='2026-10-19T00:00:00Z';
 const job:CronJob={job_id:1,job_name:'kickon-live-football-sync',schedule:'* * * * *',active:true,last_status:'succeeded',last_started_at:at,last_finished_at:at,last_message:null,failure_count_24h:0};
 const league:LiveLeagueHealth={league_id:'kleague',paused:false,lineup_targets:0,live_targets:0,postponed_targets:0,due_since:null,lineup_poll_at:null,lineup_http_status:null,live_poll_at:null,live_http_status:null};
-const snapshot=():SyncHealth=>({checked_at:at,jobs:[job],states:[],live:{last_attempted_at:at,last_succeeded_at:at,has_error:false,running:false,leagues:[{...league},{...league,league_id:'kleague2'}]}});
+const snapshot=():SyncHealth=>({checked_at:at,jobs:[job],states:[],maintenance:[],live:{last_attempted_at:at,last_succeeded_at:at,has_error:false,running:false,leagues:[{...league},{...league,league_id:'kleague2'}]}});
 test('scheduler lights distinguish disabled, failed, delayed and unsupported records with daily/range grace',()=>{
  assert.equal(schedulerLight({...job,active:false,last_status:'failed'},now).tone,'gray');
  assert.equal(schedulerLight({...job,last_status:'failed'},now).tone,'red');
@@ -53,6 +53,21 @@ test('non-live lights name scheduler evidence separately and report current data
  assert.equal(automaticSyncLight(squad,health).tone,'red');
  health.states[0].last_error=null;assert.equal(automaticSyncLight(squad,health).tone,'gray');
  health.states[0].last_succeeded_at=at;assert.equal(automaticSyncLight(squad,health).label,'갱신 성공');
+});
+test('old unresolved errors and maintenance blocks survive new successful scheduler calls',()=>{
+ const health=snapshot(),post={...job,job_name:'kickon-post-match-football-sync'};
+ health.jobs=[post];health.states=[{sync_key:'sportmonks-post-match:2026:kleague',season:2026,league_id:'kleague',last_attempted_at:old,last_succeeded_at:'2026-10-17T00:00:00Z',last_error:'SYNC_ERROR'}];
+ assert.equal(automaticSyncLight(post,health).tone,'red');assert.equal(automaticSyncErrors([post],health).count,1);
+ health.states[0].last_error=null;
+ health.maintenance=[{league_id:'kleague',season:2026,kind:'post_match',state:'BLOCKED',reason_code:'PROVIDER_FINISHED_REQUIRED'},{league_id:'kleague2',season:2026,kind:'post_match',state:'BLOCKED',reason_code:'FINISHED_ONLY'}];
+ assert.equal(automaticSyncErrors([post],health).count,1,'Count jobs, not leagues or attempts');
+ assert.match(automaticSyncLight(post,health).detail,/K리그 1.*종료 확인.*K리그 2/);
+ health.maintenance=[];assert.equal(automaticSyncErrors([post],health).count,0);
+});
+test('unavailable or incomplete health never reports zero errors',()=>{
+ const health=snapshot();assert.equal(automaticSyncErrors([job],null).count,null);assert.equal(automaticSyncErrors([job],health,'denied').count,null);
+ assert.equal(automaticSyncErrors([{...job,last_started_at:null}],health).count,null);
+ assert.equal(automaticSyncErrors([{...job,last_status:'failed'}],health).count,1);
 });
 test('health RPC validates evidence and keeps denied, missing or malformed responses unknown',async()=>{
  const client=(data:unknown,error:unknown=null)=>({rpc(name:string){assert.equal(name,'get_admin_football_sync_health');return {abortSignal(signal:AbortSignal){assert.ok(signal instanceof AbortSignal);return Promise.resolve({data,error});}};}} as unknown as SupabaseClient);

@@ -20,7 +20,8 @@ export async function readSyncHealth(client:SupabaseClient):Promise<SyncHealth>{
  if(error||!data||typeof data!=='object')throw invalid();
  const value=data as SyncHealth;
  const timestamp=(at:unknown)=>at===null||typeof at==='string'&&Number.isFinite(Date.parse(at));
- if(!value.checked_at||!timestamp(value.checked_at)||!Array.isArray(value.states)||!value.live||typeof value.live.has_error!=='boolean'||typeof value.live.running!=='boolean'||!timestamp(value.live.last_attempted_at)||!timestamp(value.live.last_succeeded_at)||!Array.isArray(value.live.leagues)||value.live.leagues.length!==2)throw invalid();
+ if(!value.checked_at||!timestamp(value.checked_at)||!Array.isArray(value.states)||!Array.isArray(value.maintenance)||!value.live||typeof value.live.has_error!=='boolean'||typeof value.live.running!=='boolean'||!timestamp(value.live.last_attempted_at)||!timestamp(value.live.last_succeeded_at)||!Array.isArray(value.live.leagues)||value.live.leagues.length!==2)throw invalid();
+ if(value.maintenance.some(issue=>!issue||!['kleague','kleague2'].includes(issue.league_id)||!Number.isSafeInteger(issue.season)||!['history','post_match'].includes(issue.kind)||!['BLOCKED','ERROR'].includes(issue.state)||(issue.reason_code!==null&&(typeof issue.reason_code!=='string'||!/^[_A-Z]+$/.test(issue.reason_code)))))throw invalid();
  cronRows(value.jobs);
  if(value.states.some(row=>!row||typeof row.sync_key!=='string'||!timestamp(row.last_attempted_at)||!timestamp(row.last_succeeded_at)||(row.last_error!==null&&typeof row.last_error!=='string')))throw invalid();
  const seen=new Set<string>();

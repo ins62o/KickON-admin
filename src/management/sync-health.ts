@@ -2,7 +2,8 @@ import type {SyncJob} from './data.ts';
 import {syncTask,type CronJob} from './sync-model.ts';
 
 export type LiveLeagueHealth={league_id:string;paused:boolean|null;lineup_targets:number;live_targets:number;postponed_targets:number;due_since:string|null;lineup_poll_at:string|null;lineup_http_status:number|null;live_poll_at:string|null;live_http_status:number|null};
-export type SyncHealth={checked_at:string;jobs:CronJob[];states:SyncJob[];live:{last_attempted_at:string|null;last_succeeded_at:string|null;has_error:boolean;running:boolean;leagues:LiveLeagueHealth[]}};
+export type MaintenanceIssue={league_id:string;season:number;kind:'history'|'post_match';state:'BLOCKED'|'ERROR';reason_code:string|null};
+export type SyncHealth={checked_at:string;jobs:CronJob[];states:SyncJob[];maintenance:MaintenanceIssue[];live:{last_attempted_at:string|null;last_succeeded_at:string|null;has_error:boolean;running:boolean;leagues:LiveLeagueHealth[]}};
 export type SyncLight={tone:'green'|'red'|'gray';label:string;detail:string};
 const light=(tone:SyncLight['tone'],label:string,detail:string):SyncLight=>({tone,label,detail});
 const recent=(at:string|null,now:number)=>{const age=now-Date.parse(at??'');return age>=-5000&&age<=180000;};
@@ -51,17 +52,28 @@ export function automaticSyncLight(job:CronJob,health:SyncHealth|null,error=''):
  if(error||!health)return light('gray',error?'상태 확인 불가':'상태 확인 중',error||'서버 실행 기록을 확인하고 있어요');
  const now=Date.parse(health.checked_at),scheduler=schedulerLight(job,now);
  if(!Number.isFinite(now))return light('gray','확인 불가','서버 기준 시각을 확인할 수 없어요');
- if(scheduler.tone!=='green')return scheduler;
  if(job.job_name==='kickon-live-football-sync'){
+  if(scheduler.tone!=='green')return scheduler;
   const states=health.live.leagues.map(league=>liveLeagueLight(league,health.live,now));
   return states.find(state=>state.tone==='red')??states.find(state=>state.tone==='gray')??states.find(state=>state.label.includes('조회 정상'))??states[0]??light('gray','확인 불가','리그별 조회 기록이 없어요');
  }
  const task=syncTask(job.job_name).name;
- const states=health.states.filter(state=>syncTask(state.sync_key).name===task&&Date.parse(state.last_attempted_at??'')>=Date.parse(job.last_started_at??'')-120000);
+ const issues=health.maintenance.filter(issue=>syncTask(issue.kind==='post_match'?'post-match':'history').name===task);
+ if(issues.length)return light('red','처리 차단',issues.map(issue=>`${issue.league_id==='kleague'?'K리그 1':'K리그 2'} · ${issue.reason_code==='PROVIDER_FINISHED_REQUIRED'?'공급자 경기 종료 확인이 필요해요':issue.reason_code==='FINISHED_ONLY'?'종료 경기 처리 조건을 확인해야 해요':'데이터 처리 오류를 확인해야 해요'}`).join(' / '));
+ const matching=health.states.filter(state=>syncTask(state.sync_key).name===task);
+ if(matching.some(state=>state.last_error?.trim()))return light('red','갱신 오류','이전 실행에서 발생한 데이터 처리 오류가 아직 해소되지 않았어요');
+ if(scheduler.tone!=='green')return scheduler;
+ const states=matching.filter(state=>Date.parse(state.last_attempted_at??'')>=Date.parse(job.last_started_at??'')-120000);
  if(states.length){
   if(states.some(state=>state.last_error?.trim()))return light('red','갱신 오류','최근 데이터 처리 작업에 오류가 기록됐어요');
   if(states.every(state=>Date.parse(state.last_succeeded_at??'')>=Date.parse(state.last_attempted_at??'')))return light('green','갱신 성공','최근 데이터 처리 작업이 정상 종료됐어요');
   return light('gray','처리 확인 중','데이터 처리 작업의 종료 결과를 기다리고 있어요');
  }
  return scheduler;
+}
+
+export function automaticSyncErrors(jobs:CronJob[],health:SyncHealth|null,error=''){
+ const rows=jobs.filter(job=>automaticSyncLight(job,health,error).tone==='red');
+ const unknown=!health||Boolean(error)||jobs.some(job=>job.active&&automaticSyncLight(job,health,error).tone==='gray');
+ return {rows,count:rows.length||!unknown?rows.length:null};
 }

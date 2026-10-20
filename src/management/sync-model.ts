@@ -4,6 +4,7 @@ import {leagueLabel,type Team} from './model.ts';
 export type CronJob={job_id:number;job_name:string;schedule:string;active:boolean;last_status:string|null;last_started_at:string|null;last_finished_at:string|null;last_message:string|null;failure_count_24h:number};
 type SyncTask={name:string;description:string;cadenceDetail?:string;rules?:[string,string][]};
 const tasks:(SyncTask&{match:RegExp})[]=[
+ {match:/standings-recovery/,name:'리그 순위 복구',description:'공급자 데이터로 리그 순위와 승점을 복구해요'},
  {match:/push-outbox-recovery/,name:'푸시 발송 복구',description:'알림 생성 시 바로 시작하는 발송 작업에서 누락되거나 재시도가 필요한 건을 확인해요',rules:[
   ['일반 발송','알림이 생성되면 발송 작업을 바로 깨워요'],
   ['매분 확인','처리 대기·재시도 대상이 있을 때 발송 작업을 다시 깨워요'],

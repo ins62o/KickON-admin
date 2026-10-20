@@ -12,6 +12,7 @@ await db.exec(`
  create function public.is_admin(public.admin_role) returns boolean language sql as $$ select coalesce(current_setting('qa.admin',true),'false')='true' $$;
  create function public.get_admin_cron_jobs() returns table(job_id bigint,job_name text,schedule text,active boolean,last_status text,last_started_at timestamptz,last_finished_at timestamptz,last_message text,failure_count_24h bigint) language sql as $$ select 1::bigint,'kickon-live-football-sync','* * * * *',true,'succeeded',now(),now(),null::text,0::bigint $$;
  create table public.football_sync_state(sync_key text primary key,season integer,league_id text,last_attempted_at timestamptz,last_succeeded_at timestamptz,last_error text);
+ create table public.football_maintenance_runs_v1(league_id text,season integer,kind text,state text,last_error text);
  create table public.live_sync_leases(sync_key text primary key,lease_owner uuid,lease_expires_at timestamptz);
  create table public.provider_fetch_controls(scope text primary key,paused boolean);
  create table public.fixtures(id text primary key,league_id text,sportmonks_id bigint,status text,kickoff_at timestamptz,provider_status text);
@@ -20,6 +21,7 @@ await db.exec(`
  insert into public.football_sync_state values ('sportmonks-live',null,null,now(),now(),null);
 `);
 await db.exec(await fs.readFile(new URL('../../supabase/migrations/202610200004_admin_sync_health.sql',import.meta.url),'utf8'));
+await db.exec(await fs.readFile(new URL('../../supabase/migrations/202610200024_admin_persistent_sync_errors.sql',import.meta.url),'utf8'));
 await db.exec('set role anon');
 await assert.rejects(db.query('select public.get_admin_football_sync_health()'),/permission denied/);
 await db.exec('reset role;set role authenticated');
@@ -28,6 +30,7 @@ await db.exec("select set_config('qa.admin','true',false)");
 const read=async()=>(await db.query('select public.get_admin_football_sync_health() as health')).rows[0].health;
 let value=await read();
 assert.equal(value.jobs[0].job_name,'kickon-live-football-sync');assert.equal(value.live.has_error,false);assert.equal(value.live.running,false);
+assert.deepEqual(value.maintenance,[]);
 assert.equal(value.live.leagues.length,2);assert.equal(value.live.leagues[0].lineup_targets,0);assert.equal(value.live.leagues[0].lineup_poll_at,null);
 await assert.rejects(db.query('select * from public.football_provider_usage'),/permission denied/);
 await db.exec(`reset role;
@@ -45,6 +48,18 @@ value=await read();const [k1,k2]=value.live.leagues;
 assert.equal(k1.lineup_targets,1);assert.equal(k1.live_targets,0);assert.equal(k1.lineup_http_status,200);assert.equal(k1.live_http_status,null);
 assert.equal(k2.live_targets,1);assert.equal(k2.live_http_status,500);assert.equal(k2.lineup_poll_at,null);assert.equal(k2.paused,true);assert.equal(value.live.running,true);
 assert.ok(!JSON.stringify(value).includes('REDACTED_ENDPOINT'));
+await db.exec(`reset role;
+ insert into public.football_maintenance_runs_v1 values
+ ('kleague',2026,'post_match','BLOCKED','CRON46_BLOCKED:PROVIDER_FINISHED_REQUIRED'),
+ ('kleague2',2026,'post_match','ERROR','PRIVATE_PROVIDER_MESSAGE'),
+ ('kleague',2025,'history','DONE',null);
+ insert into public.football_sync_state values ('sportmonks-post-match:2026:kleague',2026,'kleague',now()-interval '2 days',now()-interval '3 days','PRIVATE_ERROR_MESSAGE');
+ set role authenticated;`);
+value=await read();assert.equal(value.maintenance.length,2);
+assert.equal(value.maintenance[0].reason_code,'PROVIDER_FINISHED_REQUIRED');assert.equal(value.maintenance[1].reason_code,null);
+assert.equal(value.states.find(row=>row.sync_key==='sportmonks-post-match:2026:kleague').last_error,'SYNC_ERROR');
+assert.ok(!JSON.stringify(value).includes('PRIVATE_'));
+await assert.rejects(db.query('select * from public.football_maintenance_runs_v1'),/permission denied/);
 await db.exec("reset role;delete from public.provider_fetch_controls where scope='GLOBAL';set role authenticated");
 assert.equal((await read()).live.leagues[0].paused,null);
 await db.close();

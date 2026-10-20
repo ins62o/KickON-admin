@@ -405,6 +405,18 @@ async function auditDropdowns(page,scope){
  await run(browser,'Push metric list errors retry without inventing counts and route changes close delivery dialogs',async page=>{
   await ready(page);await page.evaluate(()=>window.qa.fail=['pushMetricRecipients']);await page.getByRole('button',{name:'오늘 발송 성공 목록 보기',exact:true}).click();let panel=page.locator('.push-metric-panel');await ready(page);await panel.getByRole('button',{name:'다시 불러오기',exact:true}).waitFor();assert.equal(await panel.getByText('0건',{exact:true}).count(),0);await page.evaluate(()=>window.qa.fail=[]);await panel.getByRole('button',{name:'다시 불러오기',exact:true}).click();await ready(page);await panel.locator('tbody tr').first().click();await page.getByRole('dialog').waitFor();await page.evaluate(()=>{window.history.pushState(null,'','?page=data&tab=monitoring');window.dispatchEvent(new window.PopStateEvent('popstate'));});await page.getByRole('dialog').waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
  },{page:'data',tab:'push',initial:{monitoring:true,pushMetricDetails:true}});
+ await run(browser,'Persistent sync blocks remain visible despite zero cron failures and health errors never display zero',async page=>{
+  await ready(page);const card=page.getByRole('button',{name:'오류 작업 목록 보기',exact:true});await card.locator('strong > span[aria-hidden="true"]').filter({hasText:/^1$/}).waitFor();
+  assert.equal(await page.getByText('24시간 호출 오류',{exact:true}).count(),0);
+  const table=page.locator('.automatic-sync-table');assert.equal(await table.locator('tbody tr').count(),11);
+  const row=table.locator('tbody tr').filter({hasText:'경기 후 데이터 갱신'});await row.getByText('오류',{exact:true}).waitFor();
+  await card.click();assert.equal(await table.locator('tbody tr').count(),1);await row.click();
+  const modal=page.getByRole('dialog',{name:'경기 후 데이터 갱신',exact:true});await modal.getByText(/K리그 1.*공급자 경기 종료 확인.*K리그 2/).waitFor();await closeDialog(page);
+  await page.getByRole('button',{name:'전체 작업 보기',exact:true}).click();assert.equal(await table.locator('tbody tr').count(),11);
+  await page.evaluate(()=>window.qa.fail.push('syncHealth'));await page.getByRole('button',{name:'새로고침',exact:true}).click();
+  await card.getByText('—',{exact:true}).waitFor();assert.equal(await card.isDisabled(),true);assert.equal(await card.getByText('0',{exact:true}).count(),0);
+  assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'data',tab:'sync',initial:{monitoring:true,automationAudit:true,persistentSyncErrors:true}});
  for(const theme of ['light','dark'])await run(browser,`Automation audit ${theme} includes every scheduled task and shows read-only push settings`,async page=>{
   await ready(page);const tabs=page.getByRole('navigation',{name:'관리 항목',exact:true});await tabs.getByRole('button',{name:'푸시 알림',exact:true}).click();await ready(page);const push=page.locator('.push-settings-panel'),automatic=page.locator('.automatic-sync-table'),section=automatic.locator('..').locator('..');
   assert.equal(await push.locator('tbody tr').count(),3);assert.equal(await push.getByText('실제 발송',{exact:true}).count(),3);assert.equal(await push.getByText('푸시 연결 없음',{exact:true}).count(),0);
