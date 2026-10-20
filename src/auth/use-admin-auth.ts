@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { authClient, authPort, signOutEveryEnvironment } from "./client";
-import { canRevalidateAdminInBackground, readAuthorizedAdmin, signInAdmin, type AdminIdentity } from "./policy";
+import { authClient, authPort, signInToCurrentEnvironment, signOutEveryEnvironment } from "./client";
+import { canRevalidateAdminInBackground, readAuthorizedAdmin, type AdminIdentity } from "./policy";
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 
@@ -59,7 +59,7 @@ export function useAdminAuth() {
     setPending(true);
     setError("");
     try {
-      const identity = await signInAdmin(authPort, email, password);
+      const identity = await signInToCurrentEnvironment(email, password);
       if (request.current === current) { updateAdmin(identity); setChecking(false); }
     } catch (cause) {
       if (request.current === current) { updateAdmin(null); setChecking(false); }

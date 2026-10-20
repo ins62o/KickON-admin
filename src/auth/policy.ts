@@ -40,3 +40,21 @@ export async function signInAdmin(port: AdminAuthPort, email: string, password: 
     throw error;
   }
 }
+
+export async function signInWithHandoff({source,target,email,password,transfer,isCurrent}:{source:AdminAuthPort;target:AdminAuthPort;email:string;password:string;transfer:()=>Promise<void>;isCurrent:()=>boolean}):Promise<AdminIdentity>{
+  try{
+    const identity=await signInAdmin(source,email,password);
+    if(!isCurrent())throw Error('로그인이 취소됐어요 다시 로그인해 주세요');
+    if(source===target)return identity;
+    await transfer();
+    if(!isCurrent())throw Error('로그인이 취소됐어요 다시 로그인해 주세요');
+    const admin=await readAuthorizedAdmin(target);
+    if(!isCurrent())throw Error('로그인이 취소됐어요 다시 로그인해 주세요');
+    if(!admin||!identity.email||admin.email?.toLowerCase()!==identity.email.toLowerCase())throw Error('선택한 환경의 동일한 관리자 권한을 확인할 수 없어요');
+    return admin;
+  }catch(error){
+    await source.signOut().catch(()=>undefined);
+    if(source!==target)await target.signOut().catch(()=>undefined);
+    throw error;
+  }
+}

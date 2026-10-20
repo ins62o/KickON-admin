@@ -1,11 +1,11 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {adminApiUrl} from './api.ts';
 import {createOperationGuard,finishEnvironmentSwitch} from "./environment-operation";
-import type { AdminAuthPort } from "./policy";
+import {signInWithHandoff,type AdminAuthPort} from "./policy";
 
 export type Environment = "production" | "development";
 export type PublicAuthConfig = { environment: Environment; url: string; publishableKey: string; providerAllowance: number | null };
-export type AdminSettings = {defaultEnvironment: Environment; environments: Partial<Record<Environment,PublicAuthConfig>>;apiBaseUrl?:string};
+export type AdminSettings = {defaultEnvironment: Environment; loginEnvironment?:Environment; environments: Partial<Record<Environment,PublicAuthConfig>>;apiBaseUrl?:string};
 export const authSettings = __ADMIN_SETTINGS__;
 const requestedEnvironment = new URLSearchParams(window.location.search).get("environment");
 export const authEnvironment: Environment = (requestedEnvironment === "development" || requestedEnvironment === "production") && authSettings.environments[requestedEnvironment] ? requestedEnvironment : authSettings.defaultEnvironment;
@@ -24,6 +24,21 @@ window.addEventListener("storage",event=>{if(event.key===logoutKey)operations.in
 const logoutChannel=typeof BroadcastChannel!=="undefined"?new BroadcastChannel(logoutKey):null;
 logoutChannel?.addEventListener("message",()=>operations.invalidate());
 function beginLogout(){operations.invalidate();try{localStorage.setItem(logoutKey,crypto.randomUUID());}catch{/* Same-tab cancellation still works when storage is unavailable. */}logoutChannel?.postMessage("logout");}
+async function transferSession(sourceEnvironment:Environment,environment:Environment,isCurrent:()=>boolean,navigate:()=>void){
+  const source=clientFor(sourceEnvironment)!;
+  const target=clientFor(environment)!;
+  const session=await source.auth.getSession();
+  if(!isCurrent())return;
+  if(session.error||!session.data.session)throw Error('로그인 상태를 다시 확인해 주세요');
+  const result=await fetch(adminApiUrl('environment'),{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.data.session.access_token}`},body:JSON.stringify({environment:sourceEnvironment,target:environment})});
+  const data=await result.json().catch(()=>({}));
+  if(!result.ok||!data.access_token||!data.refresh_token){if(!isCurrent())return;throw new Error(data.error||"환경 전환 인증 서버를 확인해 주세요");}
+  await finishEnvironmentSwitch({isCurrent,navigate,store:async()=>{const signed=await target.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});if(signed.error)throw new Error("환경 전환 인증을 저장하지 못했어요");},discard:async()=>{
+    const current=await target.auth.getSession();
+    if(current.data.session?.access_token===data.access_token)await target.auth.signOut({scope:"local"});
+    else await target.auth.admin.signOut(data.access_token,"local");
+  }});
+}
 export async function changeEnvironment(environment:string){
   if((environment!=="development"&&environment!=="production")||!authSettings.environments[environment]||environment===authEnvironment)return;
   const isCurrent=operations.begin();
@@ -37,39 +52,42 @@ export async function changeEnvironment(environment:string){
     if(!isCurrent())return;
     const sameAccount=!sourceUser.error&&!targetUser.error&&sourceUser.data.user?.email&&sourceUser.data.user.email.toLowerCase()===targetUser.data.user?.email?.toLowerCase();
     if(!sameAccount){
-      const result=await fetch(adminApiUrl('environment'),{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.data.session.access_token}`},body:JSON.stringify({environment:authEnvironment,target:environment})});
-      const data=await result.json().catch(()=>({}));
-      if(!result.ok||!data.access_token||!data.refresh_token){if(!isCurrent())return;throw new Error(data.error||"환경 전환 인증 서버를 확인해 주세요");}
-      await finishEnvironmentSwitch({isCurrent,navigate,store:async()=>{const signed=await target.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});if(signed.error)throw new Error("환경 전환 인증을 저장하지 못했어요");},discard:async()=>{
-        const current=await target.auth.getSession();
-        if(current.data.session?.access_token===data.access_token)await target.auth.signOut({scope:"local"});
-        else await target.auth.admin.signOut(data.access_token,"local");
-      }});
+      await transferSession(authEnvironment,environment,isCurrent,navigate);
       return;
     }
   }
   navigate();
 }
-export const authPort: AdminAuthPort | null = authClient ? {
+function portFor(client:SupabaseClient):AdminAuthPort{return {
   async verifyUser() {
-    const { data, error } = await authClient!.auth.getUser();
+    const { data, error } = await client.auth.getUser();
     if (error) throw new Error("로그인 상태를 확인할 수 없습니다. 다시 로그인해 주세요.");
     return data.user ? { id: data.user.id, email: data.user.email ?? null } : null;
   },
   async readMembership(userId) {
-    const { data, error } = await authClient!.from("admin_users").select("role, display_name, is_active").eq("user_id", userId).maybeSingle();
+    const { data, error } = await client.from("admin_users").select("role, display_name, is_active").eq("user_id", userId).maybeSingle();
     if (error) throw new Error("관리자 권한을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.");
     return data;
   },
   async passwordSignIn(email, password) {
-    const { data, error } = await authClient!.auth.signInWithPassword({ email, password });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (error || !data.user) throw new Error("이메일 또는 비밀번호를 확인해 주세요.");
   },
   async signOut() {
-    const {error}=await authClient!.auth.signOut({scope:"local"});
+    const {error}=await client.auth.signOut({scope:"local"});
     if(error)throw new Error("로그아웃하지 못했어요 다시 시도해 주세요");
   },
-} : null;
+};}
+export const authPort: AdminAuthPort | null = authClient ? portFor(authClient) : null;
+export async function signInToCurrentEnvironment(email:string,password:string){
+  if(!authPort)throw Error('로그인 연결이 준비되지 않았습니다. 운영 담당자에게 문의해 주세요');
+  const loginEnvironment=authSettings.loginEnvironment??authEnvironment;
+  const client=clientFor(loginEnvironment);
+  if(!client)throw Error('관리자 로그인 연결이 설정되지 않았어요');
+  const source=loginEnvironment===authEnvironment?authPort:portFor(client);
+  const isCurrent=operations.begin();
+  return signInWithHandoff({source,target:authPort,email,password,isCurrent,transfer:()=>transferSession(loginEnvironment,authEnvironment,isCurrent,()=>{})});
+}
 
 export async function signOutEveryEnvironment(){
   beginLogout();

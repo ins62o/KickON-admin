@@ -23,6 +23,9 @@ export function resolveAdminSettings(env: Record<string, string>, mode: string) 
   const apiBaseUrl=env.VITE_ADMIN_API_BASE_URL?.replace(/\/$/,'');
   if(apiBaseUrl){const url=new URL(apiBaseUrl);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw Error('관리자 API 주소는 인증 정보 없는 HTTPS 주소를 사용해야 합니다');}
   const defaultEnvironment: Environment = env.KICKON_ENVIRONMENT === 'production' ? 'production' : 'development';
+  const requestedLogin = env.KICKON_LOGIN_ENVIRONMENT;
+  const loginEnvironment = requestedLogin === 'development' || requestedLogin === 'production' ? requestedLogin : undefined;
+  if (requestedLogin && !loginEnvironment) throw Error('관리자 로그인 환경을 확인해 주세요');
   const environments: Partial<Record<Environment, NonNullable<ReturnType<typeof resolvePublicAuthConfig>> & {providerAllowance: number | null}>> = {};
   if (mode === 'design-preview') return {defaultEnvironment, environments};
   for (const environment of ['development','production'] as const) {
@@ -36,5 +39,6 @@ export function resolveAdminSettings(env: Record<string, string>, mode: string) 
     const allowance=Number(env[`NEXT_PUBLIC_KICKON_${environment.toUpperCase()}_SPORTSMONKS_API_ALLOWANCE`] || env.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE || env.SPORTSMONKS_API_ALLOWANCE);
     environments[environment]={...config,environment,providerAllowance:Number.isSafeInteger(allowance)&&allowance>0?allowance:null};
   }
-  return {defaultEnvironment,environments,...(apiBaseUrl?{apiBaseUrl}:{})};
+  if(loginEnvironment&&!environments[loginEnvironment])throw Error('관리자 로그인 연결이 설정되지 않았어요');
+  return {defaultEnvironment,environments,...(loginEnvironment?{loginEnvironment}:{}),...(apiBaseUrl?{apiBaseUrl}:{})};
 }

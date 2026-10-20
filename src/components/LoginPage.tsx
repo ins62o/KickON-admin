@@ -1,7 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
-import { EnvironmentSelect } from "./EnvironmentSelect";
 import { Toast } from "./Toast";
 
 export function LoginPage({ checking, pending, error, signIn }: {
@@ -38,7 +37,7 @@ export function LoginPage({ checking, pending, error, signIn }: {
 
   return <div className="login-screen">
     <a href="#login-main" className="skip-link">로그인으로 바로가기</a>
-    <header className="site-header"><div className="header-inner"><ThemeToggle /><EnvironmentSelect disabled={disabled}/></div></header>
+    <header className="site-header"><div className="header-inner"><ThemeToggle /></div></header>
     <main id="login-main" tabIndex={-1} className="hero login-page">
       <section className="login-content" aria-labelledby="login-title">
         <h1 id="login-title">KICKON ADMIN</h1>

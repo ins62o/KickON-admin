@@ -670,6 +670,7 @@ async function auditDropdowns(page,scope){
   },{page:'data',theme,initial:{monitoring:true}});
   await run(browser,`Responsive ${theme} login validation and password visibility`,async page=>{
    await page.goto(`${base}/preview-qa?qaScreen=login`);await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
+   assert.equal(await page.getByRole('combobox').count(),0,'Login does not ask for an environment');
    for(const width of [1440,1024,768,390,320]){
     await page.setViewportSize({width,height:1000});await page.evaluate(()=>document.fonts.ready);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`No login overflow at ${width}px`);
    }

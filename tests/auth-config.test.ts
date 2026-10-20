@@ -32,3 +32,11 @@ test('environment selection exposes only explicitly configured public targets', 
   assert.equal(single.environments.production, undefined);
   assert.deepEqual(config.resolveAdminSettings({}, 'design-preview').environments, {});
 });
+
+test('shared login uses only an explicitly configured authentication connection',async()=>{
+ const {resolveAdminSettings}=await import('../public-auth-config.ts');
+ const env={KICKON_ENVIRONMENT:'production',KICKON_LOGIN_ENVIRONMENT:'development',NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL:'https://dev.example.com',NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_dev',NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL:'https://prod.example.com',NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_prod'};
+ const settings=resolveAdminSettings(env,'production');assert.equal(settings.loginEnvironment,'development');assert.equal(settings.defaultEnvironment,'production');
+ assert.throws(()=>resolveAdminSettings({...env,KICKON_LOGIN_ENVIRONMENT:'unknown'},'production'));
+ assert.throws(()=>resolveAdminSettings({...env,NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL:''},'production'));
+});

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readAuthorizedAdmin, signInAdmin, type AdminAuthPort } from '../src/auth/policy.ts';
+import { readAuthorizedAdmin, signInAdmin, signInWithHandoff, type AdminAuthPort } from '../src/auth/policy.ts';
 
 function fixture({ user = { id: 'verified-user', email: 'admin@example.com' } as { id: string; email: string | null } | null, membership = { role: 'super_admin', is_active: true, display_name: ' 운영자 ' } as unknown, failUser = false } = {}) {
   const calls = { membership: 0, signOut: 0, email: '', password: '' };
@@ -47,6 +47,37 @@ test('empty credentials do not issue network requests', async () => {
   await assert.rejects(signInAdmin(port, ' ', ''));
   assert.equal(calls.email, '');
   assert.equal(calls.membership, 0);
+});
+
+test('one login authenticates the source once and verifies the target after token exchange',async()=>{
+ const source=fixture(),target=fixture();let transfers=0;
+ const identity=await signInWithHandoff({source:source.port,target:target.port,email:'admin@example.com',password:' password ',isCurrent:()=>true,transfer:async()=>{transfers++;assert.equal(source.calls.membership,1);assert.equal(target.calls.membership,0);}});
+ assert.equal(identity.email,'admin@example.com');assert.equal(transfers,1);
+ assert.equal(source.calls.password,' password ');assert.equal(target.calls.password,'');assert.equal(target.calls.membership,1);
+});
+test('same-environment login needs no handoff',async()=>{
+ const {port}=fixture();await signInWithHandoff({source:port,target:port,email:'admin@example.com',password:'password',isCurrent:()=>true,transfer:async()=>{assert.fail('No exchange within one environment');}});
+});
+test('invalid source credentials never attempt target login or exchange',async()=>{
+ const source=fixture(),target=fixture();source.port.passwordSignIn=async()=>{throw Error('invalid credentials');};
+ await assert.rejects(signInWithHandoff({source:source.port,target:target.port,email:'admin@example.com',password:'password',isCurrent:()=>true,transfer:async()=>assert.fail('No fallback password attempt')}),/invalid credentials/);
+ assert.equal(target.calls.password,'');assert.equal(target.calls.membership,0);
+});
+test('failed handoff, inactive target or another identity cannot leave a logged-in session',async()=>{
+ for(const mode of ['transfer','inactive','identity']){
+  const source=fixture(),target=fixture({membership:mode==='inactive'?null:undefined,user:mode==='identity'?{id:'verified-user',email:'another@example.com'}:undefined});
+  await assert.rejects(signInWithHandoff({source:source.port,target:target.port,email:'admin@example.com',password:'password',isCurrent:()=>true,transfer:async()=>{if(mode==='transfer')throw Error('handoff failed');}}));
+  assert.ok(source.calls.signOut>0);assert.equal(target.calls.signOut,1);assert.equal(target.calls.password,'');
+ }
+});
+test('logout during authentication or token exchange cancels login and clears both sessions',async()=>{
+ for(const stage of ['source','transfer','verification']){
+  const source=fixture(),target=fixture();let current=true;
+  if(stage==='source')source.port.passwordSignIn=async()=>{current=false;};
+  if(stage==='verification'){const verify=target.port.verifyUser;target.port.verifyUser=async()=>{current=false;return verify();};}
+  await assert.rejects(signInWithHandoff({source:source.port,target:target.port,email:'admin@example.com',password:'password',isCurrent:()=>current,transfer:async()=>{if(stage==='source')assert.fail('Cancelled before exchange');if(stage==='transfer')current=false;}}),/취소/);
+  assert.ok(source.calls.signOut>0);assert.equal(target.calls.signOut,1);
+ }
 });
 
 test('same verified administrator can revalidate without replacing the open workspace', async () => {
