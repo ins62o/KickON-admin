@@ -22,15 +22,15 @@ type Environment = 'development' | 'production';
 export function resolveAdminSettings(env: Record<string, string>, mode: string) {
   const apiBaseUrl=env.VITE_ADMIN_API_BASE_URL?.replace(/\/$/,'');
   if(apiBaseUrl){const url=new URL(apiBaseUrl);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw Error('관리자 API 주소는 인증 정보 없는 HTTPS 주소를 사용해야 합니다');}
-  const defaultEnvironment: Environment = env.KICKON_ENVIRONMENT === 'production' ? 'production' : 'development';
+  const configuredEnvironment: Environment = env.KICKON_ENVIRONMENT === 'production' ? 'production' : 'development';
   const requestedLogin = env.KICKON_LOGIN_ENVIRONMENT;
   const configuredLogin = requestedLogin === 'development' || requestedLogin === 'production' ? requestedLogin : undefined;
   if (requestedLogin && !configuredLogin) throw Error('관리자 로그인 환경을 확인해 주세요');
   const environments: Partial<Record<Environment, NonNullable<ReturnType<typeof resolvePublicAuthConfig>> & {providerAllowance: number | null}>> = {};
-  if (mode === 'design-preview') return {defaultEnvironment, environments};
+  if (mode === 'design-preview') return {defaultEnvironment:configuredEnvironment, environments};
   for (const environment of ['development','production'] as const) {
     const scoped: Record<string,string> = {...env, KICKON_ENVIRONMENT:environment};
-    if (environment !== defaultEnvironment) {
+    if (environment !== configuredEnvironment) {
       delete scoped.VITE_SUPABASE_URL; delete scoped.VITE_SUPABASE_PUBLISHABLE_KEY;
       delete scoped.NEXT_PUBLIC_SUPABASE_URL; delete scoped.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     }
@@ -42,5 +42,6 @@ export function resolveAdminSettings(env: Record<string, string>, mode: string) 
   if(configuredLogin&&!environments[configuredLogin])throw Error('관리자 로그인 연결이 설정되지 않았어요');
   // Keep the shared administrator identity stable across local and deployed workspaces.
   const loginEnvironment=configuredLogin??(environments.development?'development':environments.production?'production':undefined);
+  const defaultEnvironment:Environment=environments.production?'production':configuredEnvironment;
   return {defaultEnvironment,environments,...(loginEnvironment?{loginEnvironment}:{}),...(apiBaseUrl?{apiBaseUrl}:{})};
 }

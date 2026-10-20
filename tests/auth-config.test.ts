@@ -46,9 +46,19 @@ test('shared login keeps the development identity after logout in either workspa
  const targets={NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL:'https://dev.example.com',NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_dev',NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL:'https://prod.example.com',NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_prod'};
  for(const mode of ['development','production']){
   const settings=resolveAdminSettings({...targets,KICKON_ENVIRONMENT:mode},mode);
-  assert.equal(settings.loginEnvironment,'development');assert.equal(settings.defaultEnvironment,mode);
+  assert.equal(settings.loginEnvironment,'development');assert.equal(settings.defaultEnvironment,'production');
  }
  assert.equal(resolveAdminSettings({...targets,KICKON_LOGIN_ENVIRONMENT:'production'},'development').loginEnvironment,'production');
  assert.equal(resolveAdminSettings({KICKON_ENVIRONMENT:'production',NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL:targets.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL,NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY:targets.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY},'production').loginEnvironment,'production');
  assert.equal(resolveAdminSettings({},'production').loginEnvironment,undefined);
+});
+
+test('production is the default workspace without reassigning generic development credentials',async()=>{
+ const {resolveAdminSettings}=await import('../public-auth-config.ts');
+ const env={KICKON_ENVIRONMENT:'development',VITE_SUPABASE_URL:'https://dev.example.com',VITE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_dev'};
+ const devOnly=resolveAdminSettings(env,'development');
+ assert.equal(devOnly.defaultEnvironment,'development');assert.equal(devOnly.environments.production,undefined);
+ const both=resolveAdminSettings({...env,NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL:'https://prod.example.com',NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_prod'},'development');
+ assert.equal(both.defaultEnvironment,'production');assert.equal(both.loginEnvironment,'development');
+ assert.equal(both.environments.development?.url,'https://dev.example.com');assert.equal(both.environments.production?.url,'https://prod.example.com');
 });

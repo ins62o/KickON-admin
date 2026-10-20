@@ -43,7 +43,7 @@ try{
    return route.abort();
   });
   const page=await context.newPage();page.setDefaultTimeout(12000);page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(`${base}/?environment=production`);await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
+  await page.goto(base);await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
   assert.equal(await page.getByRole('combobox').count(),0);
   await page.getByLabel('이메일',{exact:true}).fill('qa@example.test');await page.getByLabel('비밀번호',{exact:true}).fill('qa-password');await page.getByRole('button',{name:'로그인',exact:true}).click();
   if(failure){
