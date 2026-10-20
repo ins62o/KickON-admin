@@ -7,7 +7,7 @@ import {Buffer} from 'node:buffer';
 import {chromium} from 'playwright';
 import {loadEnv} from 'vite';
 import {resolveAdminSettings} from '../../public-auth-config.ts';
-const base='http://127.0.0.1:5178';
+const base=process.env.QA_BASE_URL||'http://127.0.0.1:5178';
 const settings=resolveAdminSettings(loadEnv('production',process.cwd(),''),'production');
 const origins=Object.fromEntries(Object.entries(settings.environments).map(([name,value])=>[new URL(value.url).origin,name]));
 const ids={development:'11111111-1111-4111-8111-111111111111',production:'22222222-2222-4222-8222-222222222222'};
@@ -43,7 +43,7 @@ try{
    return route.abort();
   });
   const page=await context.newPage();page.setDefaultTimeout(12000);page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(base);await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
+  await page.goto(`${base}/?environment=production`);await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
   assert.equal(await page.getByRole('combobox').count(),0);
   await page.getByLabel('이메일',{exact:true}).fill('qa@example.test');await page.getByLabel('비밀번호',{exact:true}).fill('qa-password');await page.getByRole('button',{name:'로그인',exact:true}).click();
   if(failure){
@@ -52,18 +52,23 @@ try{
    assert.equal(await page.evaluate(()=>localStorage.getItem('kickon-admin-auth-development')),null);
    assert.equal(await page.evaluate(()=>localStorage.getItem('kickon-admin-auth-production')),null);
   }else{
-   await page.getByRole('heading',{name:'대시보드',level:1,exact:true}).waitFor();
-   await page.getByRole('button',{name:'계정 메뉴',exact:true}).click();
-   await page.getByRole('combobox',{name:'현재 환경: 운영',exact:true}).waitFor();
-   await page.getByRole('button',{name:'로그아웃',exact:true}).click();
-   await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
-   assert.equal(await page.getByRole('combobox').count(),0);
-   for(const environment of Object.keys(ids))assert.equal(await page.evaluate(environment=>localStorage.getItem(`kickon-admin-auth-${environment}`),environment),null);
+   for(let cycle=0;cycle<3;cycle++){
+    await page.getByRole('heading',{name:'대시보드',level:1,exact:true}).waitFor();
+    await page.getByRole('button',{name:'계정 메뉴',exact:true}).click();
+    await page.getByRole('combobox',{name:'현재 환경: 운영',exact:true}).waitFor();
+    await page.getByRole('button',{name:'로그아웃',exact:true}).click();
+    await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();
+    assert.equal(await page.getByRole('combobox').count(),0);
+    for(const environment of Object.keys(ids))assert.equal(await page.evaluate(environment=>localStorage.getItem(`kickon-admin-auth-${environment}`),environment),null);
+    if(cycle===2)break;
+    if(cycle===1){await page.reload();await page.getByRole('heading',{name:'KICKON ADMIN',exact:true}).waitFor();}
+    await page.getByLabel('이메일',{exact:true}).fill('qa@example.test');await page.getByLabel('비밀번호',{exact:true}).fill('qa-password');await page.getByRole('button',{name:'로그인',exact:true}).click();
+   }
   }
-  assert.equal(requests.filter(row=>row.type==='password').length,1);
-  assert.equal(requests.filter(row=>row.type==='handoff').length,1);
+  assert.equal(requests.filter(row=>row.type==='password').length,failure?1:3);
+  assert.equal(requests.filter(row=>row.type==='handoff').length,failure?1:3);
   assert.deepEqual(errors,[]);
-  console.log(`PASS shared login ${failure?'handoff rejection':'production entry and logout'}`);
+  console.log(`PASS shared login ${failure?'handoff rejection':'production entry, logout and repeated login'}`);
   await context.close();
  }
 }finally{await browser.close();}
