@@ -1,0 +1,17 @@
+.seed-admin-select { min-width:92px; max-width:100%; }
+.seed-admin-select > button { width:100%; height:44px; min-height:44px; padding-inline:14px; border-radius:12px; background:var(--admin-subtle); box-shadow:none; }
+.seed-admin-select > button:not([data-disabled]):hover { background:var(--admin-inset); }
+.seed-admin-select > button:is([data-open],[aria-expanded="true"]) { box-shadow:inset 0 0 0 2px var(--admin-focus); }
+.seed-admin-select .seed-select-trigger__value { font-size:14px; line-height:22px; font-weight:500; }
+.seed-admin-select .select-option-label { display:flex; flex:1; align-items:center; gap:8px; min-width:0; }
+.seed-admin-select .seed-select-trigger__value { min-width:0; }
+.seed-admin-select .seed-select-trigger__suffixIcon { flex-shrink:0; margin-left:auto; }
+.seed-admin-select .admin-select-icon,.admin-select-menu .admin-select-icon { display:inline-grid; place-items:center; width:20px; height:20px; flex:0 0 20px; }
+.seed-admin-select .admin-select-icon > :is(svg,.team-mark),.admin-select-menu .admin-select-icon > :is(svg,.team-mark) { width:20px; height:20px; flex-basis:20px; }
+.seed-select__positioner { z-index:70; }
+.admin-select-menu { min-width:160px; max-width:calc(100vw - 32px); border:1px solid var(--admin-line); border-radius:16px; box-shadow:var(--admin-shadow); }
+.admin-select-menu .seed-select__scrollArea { overscroll-behavior:contain; }
+.workspace-form-field .seed-admin-select > button { min-height:48px; }
+@media(max-width:800px) {
+  .workspace-form-field .seed-select-trigger__value { font-size:16px; }
+}

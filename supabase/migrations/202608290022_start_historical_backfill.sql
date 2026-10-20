@@ -1,2 +1,0 @@
--- Intentionally retained as a no-op migration version. The initial import is
--- started once, after all catalog and safety migrations are installed.

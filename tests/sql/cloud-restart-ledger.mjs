@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import process from 'node:process';
+import console from 'node:console';
+import {URL} from 'node:url';
+const {PGlite}=await import(process.env.PGLITE_MODULE_PATH||'@electric-sql/pglite');
+const db=new PGlite();
+await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;
+create function auth.role() returns text language sql as $$ select coalesce(current_setting('qa.role',true),'authenticated') $$;`);
+await db.exec(await fs.readFile(new URL('../../supabase/migrations/202610200023_admin_cloud_restart_ledger.sql',import.meta.url),'utf8'));
+const url=`https://${'a'.repeat(20)}.supabase.co`,other=`https://${'b'.repeat(20)}.supabase.co`,actor='00000000-0000-4000-8000-000000000001',id='00000000-0000-4000-8000-000000000002',next='00000000-0000-4000-8000-000000000003';
+const reserve=async(project=url,request=id,user=actor)=>(await db.query('select public.admin_project_restart_reserve($1,$2,$3,$4) as result',[project,user,'production',request])).rows[0].result;
+for(const role of ['anon','authenticated']){await db.exec(`set role ${role}`);await assert.rejects(reserve(),/permission denied/);await db.exec('reset role');}
+await assert.rejects(reserve(),/SERVICE_ROLE_REQUIRED/);
+await db.exec("select set_config('qa.role','service_role',false);set role service_role");
+assert.equal((await reserve()).kind,'new');assert.equal((await reserve()).kind,'existing');assert.equal((await reserve(url,next)).kind,'cooldown');assert.equal((await reserve(url,id,next)).kind,'conflict');
+assert.equal((await reserve(other,next)).kind,'new');
+await db.query("select public.admin_project_restart_finish($1,'accepted')",[id]);
+assert.equal((await reserve()).record.status,'accepted');
+const latest=(await db.query('select public.admin_project_restart_latest($1) as result',[url])).rows[0].result;assert.equal(latest.actor,actor);assert.ok(Number.isSafeInteger(latest.requestedAt));
+await assert.rejects(db.query("select public.admin_project_restart_finish($1,'accepted')",[id]),/RESERVATION_REQUIRED/);
+await db.query("select public.admin_project_restart_finish($1,'failed')",[next]);assert.equal((await reserve(other,next)).record.status,'failed');
+assert.equal((await db.query('select public.admin_project_restart_latest($1) as result',[other])).rows[0].result,null);
+await assert.rejects(db.query('select * from public.admin_project_restart_requests'),/permission denied/);
+await assert.rejects(reserve('https://evil.example'),/INVALID_RESTART/);
+await db.close();console.log('PASS cloud restart ledger SQL: service-only execution, durable idempotency, project isolation, cooldown and reservation-before-dispatch');

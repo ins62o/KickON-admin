@@ -1,0 +1,96 @@
+/* Toss-inspired desktop admin foundations; SEED supplies accessible interactions. */
+:root,:root[data-theme="light"][data-seed-color-mode] {
+  --seed-font-family:"Inter","Pretendard Variable",Arial,sans-serif;
+  --seed-color-fg-brand:#1b64da;
+  --seed-color-fg-brand-contrast:#1957c2;
+  --seed-color-bg-brand-solid:#1b64da;
+  --seed-color-bg-brand-solid-pressed:#1957c2;
+  --seed-color-bg-brand-weak:#e8f3ff;
+  --seed-color-bg-brand-weak-pressed:#c9e2ff;
+  --seed-color-fg-on-brand-solid:#ffffff;
+  --seed-color-stroke-brand-solid:#3182f6;
+  --seed-color-stroke-brand-weak:#90c2ff;
+  --admin-canvas:#f4f5f7;
+  --admin-surface:#ffffff;
+  --admin-subtle:#f2f4f6;
+  --admin-inset:#e5e8eb;
+  --admin-border:#d1d6db;
+  --admin-line:#e5e8eb;
+  --admin-ink:#191f28;
+  --admin-muted:#4e5968;
+  --admin-quiet:#6b7684;
+  --admin-primary:var(--seed-color-bg-brand-solid);
+  --admin-primary-hover:#1957c2;
+  --admin-primary-pressed:var(--seed-color-bg-brand-solid-pressed);
+  --admin-on-primary:#ffffff;
+  --admin-on-primary-hover:#ffffff;
+  --admin-accent-ink:var(--seed-color-fg-brand);
+  --admin-hover:#f2f4f6;
+  --admin-selected:var(--seed-color-bg-brand-weak);
+  --admin-nav-selected:var(--seed-color-stroke-brand-solid);
+  --admin-nav-selected-ink:var(--seed-color-fg-brand);
+  --admin-success:#127548;
+  --admin-success-bg:#e8f7ee;
+  --admin-error:#c92c40;
+  --admin-error-bg:#ffeeee;
+  --admin-warning:#80551a;
+  --admin-warning-bg:#fff5df;
+  --admin-focus:#3182f6;
+  --admin-chart-blue:#3182f6;
+  --admin-font-display:var(--seed-font-family);
+  --admin-font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+  --admin-body:15px;
+  --admin-table:14px;
+  --admin-caption:13px;
+  --admin-control:14px;
+  --admin-heading:22px;
+  --admin-title:30px;
+  --admin-radius:24px;
+  --admin-control-radius:12px;
+  --admin-input-radius:12px;
+  --admin-shadow:0 8px 32px #192f4c12;
+}
+:root[data-theme="dark"][data-seed-color-mode] {
+  --seed-color-fg-brand:#90c2ff;
+  --seed-color-fg-brand-contrast:#c9e2ff;
+  --seed-color-bg-brand-solid:#1b64da;
+  --seed-color-bg-brand-solid-pressed:#1957c2;
+  --seed-color-bg-brand-weak:#162d4b;
+  --seed-color-bg-brand-weak-pressed:#1e3d64;
+  --seed-color-stroke-brand-solid:#4593fc;
+  --seed-color-stroke-brand-weak:#2272eb;
+  --admin-canvas:#101216;
+  --admin-surface:#1b1e24;
+  --admin-subtle:#272c34;
+  --admin-inset:#333d4b;
+  --admin-border:#465364;
+  --admin-line:#303a48;
+  --admin-ink:#f2f4f6;
+  --admin-muted:#b0b8c1;
+  --admin-quiet:#a3aebc;
+  --admin-hover:#252d38;
+  --admin-success:#8fe4b3;
+  --admin-success-bg:#173c2c;
+  --admin-error:#ffb4bb;
+  --admin-error-bg:#42252d;
+  --admin-warning:#ebc47c;
+  --admin-warning-bg:#3c321f;
+  --admin-focus:#90c2ff;
+  --admin-chart-blue:#6ba9ff;
+  --admin-shadow:0 12px 40px #00000040;
+}
+/* Keep native controls and the remaining admin surfaces on the same color roles. */
+:root[data-theme][data-seed-color-mode] {
+  --seed-color-fg-neutral:var(--admin-ink);
+  --seed-color-fg-neutral-muted:var(--admin-muted);
+  --seed-color-fg-neutral-subtle:var(--admin-quiet);
+  --seed-color-fg-placeholder:var(--admin-quiet);
+  --seed-color-bg-layer-default:var(--admin-surface);
+  --seed-color-bg-layer-floating:var(--admin-surface);
+  --seed-color-bg-layer-basement:var(--admin-canvas);
+  --seed-color-bg-neutral-weak:var(--admin-subtle);
+  --seed-color-bg-neutral-weak-pressed:var(--admin-inset);
+  --seed-color-stroke-neutral-weak:var(--admin-border);
+  --seed-color-stroke-neutral-muted:var(--admin-border);
+  --seed-color-stroke-neutral-subtle:var(--admin-line);
+}
