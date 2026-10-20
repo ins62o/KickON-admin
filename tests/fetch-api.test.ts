@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAdminFetchHandler} from '../server/fetch-api.ts';
 const origin='https://admin.example.test';
+test('retry endpoint requires a signed-in active data administrator and fixed production task',async t=>{
+ const original=globalThis.fetch;let role='viewer',active=true;let writes=0;
+ globalThis.fetch=async input=>String(input).includes('/auth/v1/user')?Response.json({id:'11111111-1111-4111-8111-111111111111'}):String(input).includes('/admin_users')?Response.json({user_id:'11111111-1111-4111-8111-111111111111',role,is_active:active}):(writes++,Response.json([]));
+ t.after(()=>{globalThis.fetch=original;});
+ const handler=createAdminFetchHandler({production:{url:'https://example.supabase.co',publishableKey:'sb_publishable_test',secret:'server-secret'}},[origin]);
+ const request=(jobName='kickon-post-match-football-sync',auth=true)=>new Request('https://example.supabase.co/functions/v1/admin-api/sync-retry',{method:'POST',headers:{origin,'content-type':'application/json',...(auth?{authorization:'Bearer session'}:{})},body:JSON.stringify({environment:'production',jobName,requestId:'11111111-1111-4111-8111-111111111111'})});
+ assert.equal((await handler(request(undefined,false))).status,401);assert.equal((await handler(request())).status,403);
+ role='admin';active=false;assert.equal((await handler(request())).status,400);active=true;
+ assert.equal((await handler(request('arbitrary-job'))).status,400);assert.equal(writes,0);
+});
 test('deployed API allows only the configured origin and authenticated JSON POST requests',async()=>{
  const handler=createAdminFetchHandler({},[origin]);
  const req=(method='POST',body=JSON.stringify({environment:'production'}),headers:Record<string,string>={origin,'content-type':'application/json'})=>new Request('https://example.supabase.co/functions/v1/admin-api/system-metrics',{method,headers,...(method==='POST'?{body}:{})});

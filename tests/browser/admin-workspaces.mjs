@@ -405,6 +405,19 @@ async function auditDropdowns(page,scope){
  await run(browser,'Push metric list errors retry without inventing counts and route changes close delivery dialogs',async page=>{
   await ready(page);await page.evaluate(()=>window.qa.fail=['pushMetricRecipients']);await page.getByRole('button',{name:'오늘 발송 성공 목록 보기',exact:true}).click();let panel=page.locator('.push-metric-panel');await ready(page);await panel.getByRole('button',{name:'다시 불러오기',exact:true}).waitFor();assert.equal(await panel.getByText('0건',{exact:true}).count(),0);await page.evaluate(()=>window.qa.fail=[]);await panel.getByRole('button',{name:'다시 불러오기',exact:true}).click();await ready(page);await panel.locator('tbody tr').first().click();await page.getByRole('dialog').waitFor();await page.evaluate(()=>{window.history.pushState(null,'','?page=data&tab=monitoring');window.dispatchEvent(new window.PopStateEvent('popstate'));});await page.getByRole('dialog').waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
  },{page:'data',tab:'push',initial:{monitoring:true,pushMetricDetails:true}});
+ await run(browser,'Post-match retry verifies a single request, keeps the modal accessible and does not claim queued work is resolved',async page=>{
+  let release;const gate=new Promise(resolve=>{release=resolve;});const requests=[];
+  await page.route('**/api/admin/sync-retry',async route=>{requests.push(route.request().postDataJSON());await gate;await route.fulfill({status:202,json:{status:'queued',message:'재시도를 요청했어요 실제 처리가 완료되면 상태가 자동으로 바뀝니다'}});});
+  await ready(page);await page.getByRole('button',{name:'경기 후 데이터 갱신 자동 동기화 정보',exact:true}).click();
+  const modal=page.getByRole('dialog',{name:'경기 후 데이터 갱신',exact:true});await modal.getByRole('button',{name:'원인 재확인·재시도',exact:true}).click();
+  await modal.getByRole('button',{name:'원인 확인 및 재시도 요청 중',exact:true}).waitFor();assert.equal(await modal.getByRole('button',{name:'닫기',exact:true}).isDisabled(),true);
+  await page.keyboard.press('Escape');assert.equal(await modal.isVisible(),true);release();
+  await modal.getByRole('alert').filter({hasText:'재시도를 요청했어요'}).waitFor();assert.equal(requests.length,1);assert.equal(requests[0].environment,'production');assert.equal(requests[0].jobName,'kickon-post-match-football-sync');assert.match(requests[0].requestId,/^[0-9a-f-]{36}$/);
+  assert.equal(await modal.getByText('오류',{exact:true}).count(),1);assert.equal(await modal.getByText('정상',{exact:true}).count(),0);assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'data',tab:'sync',initial:{monitoring:true,automationAudit:true,persistentSyncErrors:true,environment:'production'}});
+ for(const [name,options] of [['viewer',{role:'viewer',environment:'production'}],['development',{role:'admin',environment:'development'}]])await run(browser,`Post-match retry ${name} cannot request production recovery`,async page=>{
+  await ready(page);await page.getByRole('button',{name:'경기 후 데이터 갱신 자동 동기화 정보',exact:true}).click();const modal=page.getByRole('dialog');assert.equal(await modal.getByRole('button',{name:'원인 재확인·재시도',exact:true}).count(),0);assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'data',tab:'sync',role:options.role,initial:{monitoring:true,automationAudit:true,persistentSyncErrors:true,environment:options.environment}});
  await run(browser,'Persistent sync blocks remain visible despite zero cron failures and health errors never display zero',async page=>{
   await ready(page);const card=page.getByRole('button',{name:'오류 작업 목록 보기',exact:true});await card.locator('strong > span[aria-hidden="true"]').filter({hasText:/^1$/}).waitFor();
   assert.equal(await page.getByText('24시간 호출 오류',{exact:true}).count(),0);

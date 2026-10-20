@@ -1,0 +1,16 @@
+{
+  "_shared/kleagueStandingPolicy.ts": "f70afdde916653a22b19bd6571e74e0d1dc0f5a4129345da6ea759139966e39e",
+  "_shared/footballProviderUsage.ts": "e880a791fbba891eff9857f6eda663652292ee925349c5cf1a2859bcb61615fd",
+  "_shared/footballLeagueConfig.ts": "8ad3c520c2b9657915082e1b9a7dd2f4d42027c6fc1c1ec3a6dbeea25b3714ad",
+  "_shared/transferCandidateProtection.ts": "00c0cf48d8bfea68010b7fd7e265b4ae22ed820fd369b1e58c480261f0150d16",
+  "_shared/providerSnapshots.ts": "46bc274048674291dd9bb0473455b1c94abfa407128b043e2e2a315b65ec88d3",
+  "_shared/lineupPlayers.ts": "e7f766cb3b9372f15043e7a6da1ef30ca84596ca7a7d41ba0564450d97e0adcf",
+  "_shared/publishFixtureLineup.ts": "1f7dd5e1714198a8619ca35221d5b0e8abbf0fb4ad6c39a4d265ea74d2d7eff0",
+  "_shared/providerPlayerId.ts": "564408a95acfa06154cdf66352b88a52d4aa973e0310252fe7521320ffa80bf7",
+  "_shared/standingDetailValue.ts": "7fd16d169d1018ae023a0df28b1589184d45fb52e2ee29fa24550bdb4af207c6",
+  "_shared/canonicalFixtureStadium.ts": "e8077e02b71d48474d3bc55ce6dee4bf07f2e52920934d8c7fc1146e0a8a9969",
+  "_shared/lineupIdentityRecovery.ts": "ad011c38d86824c4a01bf1f520750498bc3e22d7a6a60a012b76d3c1bed2ad4c",
+  "_shared/playerStatisticEvidence.ts": "3741d49fc8b52159e42cc851ed944c0306ca4d467be0172b938e85fcfc1102fb",
+  "_shared/footballMaintenance.ts": "9f8ffbef1f92ffaec47486eb76395db6c6c13282a01cdc1134bfcee08aa7e79a",
+  "sync-football-data/index.ts": "daca5f20ac0a7b1aacc1c241eaff24d475dd3a069c38ffa8629ea8903f7f7efa"
+}

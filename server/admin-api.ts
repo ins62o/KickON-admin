@@ -8,6 +8,7 @@ import {providerResult} from "./provider-result.ts";
 import {createProviderUsageReader} from "./provider-usage.ts";
 import {activeAdmin,canRunSync,canRestartDatabase,sameVerifiedIdentity} from "./identity.ts";
 import {projectRef,RestartError,type createProjectRestartController} from './project-restart.ts';
+import {retryPostMatch} from './post-match-retry.ts';
 type Environment="development"|"production";
 type ServerTarget={url:string;publishableKey:string;secret:string;syncSecret?:string;sportmonksToken?:string;managementToken?:string};
 export type ServerTargets=Partial<Record<Environment,ServerTarget>>;
@@ -83,7 +84,7 @@ export function createAdminMiddleware(targets:ServerTargets,monitor:Pick<ReturnT
   const rates=new Map<string,{count:number;until:number}>();
   return async(req:IncomingMessage,res:ServerResponse,next:()=>void)=>{
     const path=req.url?.split("?")[0];
-    if(!["/api/admin/environment","/api/admin/sync","/api/admin/provider-usage","/api/admin/system-metrics","/api/admin/project-restart"].includes(path??""))return next();
+    if(!["/api/admin/environment","/api/admin/sync","/api/admin/sync-retry","/api/admin/provider-usage","/api/admin/system-metrics","/api/admin/project-restart"].includes(path??""))return next();
     const send=(status:number,data:unknown)=>{res.writeHead(status,{"Content-Type":"application/json","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});res.end(JSON.stringify(data));};
     if(req.method!=="POST")return send(405,{error:"지원하지 않는 요청이에요"});
     const origin=req.headers.origin;
@@ -101,6 +102,15 @@ export function createAdminMiddleware(targets:ServerTargets,monitor:Pick<ReturnT
       const rate=rates.get(rateKey);if(rate&&rate.until>Date.now()&&rate.count>=20)return send(429,{error:"잠시 후 다시 시도해 주세요"});
       rates.set(rateKey,rate&&rate.until>Date.now()?{...rate,count:rate.count+1}:{count:1,until:Date.now()+60000});
       const client=createClient(source.url,source.secret,options);
+      if(path==='/api/admin/sync-retry'){
+        const verified=await client.auth.getUser(token);
+        if(verified.error||!verified.data.user)return send(401,{error:'로그인 상태를 다시 확인해 주세요'});
+        const admin=await membership(client,verified.data.user.id);
+        if(!canRunSync(admin.role))return send(403,{error:'재시도를 실행할 권한이 없어요'});
+        if(body.environment!=='production')return send(400,{error:'현재 운영 환경의 경기 후 갱신만 재시도할 수 있어요'});
+        if(body.jobName!=='kickon-post-match-football-sync')return send(400,{error:'이 작업은 원인을 확인한 뒤 별도로 복구해야 해요'});
+        return send(202,await retryPostMatch(client,verified.data.user.id,body.environment,body.requestId,source.sportmonksToken));
+      }
       if(path==="/api/admin/system-metrics"){
         const range=body.range===undefined?'1h':body.range;if(!isResourceRange(range))return send(400,{error:'조회 기간을 확인해 주세요'});
         const verified=await client.auth.getUser(token);
