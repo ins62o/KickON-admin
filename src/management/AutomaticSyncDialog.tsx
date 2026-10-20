@@ -41,7 +41,7 @@ export function AutomaticSyncDialog({jobName,job,loading,error,health,healthErro
     ...cadence,
    ]}/>
    {healthError?<div className="dialog-actions"><button type="button" className="secondary-button" onClick={onRetry}>다시 불러오기</button></div>:null}
-   {canRetry&&jobName==='kickon-post-match-football-sync'&&current.tone==='red'&&!healthError?<div className="dialog-actions"><button type="button" className="primary-button" disabled={pending} aria-busy={pending} aria-label={pending?'원인 확인 및 재시도 요청 중':'원인 재확인·재시도'} onClick={()=>void retry()}>{pending?<LoaderCircle className="login-spinner" size={18} aria-hidden="true"/>:'원인 재확인·재시도'}</button></div>:null}
+   {canRetry&&jobName==='kickon-post-match-football-sync'&&current.tone==='red'&&!healthError?<div className="dialog-actions"><button type="button" className="primary-button" disabled={pending} aria-busy={pending} aria-label={pending?'재시도 요청 중':'재시도'} onClick={()=>void retry()}>{pending?<LoaderCircle className="login-spinner" size={18} aria-hidden="true"/>:'재시도'}</button></div>:null}
    <Feedback message={message}/>
   </>:<Empty message="자동 동기화 작업을 찾을 수 없어요"/>}
  </Dialog>;
