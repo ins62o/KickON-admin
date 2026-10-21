@@ -319,6 +319,14 @@
 
 .activity-table .activity-row { cursor:pointer; }
 .activity-table .activity-row:is(:hover,:focus-within) { background:var(--wm-subtle); }
+@media(max-width:800px) {
+  .community-table { min-width:0; table-layout:fixed; }
+  .community-table th:first-child { width:60%; }
+  .community-table :is(th,td):nth-child(n+3) { display:none; }
+  .community-table .row-title b { max-width:100%; }
+  .community-table .activity-author { display:flex; max-width:100%; min-width:0; gap:6px; }
+  .community-table .activity-author > span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+}
 .attendance-detail-dialog { width:min(1120px,calc(100vw - 32px)); scrollbar-width:none; }
 .attendance-detail-dialog::-webkit-scrollbar { display:none; }
 .attendance-info-section { border:1px solid var(--wm-line); border-radius:16px; overflow:hidden; margin-top:20px; }
