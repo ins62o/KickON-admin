@@ -424,6 +424,7 @@
 @media(max-width:600px){.system-chart-plot{padding-inline:20px;grid-template-columns:32px minmax(0,1fr);gap:12px 4px;}.system-chart-times time[data-minor="true"]{display:none;}}
 .system-note { color:var(--wm-muted); font-size:12px; line-height:1.6; margin:0; padding:16px 24px; }
 .system-billing-section { display:grid; gap:20px; min-width:0; }
+.billing-source-icon { display:none; }
 .system-billing-list { display:grid; gap:22px; padding:28px; }
 .system-billing-item-heading { display:flex; align-items:baseline; gap:12px; margin-bottom:10px; font-variant-numeric:tabular-nums; }
 .system-billing-item h3 { margin:0 auto 0 0; font-size:14px; font-weight:600; line-height:1.5; }
@@ -522,6 +523,10 @@
 
 @media(max-width:800px) {
   .management-workspace { gap:20px; }
+  .system-billing-section h2 { word-break:keep-all; }
+  .billing-source-link.quiet-button { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; border:1px solid var(--wm-line); border-radius:12px; background:var(--wm-subtle); }
+  .billing-source-label { display:none; }
+  .billing-source-icon { display:block; }
   .workspace-toolbar:has(> .workspace-actions) { display:grid; grid-template-columns:minmax(0,1fr) fit-content(65%); align-items:center; gap:12px; }
   .workspace-toolbar:has(> .workspace-actions) > :first-child { min-width:0; grid-column:1; grid-row:1; }
   .workspace-toolbar > .workspace-actions { grid-column:2; grid-row:1; min-width:0; gap:8px; }
