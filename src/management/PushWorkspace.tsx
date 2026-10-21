@@ -14,7 +14,7 @@ export function PushWorkspace({kind,onSelect,onBack,listHref,href,active=true}:{
  const selectMetric=(metric:PushMetric)=>setSelectedMetric(current=>current===metric?null:metric);
  const refresh=()=>{settings.reload();overview.reload();setRefreshKey(value=>value+1);};
  if(kind)return <PushDetailPage key={kind} kind={kind} settings={settings.data} settingsLoading={settings.loading} settingsError={settings.error} onSettingsRetry={settings.reload} onBack={onBack} listHref={listHref}/>;
- return <div className="data-tools-content"><div className="workspace-toolbar standalone data-section-heading"><h2>푸시 알림</h2><div className="workspace-tools"><Refresh disabled={settings.loading||overview.loading} onClick={refresh}/></div></div>
+ return <div className="data-tools-content"><div className="workspace-toolbar standalone data-section-heading"><h2>푸시 알림</h2><div className="workspace-actions"><Refresh disabled={settings.loading||overview.loading} onClick={refresh}/></div></div>
   <div className="workspace-stats push-overview">
    <Stat onClick={()=>selectMetric('enabled')} pressed={selectedMetric==='enabled'} disabled={overview.loading||!overview.data} label="푸시 알림 ON" value={overview.data?.enabled_users??null} loading={overview.loading} unit="명">{overview.data?.unknown_users?<span className="push-overview-note"><Badge tone="neutral">설정 미확인 {overview.data.unknown_users.toLocaleString('ko-KR')}명</Badge></span>:null}</Stat>
    <Stat onClick={()=>selectMetric('success')} pressed={selectedMetric==='success'} disabled={overview.loading||!overview.data} label="오늘 발송 성공" value={overview.data?.today_succeeded??null} loading={overview.loading} unit="건"/>

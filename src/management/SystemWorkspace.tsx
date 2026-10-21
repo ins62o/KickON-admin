@@ -85,7 +85,7 @@ export function SystemWorkspace({active=true}:{active?:boolean}={}){
  const stale=Boolean(error)||(current?now-Date.parse(current.observedAt)>150000:false);
  const status=stale?'unreachable':current?.status??'unknown';
  const storagePlan=data?.storagePlan;
- return <div className="system-workspace"><div className="workspace-toolbar standalone system-heading"><div className="system-heading-title"><h2>서버 모니터링</h2><Badge tone={tone(status)}>{refreshing&&!data?'연결 확인 중':statuses[status]}</Badge></div><div className="workspace-tools"><DatabaseRestartControl capability={data?.restart} now={now} onRequested={refresh} onMessage={setActionMessage}/><Refresh disabled={refreshing} onClick={refresh}/></div></div>
+ return <div className="system-workspace"><div className="workspace-toolbar standalone system-heading"><div className="system-heading-title"><h2>서버 모니터링</h2><Badge tone={tone(status)}>{refreshing&&!data?'연결 확인 중':statuses[status]}</Badge></div><div className="workspace-actions"><DatabaseRestartControl capability={data?.restart} now={now} onRequested={refresh} onMessage={setActionMessage}/><Refresh disabled={refreshing} onClick={refresh}/></div></div>
   {error&&(!data||data.range===range)?<Empty error={error} retry={refresh}/>:null}
   {active&&(actionMessage||data?.historyError)?<Toast key={actionMessage||data?.historyError} message={actionMessage||data!.historyError!} onDismiss={actionMessage?clearActionMessage:undefined}/>:null}
   {!data&&!error?<WorkspaceSkeleton/>:data?<>

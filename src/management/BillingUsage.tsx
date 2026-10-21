@@ -21,7 +21,7 @@ export function BillingUsage({plan,current,stale}:{plan:StoragePlan;current:Syst
  const database=stale?null:current?.databaseBytes,storage=stale?null:current?.storageBytes;
  const ready=[database,storage].every(value=>typeof value==='number'&&Number.isFinite(value)&&value>=0);
  return <section className="system-billing-section">
-  <div className="workspace-toolbar standalone"><div className="system-heading-title"><h2>Supabase Pro 사용량</h2><Badge tone={ready?'green':'orange'}>{ready?'자동 수집':'저장 용량 확인 필요'}</Badge></div><div className="workspace-tools"><a className="quiet-button" href={plan.source} target="_blank" rel="noreferrer">Supabase 사용량 페이지</a></div></div>
+  <div className="workspace-toolbar standalone"><div className="system-heading-title"><h2>Supabase Pro 사용량</h2><Badge tone={ready?'green':'orange'}>{ready?'자동 수집':'저장 용량 확인 필요'}</Badge></div><div className="workspace-actions"><a className="quiet-button" href={plan.source} target="_blank" rel="noreferrer">Supabase 사용량 페이지</a></div></div>
   <div className="workspace-panel system-billing-panel system-billing-list" aria-label="자동 수집한 현재 저장 용량">
    <UsageMeter label="DB 저장 용량" used={database} included={plan.databaseIncludedBytes}/>
    <UsageMeter label="파일 저장 공간" used={storage} included={plan.storageIncludedBytes}/>

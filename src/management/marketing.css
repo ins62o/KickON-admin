@@ -90,6 +90,12 @@
 }
 
 @media(max-width:800px) {
+  .marketing-compose-header { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:12px; }
+  .marketing-compose-header > div:first-child { min-width:0; }
+  .marketing-compose-header .marketing-save-state { margin-top:6px; margin-right:0; }
+  .marketing-compose-actions { display:flex; width:auto; flex-wrap:nowrap; }
+  .marketing-studio .marketing-compose-actions > .seed-action-button:first-child { flex:none; width:44px; min-width:44px; padding:0; }
+  .marketing-new-label { display:none; }
   .marketing-studio .marketing-form :is(input,textarea) { font-size:16px; }
   .marketing-studio .marketing-form .marketing-title-input { font-size:20px; }
   .marketing-studio .marketing-feature :is(input,textarea) { font-size:16px; }
