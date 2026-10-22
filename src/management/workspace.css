@@ -78,6 +78,22 @@
 .workspace-dialog > header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
 .workspace-dialog h2 { font-family:var(--admin-font-display); font-size:24px; font-weight:700; letter-spacing:0; margin:0; }.workspace-dialog > header button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; background:var(--wm-subtle); color:var(--wm-muted); border-radius:14px; }
 .workspace-form { display:grid; gap:24px; }
+.app-release-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; padding:0 28px 28px; }
+.app-release-form { min-width:0; padding:24px; border:1px solid var(--wm-line); border-radius:var(--admin-radius); align-content:start; }
+.app-release-card-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.app-release-card-heading h3 { margin:0 0 5px; font-size:18px; font-weight:700; }
+.app-release-card-heading > div > span { color:var(--wm-muted); font-size:13px; }
+.workspace-form .app-release-toggle { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:44px; color:var(--wm-ink); cursor:pointer; }
+.workspace-form .app-release-toggle input { width:22px; height:22px; min-height:0; padding:0; accent-color:var(--wm-blue); cursor:inherit; }
+.app-release-updated { margin:0; font-size:12px; color:var(--wm-muted); line-height:1.6; }
+.app-release-actions { display:flex; justify-content:flex-end; gap:8px; }
+.app-release-readonly { padding:0 28px; margin:0 0 24px; color:var(--wm-muted); font-size:14px; }
+.app-release-history-section { border-top:1px solid var(--wm-line); }
+.app-release-history-section > summary { padding:24px 28px; font-size:14px; font-weight:600; cursor:pointer; }
+.app-release-history-section > summary:focus-visible { outline:2px solid var(--admin-focus); outline-offset:-3px; }
+.app-release-history th > span:first-child { white-space:nowrap; }
+@media(max-width:800px){.app-release-history :is(.app-release-before,.app-release-date) { display:none; }.app-release-history th:first-child { width:40%; }}
+@media(max-width:767px){.app-release-grid { grid-template-columns:minmax(0,1fr); padding:0 20px 20px; gap:16px; }.app-release-form { padding:20px; }.app-release-readonly { padding-inline:20px; }.app-release-history-section > summary { padding:20px; }}
 .workspace-form label { display:grid; gap:10px; font-size:14px; color:var(--wm-muted); font-weight:600; }
 .workspace-form input,.workspace-form textarea,.workspace-form select,.workspace-tools > input { width:100%; border:1px solid transparent; border-radius:var(--admin-input-radius); background:var(--wm-subtle); min-height:48px; padding:13px 16px; font-size:15px; color:var(--wm-ink); font-weight:400; }
 .workspace-form textarea { resize:vertical; line-height:1.65; }

@@ -1,4 +1,5 @@
 import {readInquirySender} from "./inquiry-sender";
+import {readAppReleases as loadAppReleases,readAppReleaseHistory as loadAppReleaseHistory,saveAppRelease as updateAppRelease,type AppReleasePlatform} from './app-releases';
 import {saveNotice,setNoticeVisibility} from "./notice-actions";
 import {readReportDetail} from "./report-detail";
 import {readAttendanceDetail} from "./attendance-detail";
@@ -16,6 +17,9 @@ import type {PushKind,PushResultFilter,PushPhaseFilter} from './push-model';
 import {readFixtures as loadFixtures,readFixtureRounds as loadFixtureRounds} from "./fixture-reads";
 import {SEASON,type Catalogue,type Member,type Team,type Standing} from "./model";
 const client=()=>{if(!authClient)throw new Error("로그인이 필요해요");return authClient;};
+export const readAppReleases=()=>loadAppReleases(client());
+export const readAppReleaseHistory=()=>loadAppReleaseHistory(client());
+export const saveAppRelease=(platform:AppReleasePlatform,version:string,enabled:boolean)=>updateAppRelease(client(),platform,version,enabled);
 function check(error:{message:string}|null){if(error)throw new Error(/permission|denied|권한/i.test(error.message)?"이 정보를 조회하거나 변경할 권한이 없어요":"정보를 불러오지 못했어요 다시 시도해 주세요");}
 export async function readCatalogue():Promise<Catalogue>{
   const [teams,standings]=await Promise.all([client().from("teams").select("id,name,short_name,code,sportmonks_id").order("name"),client().from("league_standings").select("team_id,league_id,season,rank,points,played,won,drawn,lost,goals_for,goals_against,goal_difference,updated_at").eq("season",SEASON)]);

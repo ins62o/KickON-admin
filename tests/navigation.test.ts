@@ -24,7 +24,7 @@ test("navigation preserves environment and other URL state and can reset to the 
 test("operation list links restore their section and leaving operations clears it",()=>{
   assert.equal(typeof navigation.operationTabFromUrl,"function");
   const current="https://admin.example/?environment=production&view=compact";
-  for(const tab of ["community","attendances","marketing","notices","inquiries","reports"] as const){
+  for(const tab of ["community","attendances","marketing","notices","inquiries","reports","app-updates"] as const){
     const href=navigation.pageUrl(current,"operations",tab);
     assert.equal(navigation.pageFromUrl(href),"operations");
     assert.equal(navigation.operationTabFromUrl(href),tab);

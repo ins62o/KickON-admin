@@ -1,7 +1,7 @@
 import {isPushKind,type PushKind} from '../management/push-model.ts';
 export const pages={dashboard:"대시보드",users:"사용자",operations:"운영 관리",data:"데이터 관리"} as const;
 export type Page=keyof typeof pages;
-export type OperationTab="marketing"|"notices"|"inquiries"|"reports"|"community"|"attendances";
+export type OperationTab="marketing"|"notices"|"inquiries"|"reports"|"community"|"attendances"|"app-updates";
 export type DataTab="monitoring"|"sync"|"push"|"fixtures"|"teams";
 export function dataTabFromUrl(href:string):DataTab {
   const tab=new URL(href).searchParams.get('tab');
@@ -38,7 +38,7 @@ export function dataPageUrl(href:string,tab:DataTab,teamId:string|null=null):str
 }
 export function operationTabFromUrl(href:string):OperationTab {
   const tab=new URL(href).searchParams.get("tab");
-  return pageFromUrl(href)==="operations"&&["marketing","notices","inquiries","reports","community","attendances"].includes(tab??"")?tab as OperationTab:"community";
+  return pageFromUrl(href)==="operations"&&["marketing","notices","inquiries","reports","community","attendances","app-updates"].includes(tab??"")?tab as OperationTab:"community";
 }
 
 export function pageFromUrl(href:string):Page {
