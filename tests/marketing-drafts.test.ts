@@ -57,7 +57,7 @@ test("validation blocks empty exports, incomplete update features and reversed e
   assert.throws(()=>marketing.validateDraft(event),/종료일/);
   assert.throws(()=>marketing.validateDraft({...event,eventEnd:"2026-02-30"}),/날짜/);
   assert.doesNotThrow(()=>marketing.validateDraft({...event,eventEnd:"2026-10-19"}));
-  assert.throws(()=>marketing.validateDraft({...marketing.newDraft("notice","2026-10-19"),title:"안내"}),/내용/);
+  assert.throws(()=>marketing.validateDraft({...marketing.newDraft("notice","2026-10-19"),title:"안내",matchday:undefined}),/내용/);
 });
 
 test("saving replaces only the selected draft, preserves other categories and refuses silent eviction",()=>{

@@ -26,6 +26,22 @@
 .marketing-field-label small,.marketing-feature-heading small { font-size:11px; font-weight:400; color:var(--wm-muted); }
 .marketing-studio .marketing-form :is(input,textarea) { border-color:transparent; border-radius:12px; padding:14px 16px; font-size:15px; min-width:0; background:var(--wm-subtle); }
 .marketing-form textarea { resize:vertical; }
+.matchday-editor { display:grid; gap:18px; min-width:0; }
+.matchday-load { display:flex; align-items:end; gap:10px; }
+.matchday-load > label { flex:1; display:grid; gap:8px; }
+.matchday-load > button { flex-shrink:0; min-height:48px; }
+.matchday-fixtures { display:grid; gap:8px; max-height:420px; overflow:auto; overscroll-behavior:contain; }
+.marketing-form .matchday-fixture { display:flex; align-items:center; gap:12px; padding:12px; border:1px solid var(--wm-line); border-radius:12px; cursor:pointer; }
+.matchday-fixture:has(:checked) { background:var(--admin-selected); border-color:transparent; }
+.marketing-studio .matchday-fixture input { flex:0 0 18px; width:18px; height:18px; min-height:0; margin:0; padding:0; accent-color:var(--admin-accent-ink); }
+.matchday-fixture > span { display:grid; gap:5px; min-width:0; }
+.matchday-fixture-teams { display:flex; align-items:center; gap:8px; }
+.matchday-fixture-teams img { width:24px; height:24px; object-fit:contain; flex:0 0 24px; }
+.matchday-fixture b { font-size:14px; font-weight:600; }
+.matchday-fixture small,.matchday-empty,.matchday-storage-note { color:var(--wm-muted); font-size:12px; font-weight:400; line-height:1.6; }
+.matchday-empty { padding:24px 12px; text-align:center; background:var(--wm-subtle); border-radius:12px; margin:0; }
+.matchday-storage-note { margin:0; }
+@media(max-width:420px){.matchday-load{align-items:stretch;flex-direction:column;}.matchday-fixture-teams{gap:5px;}.matchday-fixture b{font-size:13px;}}
 .marketing-studio .marketing-form :is(input,textarea):focus-visible { outline:2px solid var(--admin-focus); outline-offset:-2px; }
 .marketing-studio .marketing-form .marketing-title-input { font-size:20px; line-height:1.45; font-weight:500; min-height:100px; }
 .marketing-studio .marketing-form :is(input,textarea)::placeholder { color:var(--admin-quiet); opacity:1; }

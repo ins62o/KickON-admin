@@ -1,4 +1,5 @@
 import {marketingPlaceholders,type MarketingDraft} from "./marketing-drafts";
+import {paintMatchday} from './marketing-matchday-image';
 const font='"Inter", "Pretendard Variable", sans-serif';
 const headingFont='"Elice Digital Baeum", "Pretendard Variable", sans-serif';
 const blue="#006ACC",ink="#111111",muted="#626262";
@@ -135,6 +136,7 @@ export async function paintMarketingImage(canvas:HTMLCanvasElement,draft:Marketi
   const height=draft.format==="story"?1920:1350,top=draft.format==="story"?208:52,bottom=height-top;
   canvas.width=pixelWidth;canvas.height=Math.round(height*pixelWidth/1080);ctx.setTransform(pixelWidth/1080,0,0,pixelWidth/1080,0,0);ctx.textBaseline="top";ctx.fillStyle="#ffffff";ctx.fillRect(0,0,1080,height);
   if(draft.kind==="event")return eventPoster(ctx,draft,brand,top,bottom);
+  if(draft.kind==='notice'&&draft.matchday)return paintMatchday(ctx,draft,brand,height);
   if(draft.kind==="notice")return noticeBoard(ctx,draft,brand,top,bottom);
   return updateSheet(ctx,draft,brand,top,bottom);
 }

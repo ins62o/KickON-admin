@@ -1,9 +1,10 @@
+import {koreanMatchDate,matchdayFooter,validMatchday,type Matchday} from './marketing-matchday.ts';
 export type MarketingKind="update"|"event"|"notice";
 export type MarketingFeature={title:string;description:string};
-export type MarketingDraft={id:string;kind:MarketingKind;title:string;body:string;features:MarketingFeature[];memo:string;date:string;eventEnd:string;format:"feed"|"story";updatedAt:string};
+export type MarketingDraft={id:string;kind:MarketingKind;title:string;body:string;features:MarketingFeature[];memo:string;date:string;eventEnd:string;format:"feed"|"story";updatedAt:string;matchday?:Matchday};
 export const marketingKinds=[{value:"update",label:"업데이트 내역",english:"UPDATE"},{value:"event",label:"이벤트",english:"EVENT"},{value:"notice",label:"공지사항",english:"NOTICE"}] as const;
 export const marketingPlaceholders={titles:{update:"새로워진 킥온",event:"우리의 응원을\n함께 나눠요",notice:"킥온에서\n안내드려요"},featureTitle:"새로운 기능의 이름",featureDescription:"달라진 점을 간결하게 소개해 주세요",bodies:{event:"참여 방법과 이벤트 혜택을 적어 주세요",notice:"전달할 내용을 적어 주세요"},memo:"메모를 적어봐"} as const;
-export function newDraft(kind:MarketingKind,date:string):MarketingDraft{return {id:"",kind,title:"",body:"",features:[{title:"",description:""}],memo:kind==="update"?marketingPlaceholders.memo:"",date:kind==="update"?"":date,eventEnd:"",format:"feed",updatedAt:""};}
+export function newDraft(kind:MarketingKind,date:string):MarketingDraft{return {id:"",kind,title:kind==="notice"?"MATCH DAY":"",body:"",features:[{title:"",description:""}],memo:kind==="update"?marketingPlaceholders.memo:"",date:kind==="update"?"":date,eventEnd:"",format:kind==="notice"?"story":"feed",updatedAt:"",...(kind==="notice"?{matchday:{matches:[],footer:matchdayFooter}}:{})};}
 export function parseDrafts(raw:string):MarketingDraft[]{
   try{
     const data:unknown=JSON.parse(raw);if(!Array.isArray(data))return [];
@@ -16,7 +17,8 @@ export function parseDrafts(raw:string):MarketingDraft[]{
       const features=Array.isArray(row.features)?row.features:typeof row.items==="string"?row.items.split("\n").filter(Boolean).map(line=>{const [title,...description]=line.split("|");return {title,description:description.join("|")};}):[];
       if(!features.every(feature=>feature&&typeof feature.title==="string"&&typeof feature.description==="string"))return [];
       if(["body","memo","eventEnd","updatedAt"].some(key=>row[key]!==undefined&&typeof row[key]!=="string"))return [];
-      return [{id:row.id as string,kind:kind as MarketingKind,title:row.title as string,body:row.body as string??"",features,memo:row.memo as string??(kind==="update"?(row.date as string).replaceAll("-",". "):""),date:row.date as string,eventEnd:row.eventEnd as string??"",format:row.format as MarketingDraft["format"],updatedAt:row.updatedAt as string??""}];
+      if(row.matchday!==undefined&&(kind!=='notice'||!validMatchday(row.matchday)))return [];
+      return [{id:row.id as string,kind:kind as MarketingKind,title:row.title as string,body:row.body as string??"",features,memo:row.memo as string??(kind==="update"?(row.date as string).replaceAll("-",". "):""),date:row.date as string,eventEnd:row.eventEnd as string??"",format:row.format as MarketingDraft["format"],updatedAt:row.updatedAt as string??"",...(row.matchday?{matchday:row.matchday as Matchday}:{})}];
     });
   }catch{return [];}
 }
@@ -27,6 +29,10 @@ export function validateDraft(draft:MarketingDraft){
   if(draft.kind==="update"){
     const features=draft.features.filter(item=>item.title.trim()||item.description.trim());
     if(!features.length||features.length>4||features.some(item=>!item.title.trim()||item.title.length>48||item.description.length>100))throw new Error("업데이트 제목을 입력해 주세요 항목은 최대 4개까지 넣을 수 있어요");
+  }else if(draft.kind==='notice'&&draft.matchday){
+    if(!validMatchday(draft.matchday)||!draft.matchday.matches.length)throw Error('이미지에 넣을 경기를 선택해 주세요');
+    if(!validDate(draft.date)||draft.matchday.matches.some(match=>koreanMatchDate(match.kickoffAt)!==draft.date))throw Error('경기 날짜가 다른 일정이 있어요 선택한 날짜의 경기를 다시 불러와 주세요');
+    if(new Set(draft.matchday.matches.map(match=>match.id)).size!==draft.matchday.matches.length)throw Error('중복된 경기가 있어요');
   }else if(!draft.body.trim()||draft.body.length>600)throw new Error("내용을 1~600자로 입력해 주세요");
   if(draft.memo.length>48)throw new Error("메모를 48자 이내로 입력해 주세요");
   if(draft.kind==="event"&&draft.eventEnd&&(!draft.date||draft.eventEnd<draft.date))throw new Error("종료일은 시작일 이후로 선택해 주세요");

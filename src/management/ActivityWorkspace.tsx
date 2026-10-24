@@ -6,7 +6,7 @@ import {readAllActivity} from "./data";
 import {dateLabel} from "./model";
 import {useResource} from "./useResource";
 import {Badge,Dialog,Empty,Pager,Refresh,SearchField,WorkspaceSkeleton} from "./WorkspaceUI";
-const results={WIN:"승",DRAW:"무",LOSS:"패",PENDING:"집계 전",UNKNOWN:"미확인"};
+const results={WIN:"승",DRAW:"무",LOSS:"패",PENDING:"예정",UNKNOWN:"미확인"};
 const visibility:Record<string,string>={VISIBLE:"게시 중",HIDDEN:"숨김",DELETED:"삭제"};
 export function ActivityWorkspace({kind}:{kind:ActivityKind}){
   const [page,setPage]=useState(1),[query,setQuery]=useState(""),[selected,setSelected]=useState<ActivityRow|null>(null);

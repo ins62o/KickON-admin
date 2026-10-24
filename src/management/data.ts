@@ -14,7 +14,9 @@ import {readSyncHistory as loadSyncHistory} from './sync-history';
 import {readPushEnabledUsers as loadPushEnabledUsers,readPushMetricRecipients as loadPushMetricRecipients,readPushOverview as loadPushOverview,readPushSettings as loadPushSettings,readPushRecipients as loadPushRecipients,readPushDeliveryDetail as loadPushDeliveryDetail} from './push-settings';
 import type {PushMetric} from './push-settings';
 import type {PushKind,PushResultFilter,PushPhaseFilter} from './push-model';
-import {readFixtures as loadFixtures,readFixtureRounds as loadFixtureRounds} from "./fixture-reads";
+import {readFixtures as loadFixtures,readFixtureRounds as loadFixtureRounds,readMatchdayFixtures} from "./fixture-reads";
+import type {FixtureFilter} from './fixture-reads';
+import {matchdayMatches} from './marketing-matchday';
 import {SEASON,type Catalogue,type Member,type Team,type Standing} from "./model";
 const client=()=>{if(!authClient)throw new Error("로그인이 필요해요");return authClient;};
 export const readAppReleases=()=>loadAppReleases(client());
@@ -63,7 +65,11 @@ export const readPushRecipients=(kind:PushKind,query:string,page:number,result:P
 export const readSyncHealth=()=>loadSyncHealth(client());
 export const readSyncHistory=(task:string,page:number)=>loadSyncHistory(client(),task,page);
 export const readFixtureRounds=(league:string)=>loadFixtureRounds(client(),league);
-export const readFixtures=(league:string,team:string,from:string,to:string,page:number,upcoming=false,round='all')=>loadFixtures(client(),league,team,from,to,page,upcoming,round);
+export const readFixtures=(league:string,team:string,from:string,to:string,page:number,filter:FixtureFilter='all',round='all')=>loadFixtures(client(),league,team,from,to,page,filter,round);
+export async function readMarketingMatches(date:string){
+ const [catalogue,stadiums,fixtures]=await Promise.all([readCatalogue(),readStadiums(),readMatchdayFixtures(client(),date)]);
+ return matchdayMatches(fixtures,catalogue.teams,stadiums);
+}
 export async function readStadiums():Promise<Stadium[]>{const result=await client().from("stadiums").select("id,name,name_ko,address,latitude,longitude").order("name").order("id");check(result.error);return result.data??[];}
 
 export type SyncRun={id:string;job_key:string;status:string;started_at:string|null;finished_at:string|null;error_message:string|null;target_id:string|null;metadata:Record<string,unknown>|null};

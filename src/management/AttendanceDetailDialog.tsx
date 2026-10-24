@@ -4,7 +4,7 @@ import {dateLabel,leagueLabel} from "./model";
 import {TeamMark} from "./TeamMark";
 import {useResource} from "./useResource";
 import {Dialog,Empty,WorkspaceSkeleton} from "./WorkspaceUI";
-const resultLabels={WIN:"승리",DRAW:"무승부",LOSS:"패배",PENDING:"집계 전",UNKNOWN:"미확인"};
+const resultLabels={WIN:"승리",DRAW:"무승부",LOSS:"패배",PENDING:"예정",UNKNOWN:"미확인"};
 const fixtureStatuses:Record<string,string>={SCHEDULED:"예정",NS:"예정",LIVE:"진행 중",INPLAY_1ST_HALF:"전반 진행 중",INPLAY_2ND_HALF:"후반 진행 중",HT:"하프타임",FINISHED:"종료",FT:"종료",POSTPONED:"연기",CANCELLED:"취소"};
 const number=(value:number|null|undefined,digits=1)=>typeof value==="number"&&Number.isFinite(value)?value.toLocaleString("ko-KR",{maximumFractionDigits:digits,minimumFractionDigits:digits}):null;
 function coordinates(latitude:number|null|undefined,longitude:number|null|undefined){

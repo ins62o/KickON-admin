@@ -11,7 +11,7 @@ export function MemberStatus({status}:{status:string}){
   return <span className={`sync-status sync-status-${tone}`}><i aria-hidden="true"/>{({active:"정상",suspended:"정지",unknown:"미확인"})[state]}</span>;
 }
 const labels={posts:"작성 게시글",comments:"작성 댓글",attendances:"직관 인증"};
-const resultLabels={WIN:"승",DRAW:"무",LOSS:"패",PENDING:"집계 전",UNKNOWN:"미확인"};
+const resultLabels={WIN:"승",DRAW:"무",LOSS:"패",PENDING:"예정",UNKNOWN:"미확인"};
 const visibility:Record<string,string>={VISIBLE:"공개",HIDDEN:"숨김",DELETED:"삭제"};
 function MemberHistoryPanel({userId,kind,active}:{userId:string;kind:MemberHistoryKind;active:boolean}){
   const [page,setPage]=useState(1);

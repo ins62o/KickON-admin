@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {readFixtureRounds,readFixtures} from '../src/management/fixture-reads.ts';
+import {readFixtureRounds,readFixtures,readMatchdayFixtures} from '../src/management/fixture-reads.ts';
 
 function clientFor(pages:{data:unknown[]|null;error?:{message:string};count?:number}[]){
  const calls:unknown[][]=[];
- const client={from(table:string){calls.push(['from',table]);const query:Record<string,unknown>={then(resolve:(value:unknown)=>unknown){return Promise.resolve(pages.shift()??{data:[],count:0,error:null}).then(resolve);}};for(const method of ['select','eq','gte','lt','order','range','or','not','is'])query[method]=(...args:unknown[])=>{calls.push([method,...args]);return query;};return query;}} as unknown as SupabaseClient;
+ const client={from(table:string){calls.push(['from',table]);const query:Record<string,unknown>={then(resolve:(value:unknown)=>unknown){return Promise.resolve(pages.shift()??{data:[],count:0,error:null}).then(resolve);}};for(const method of ['select','eq','gte','lt','order','range','or','not','is','in'])query[method]=(...args:unknown[])=>{calls.push([method,...args]);return query;};return query;}} as unknown as SupabaseClient;
  return {client,calls};
 }
 const row=(round:number|null,kickoff_at:string,status='FINISHED',id=String(round))=>({id,round,kickoff_at,status,league_id:'kleague'});
@@ -33,17 +33,17 @@ test('next scheduled fixture takes precedence over live and past games, with exp
 });
 test('fixture reads apply league, team, round and server pagination without limiting a postponed round to its original week',async()=>{
  const fixture=row(12,'2026-10-24T05:00:00Z','SCHEDULED');const {client,calls}=clientFor([{data:[fixture],count:31}]);
- assert.equal((await readFixtures(client,'kleague','seoul','2026-01-01','2026-12-31',2,false,'12')).total,31);
+ assert.equal((await readFixtures(client,'kleague','seoul','2026-01-01','2026-12-31',2,'all','12')).total,31);
  for(const expected of [['eq','round',12],['range',15,29],['or','home_team_id.eq.seoul,away_team_id.eq.seoul'],['lt','kickoff_at','2027-01-01T00:00:00+09:00']])assert.ok(calls.some(call=>JSON.stringify(call)===JSON.stringify(expected)));
- const missing=clientFor([{data:[],count:0}]);await readFixtures(missing.client,'kleague','all','2026-01-01','2026-12-31',1,false,'unassigned');assert.ok(missing.calls.some(call=>JSON.stringify(call)==='["is","round",null]'));
- const upcoming=clientFor([{data:[],count:0}]);await readFixtures(upcoming.client,'all','all','2026-10-20','2026-11-20',1,true);assert.ok(upcoming.calls.some(call=>call[0]==='not'&&call[1]==='status'));assert.ok(!upcoming.calls.some(call=>call[0]==='eq'&&call[1]==='round'));
+ const missing=clientFor([{data:[],count:0}]);await readFixtures(missing.client,'kleague','all','2026-01-01','2026-12-31',1,'all','unassigned');assert.ok(missing.calls.some(call=>JSON.stringify(call)==='["is","round",null]'));
+ const upcoming=clientFor([{data:[],count:0}]);await readFixtures(upcoming.client,'all','all','2026-10-20','2026-11-20',1,'scheduled','all',now);assert.ok(upcoming.calls.some(call=>call[0]==='in'&&call[1]==='status'));assert.ok(!upcoming.calls.some(call=>call[0]==='eq'&&call[1]==='round'));
 });
 test('round errors never become empty schedules and invalid filters do not dispatch',async()=>{
  await assert.rejects(readFixtureRounds(clientFor([{data:null,error:{message:'failed'}}]).client,'kleague',now),/불러오지 못/);
  await assert.rejects(readFixtureRounds(clientFor([{data:null}]).client,'kleague',now),/목록/);
  await assert.rejects(readFixtures(clientFor([{data:[]}]).client,'kleague','all','2026-01-01','2026-12-31',1),/건수/);
  await assert.rejects(readFixtureRounds(clientFor([{data:[{...row(1,'2026-10-24'),league_id:'kleague2'}]}]).client,'kleague',now),/리그/);
- for(const round of ['0','-1','1.5','foo','2147483648']){const {client,calls}=clientFor([]);await assert.rejects(readFixtures(client,'kleague','all','2026-01-01','2026-12-31',1,false,round),/라운드/);assert.equal(calls.length,0);}
+ for(const round of ['0','-1','1.5','foo','2147483648']){const {client,calls}=clientFor([]);await assert.rejects(readFixtures(client,'kleague','all','2026-01-01','2026-12-31',1,'all',round),/라운드/);assert.equal(calls.length,0);}
  await assert.rejects(readFixtures(clientFor([]).client,'kleague','all','2026-02-30','2026-12-31',1),/종료일/);
 });
 
@@ -51,4 +51,33 @@ test('season summary counts all registered matches, only future scheduled games 
  const data=[row(1,'2026-10-19T14:59:00Z'),row(2,'2026-10-19T15:00:00Z'),row(3,'2026-10-20T14:59:00Z','NS'),row(4,'2026-10-20T15:00:00Z','SCHEDULED'),row(5,'2026-10-21T00:00:00Z','CANCELLED'),row(6,'2026-10-19T16:00:00Z','INPLAY_1ST_HALF'),row(7,'2026-10-19T17:00:00Z','NS')];
  const result=await readFixtureRounds(clientFor([{data}]).client,'all',now);
  assert.deepEqual(result.summary,{total:7,scheduled:2,today:4,live:1});
+});
+
+test('scheduled filter restricts status and kickoff before server pagination',async()=>{
+ const {client,calls}=clientFor([{data:[],count:0}]);
+ await readFixtures(client,'all','all','2026-01-01','2026-12-31',2,'scheduled','all',now);
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["in","status",["SCHEDULED","NS"]]'));
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["gte","kickoff_at","2026-10-20T00:00:00.000Z"]'));
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["range",15,29]'));
+});
+test('today filter uses midnight boundaries in Korea even when UTC is still the previous day',async()=>{
+ const {client,calls}=clientFor([{data:[],count:0}]);
+ await readFixtures(client,'all','all','2026-01-01','2026-12-31',1,'today','all',Date.parse('2026-10-19T15:01:00Z'));
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["gte","kickoff_at","2026-10-19T15:00:00.000Z"]'));
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["lt","kickoff_at","2026-10-20T15:00:00.000Z"]'));
+ assert.ok(!calls.some(call=>call[1]==='status'));
+});
+test('live filter includes half time and provider half statuses',async()=>{
+ const {client,calls}=clientFor([{data:[],count:0}]);
+ await readFixtures(client,'kleague2','all','2026-01-01','2026-12-31',1,'live','all',now);
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["in","status",["LIVE","HT","INPLAY_1ST_HALF","INPLAY_2ND_HALF"]]'));
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["eq","league_id","kleague2"]'));
+});
+
+test('matchday reads every page and rejects incomplete fixture pages',async()=>{
+ const fixtures=Array.from({length:15},(_,i)=>row(30,'2026-10-24T05:00:00Z','SCHEDULED',String(i)));
+ const {client,calls}=clientFor([{data:fixtures,count:16},{data:[row(7,'2026-10-24T07:30:00Z','SCHEDULED','last')],count:16}]);
+ assert.equal((await readMatchdayFixtures(client,'2026-10-24')).length,16);
+ assert.ok(calls.some(call=>JSON.stringify(call)==='["range",15,29]'));
+ await assert.rejects(readMatchdayFixtures(clientFor([{data:fixtures,count:16},{data:[],count:16}]).client,'2026-10-24'),/모두/);
 });
