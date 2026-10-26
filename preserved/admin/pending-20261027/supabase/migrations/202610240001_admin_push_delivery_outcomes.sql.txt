@@ -1,0 +1,108 @@
+begin;
+-- Read-only projections only: dispatch, targets, attempts, settings and Cron are unchanged.
+create or replace function public.admin_push_delivery_outcomes()
+returns table(record jsonb,outcome text,outcome_at timestamptz)
+language sql stable security definer set search_path='' as $$
+ with evidence as (
+  select r.*,o.dead_lettered_at,o.targets_materialized_at,
+   coalesce(t.expired,0) as expired,t.latest_completed_at
+  from public.admin_push_delivery_records() r
+  join public.push_outbox o on o.id=r.id
+  cross join lateral(
+   select count(*) filter(where d.status='SUPPRESSED' and d.last_error_code='PUSH_EXPIRED') as expired,
+    max(d.completed_at) as latest_completed_at
+   from public.push_delivery_targets d where d.outbox_id=r.id
+  ) t
+ ), classified as (
+  select e.*,case
+   when e.unknown>0 or e.status='UNKNOWN_OUTCOME' then 'unknown'
+   when e.status in ('PENDING','PROCESSING','RETRY') then 'pending'
+   when e.pending>0 and e.status not in ('COMPLETED','SUPPRESSED','DISMISSED','SHADOWED','DEAD_LETTER') then 'pending'
+   when e.succeeded>0 and (e.succeeded<e.targets or e.status='DEAD_LETTER') then 'partial'
+   when e.succeeded>0 then 'success'
+   when e.status='DEAD_LETTER' then 'failure'
+   when e.status not in ('SUPPRESSED','DISMISSED','SHADOWED') and e.failed>0 then 'failure'
+   when e.expired>0 or e.last_error_code='PUSH_EXPIRED' and e.status='SUPPRESSED' then 'expired'
+   when e.status in ('SUPPRESSED','DISMISSED','SHADOWED') or e.shadowed>0 or e.suppressed>0 then 'excluded'
+   when e.targets=0 and e.status='COMPLETED' and e.targets_materialized_at is not null then 'no_target'
+   else 'unknown'
+  end as delivery_outcome,
+  case when e.status in ('PENDING','PROCESSING','RETRY') then coalesce(e.last_attempted_at,e.created_at)
+   else coalesce(e.completed_at,e.dead_lettered_at,e.latest_completed_at,e.success_at,e.created_at) end as result_at
+  from evidence e
+ )
+ select to_jsonb(c)-'is_today_success'-'is_today_failure'-'is_pending'-'success_at'
+   -'dead_lettered_at'-'targets_materialized_at'-'latest_completed_at'-'result_at',
+  c.delivery_outcome,c.result_at
+ from classified c;
+$$;
+revoke all on function public.admin_push_delivery_outcomes() from public,anon,authenticated,service_role;
+
+create or replace function public.get_admin_push_overview()
+returns jsonb language plpgsql stable security definer set search_path='' set statement_timeout='5s' as $$
+declare result jsonb;
+begin
+ if coalesce((select auth.role()),'')<>'service_role' and not public.is_admin('viewer'::public.admin_role) then raise exception 'ADMIN_REQUIRED'; end if;
+ with bounds as(
+  select date_trunc('day',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul' starts_at,
+   (date_trunc('day',now() at time zone 'Asia/Seoul')+interval '1 day') at time zone 'Asia/Seoul' ends_at
+ ), members as(
+  select count(*) as total_users,count(*) filter(where enabled is true) as enabled_users,
+   count(*) filter(where enabled is false) as disabled_users,count(*) filter(where enabled is null) as unknown_users,
+   count(*) filter(where lineup_enabled is true) as lineup_enabled_users,
+   count(*) filter(where match_enabled is true and goal_enabled is true) as match_enabled_users,
+   count(*) filter(where community_enabled is true) as community_enabled_users,
+   count(*) filter(where match_enabled is not null and goal_enabled is not null and match_enabled<>goal_enabled) as match_partial_users
+  from public.admin_push_members()
+ ), scoped as(
+  select d.* from public.admin_push_delivery_outcomes() d cross join bounds b
+  where d.outcome='pending' or d.outcome_at>=b.starts_at and d.outcome_at<b.ends_at
+ ), deliveries as(
+  select count(*) filter(where outcome='success') today_succeeded,
+   count(*) filter(where outcome='partial') today_partial,
+   count(*) filter(where outcome='failure') today_failed,
+   count(*) filter(where outcome='expired') today_expired,
+   count(*) filter(where outcome='unknown') today_unknown,
+   count(*) filter(where outcome='no_target') today_no_target,
+   count(*) filter(where outcome='excluded') today_excluded,
+   count(*) filter(where outcome='pending') pending
+  from scoped
+ )
+ select jsonb_build_object('checked_at',now(),'day_start',b.starts_at,'day_end',b.ends_at)||to_jsonb(m)||to_jsonb(d)
+ into result from members m cross join deliveries d cross join bounds b;
+ return result;
+end;
+$$;
+revoke all on function public.get_admin_push_overview() from public,anon,authenticated;
+grant execute on function public.get_admin_push_overview() to authenticated,service_role;
+
+create or replace function public.get_admin_push_metric_recipients(p_metric text,p_query text,p_page integer)
+returns jsonb language plpgsql stable security definer set search_path='' set statement_timeout='5s' as $$
+declare result jsonb;
+begin
+ if coalesce((select auth.role()),'')<>'service_role' and not public.is_admin('viewer'::public.admin_role) then raise exception 'ADMIN_REQUIRED'; end if;
+ if p_metric is null or p_metric not in ('success','partial','failure','expired','unknown','no_target','excluded','pending')
+  or p_query is null or char_length(p_query)>100 or p_page is null or p_page<1 or p_page>1000000 then raise exception 'INVALID_PUSH_METRIC_FILTER'; end if;
+ with bounds as(
+  select date_trunc('day',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul' starts_at,
+   (date_trunc('day',now() at time zone 'Asia/Seoul')+interval '1 day') at time zone 'Asia/Seoul' ends_at
+ ), matching as materialized(
+  select d.record||jsonb_build_object('metric_at',d.outcome_at) as record,d.outcome_at,(d.record->>'id')::uuid id
+  from public.admin_push_delivery_outcomes() d cross join bounds b
+  where d.outcome=p_metric
+   and (p_metric='pending' or d.outcome_at>=b.starts_at and d.outcome_at<b.ends_at)
+   and (btrim(p_query)='' or position(lower(btrim(p_query)) in lower(coalesce(d.record->>'nickname','')||' '||(d.record->>'user_id')))>0)
+ ), page_rows as(
+  select m.record,m.outcome_at,m.id from matching m order by m.outcome_at desc nulls last,m.id desc limit 10 offset (p_page-1)*10
+ )
+ select jsonb_build_object('total',(select count(*) from matching),
+  'rows',coalesce((select jsonb_agg(p.record order by p.outcome_at desc nulls last,p.id desc) from page_rows p),'[]'::jsonb))
+ into result;
+ return result;
+end;
+$$;
+revoke all on function public.get_admin_push_metric_recipients(text,text,integer) from public,anon,authenticated;
+grant execute on function public.get_admin_push_metric_recipients(text,text,integer) to authenticated,service_role;
+notify pgrst,'reload schema';
+commit;
+

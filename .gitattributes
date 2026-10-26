@@ -1,0 +1,2 @@
+# Byte-exact preservation only; never normalize or run filters for this subtree.
+preserved/admin/** -text -filter -working-tree-encoding

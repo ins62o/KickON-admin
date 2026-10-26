@@ -1,0 +1,40 @@
+begin;
+-- Add recorded reasons and timing evidence only for the ten selected rows.
+create or replace function public.get_admin_push_metric_recipients(p_metric text,p_query text,p_page integer)
+returns jsonb language plpgsql stable security definer set search_path='' set statement_timeout='5s' as $$
+declare result jsonb;
+begin
+ if coalesce((select auth.role()),'')<>'service_role' and not public.is_admin('viewer'::public.admin_role) then raise exception 'ADMIN_REQUIRED'; end if;
+ if p_metric is null or p_metric not in ('success','partial','failure','delivery_failure','expired','unknown','no_target','excluded','pending')
+  or p_query is null or char_length(p_query)>100 or p_page is null or p_page<1 or p_page>1000000 then raise exception 'INVALID_PUSH_METRIC_FILTER'; end if;
+ with bounds as(
+  select date_trunc('day',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul' starts_at,
+   (date_trunc('day',now() at time zone 'Asia/Seoul')+interval '1 day') at time zone 'Asia/Seoul' ends_at
+ ), matching as materialized(
+  select d.record||jsonb_build_object('metric_at',d.outcome_at) as record,d.outcome_at,(d.record->>'id')::uuid id
+  from public.admin_push_delivery_outcomes() d cross join bounds b
+  where case when p_metric='failure' then d.outcome not in ('success','pending') when p_metric='delivery_failure' then d.outcome='failure' else d.outcome=p_metric end
+   and (p_metric='pending' or d.outcome_at>=b.starts_at and d.outcome_at<b.ends_at)
+   and (btrim(p_query)='' or position(lower(btrim(p_query)) in lower(coalesce(d.record->>'nickname','')||' '||(d.record->>'user_id')))>0)
+ ), page_rows as(
+  select m.record,m.outcome_at,m.id from matching m order by m.outcome_at desc nulls last,m.id desc limit 10 offset (p_page-1)*10
+ )
+ select jsonb_build_object('total',(select count(*) from matching),
+  'rows',coalesce((select jsonb_agg(p.record||jsonb_build_object(
+   'expires_at',to_jsonb(o)->'expires_at','targets_materialized_at',o.targets_materialized_at,
+   'failure_reasons',coalesce((select jsonb_agg(jsonb_build_object('code',r.code,'count',r.count) order by r.count desc,r.code) from (
+    select d.last_error_code code,count(*) count from public.push_delivery_targets d
+    where d.outbox_id=p.id and d.status<>'SUCCEEDED' and nullif(btrim(d.last_error_code),'') is not null group by d.last_error_code
+   ) r),case when coalesce(nullif(btrim(p.record->>'last_error_code'),''),nullif(btrim(o.last_error_code),'')) is not null
+    then jsonb_build_array(jsonb_build_object('code',coalesce(nullif(btrim(p.record->>'last_error_code'),''),nullif(btrim(o.last_error_code),'')),'count',null)) else '[]'::jsonb end)
+  ) order by p.outcome_at desc nulls last,p.id desc)
+  from page_rows p join public.push_outbox o on o.id=p.id),'[]'::jsonb))
+ into result;
+ return result;
+end;
+$$;
+revoke all on function public.get_admin_push_metric_recipients(text,text,integer) from public,anon,authenticated;
+grant execute on function public.get_admin_push_metric_recipients(text,text,integer) to authenticated,service_role;
+notify pgrst,'reload schema';
+commit;
+
