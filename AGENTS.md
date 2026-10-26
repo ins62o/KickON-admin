@@ -1,9 +1,82 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# KICKON Admin 프로젝트 안내
 
-# This is NOT the Next.js you know
+- 현재 스택은 React 19, Vite 8, TypeScript, Tailwind CSS 4, SEED Design이다. Next.js 프로젝트로 취급하지 않는다
+- 진입점은 `index.html → src/main.tsx → src/App.tsx`이며 화면 전환은 `src/dashboard/navigation.ts`의 쿼리 기반 규칙을 따른다
+- `src/auth`는 환경별 세션과 활성 관리자 확인, `src/dashboard`는 공통 화면, `src/management`는 관리 기능, `src/components`는 공통 UI를 담당한다
+- `server`는 비공개 API와 지표·동기화·재시작 경계이며 `supabase/functions`의 Admin Edge API가 이를 재사용한다
+- 브라우저에는 허용된 공개 연결만 전달한다. Secret·환경 파일·인증 Header·사용자 Payload를 출력하거나 번들에 포함하지 않는다
+- 메뉴 표시와 UI 비활성화는 권한 증명이 아니다. 사용자 검증·활성 관리자·서버 역할·DB 권한 경계를 유지한다
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+## 변경과 운영 보호
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+- 작업 전후 Git 상태를 확인하고 기존 수정·삭제·미추적 파일을 다른 작업의 상태로 보호한다
+- `git reset/clean/restore`, 일괄 stage/commit, worktree prune, Git GC는 명시적 승인 없이 실행하지 않는다
+- Migration의 복원·재번호·자동 병합·실행은 승인 없이 하지 않는다. Admin과 App의 같은 버전을 같은 변경이라고 가정하지 않는다
+- 운영 C/A, 승인·복구 패킷, Manifest, SHA, 실행 결과와 PAUSED/HOLD/NO-GO/UNKNOWN 상태는 보존한다. 과거 승인을 재사용하지 않는다
+- DB/API·Sportmonks·Provider·Wake·Retry·권한·배포·복구 작업은 대상·범위가 명시적으로 승인된 경우에만 실행한다
+- HTTP 실패·쓰기 결과 불명·Drift를 성공으로 바꾸거나 임의 재시도·다른 API로 우회하지 않는다
+- 다른 저장소는 명시된 읽기 범위 외에 접근하거나 수정하지 않는다
 
-<!-- END:nextjs-agent-rules -->
+## 검증과 산출물
+
+- 테스트 이름만으로 오프라인을 가정하지 않는다. 네트워크·DB·자식 프로세스·파일 쓰기 영향을 확인하고 승인된 격리 검사만 실행한다
+- Vite 설정 로드는 SQLite 초기화, dev/preview는 실제 지표 수집으로 이어질 수 있다. `npm run build/dev/preview`를 무해한 검증으로 가정하지 않는다
+- Prod 브랜치 CI는 실제 API 확인과 AWS/CloudFront 배포를 수행하므로 파일 정리를 배포 승인으로 해석하지 않는다
+- `.data`의 SQLite/WAL/SHM은 캐시가 아니다. 실행 중 단순 복사·삭제하지 않는다
+- 조사 산출물은 승인된 작업별 외부 경로를 우선 사용하고 JSON·Python·SQL·보고서를 무분별하게 추가하지 않는다
+- 회귀 테스트 소스와 일회성 결과를 구분하고 작업 종료 시 임시 파일·보존 증거·남은 불확실성을 보고한다
+
+## 현재 코드와 보류 코드의 검증 경계
+
+- 과거 Next.js 소스·테스트·도구 268개는 기능 대체·소유권이 미확정인 REVIEW 자료다. 현재 실행 코드로 되돌리거나 임의 삭제하지 않는다
+- TypeScript의 files, Tailwind의 명시적 @source, package.json의 test 목록은 현재 코드의 입력 경계다. 현재 소스·테스트를 추가할 때 관련 목록을 함께 갱신하고 누락 여부를 검증한다
+- ESLint의 역사적 파일 제외를 임의로 해제하거나 새 오류를 숨기는 용도로 확대하지 않는다
+- 보존한 Migration이 supabase/migrations에 있어도 실행 승인이 아니다. 기본 CLI 탐색으로 적용하지 않으며 DB 재현은 별도 과제다
+- 기준선 CI는 검증 전용이다. 수동 배포 workflow 활성화·승인 재사용·push에 따른 배포를 허용하지 않는다
+
+# 관리자 화면 문구 규칙
+
+- 제목 바로 아래에 관성적인 설명이나 부제목을 넣지 않는다
+- 텍스트 버튼 뒤에 화살표 등 장식용 아이콘을 넣지 않는다
+- 제목, 라벨, 버튼, 미완성 구절 끝에 마침표를 붙이지 않는다
+- 로그인 후 첫 화면은 대시보드로 유지한다
+- 통계는 실제 조회 결과를 사용하며 실패나 미집계를 0으로 표시하지 않는다
+
+- 관리자 브랜드는 KICKON을 사용한다
+- 공통 로고는 원본 `public/branding/kickon-logo.svg`, 탭 아이콘은 원형 배경의 `public/kickon-icon.svg`를 사용하며 로고 도형은 보존한다
+- 로그인 화면 제목은 `KICKON ADMIN`, 브라우저 제목은 `KICKON | 관리자 로그인`으로 유지한다
+
+- 로그인 제목 `KICKON ADMIN`은 기존 Source Serif 4 이탤릭 서체로 유지한다
+
+- 왼쪽 위 원형 킥온 로고는 다크·라이트 테마 전환 버튼이며, 클릭하면 뒤집히는 모션을 사용한다
+- 로고 전환에는 원본 기본색·다크 배경용 SVG를 사용하고 움직임 줄이기 설정을 존중한다
+- 로그인 하단에는 환경 이름을 표시하지 않는다
+
+- 경고와 오류 안내는 브라우저 팝업이나 입력칸 하단 문구 대신 공통 Toast 컴포넌트로 표시한다
+- 토스트는 하단 중앙에 하나씩 표시하며 자동으로 닫히고, 마우스·키보드로 확인하는 동안에는 유지한다
+
+- 로그인 처리·상태 확인 중에는 버튼에 로딩 표시만 보이고 텍스트는 숨긴다. 보조기기용 상태 안내는 유지한다
+
+- 대시보드 상단 요약 카드는 전체 사용자(누적), 커뮤니티(누적 게시글), 직관 인증(누적), 1:1 문의(미답변) 순서로 표시한다
+- 로그인 세션·관리자 권한 복원과 데이터 조회 중에는 로딩 아이콘 대신 같은 대시보드 스켈레톤을 표시하고 인증 전 계정명이나 데이터를 노출하지 않는다
+- 대시보드 요약 카드는 동일한 배경색을 사용하고 각 항목에 같은 크기와 색상의 아이콘을 배치한다
+- 헤더의 최상위 메뉴는 대시보드, 사용자, 운영 관리, 데이터 관리 순서로 구성한다
+- 헤더 우측은 사용자 아이콘 하나만 표시하고 클릭 시 펼쳐지는 메뉴에 로그인한 계정, 변경 가능한 현재 환경, 로그아웃을 표시한다
+- 대시보드 제목 옆에는 기준 날짜·시간을 표시하지 않고 새로고침 아이콘 버튼만 표시한다
+- 요약 카드 제목은 본문과 구분되도록 16px·700 굵기를 사용하고 작은 화면에서는 14px로 조정한다
+- 헤더 메뉴는 같은 관리자 화면 안에서 활성 메뉴와 콘텐츠만 전환하며 헤더와 계정 영역은 유지한다
+- 한글은 프로젝트에 포함한 Pretendard Variable 웹폰트를 사용하고 영문·숫자는 Inter를 우선 사용한다. 로그인 제목의 Source Serif 4 이탤릭은 유지한다
+- 개발·운영 환경은 명시적으로 설정된 공개 연결만 선택할 수 있으며 환경마다 로그인 세션과 권한 확인을 분리한다
+- 메뉴 표시와 콘텐츠 전환, 계정 드롭다운, 숫자 증가 효과는 움직임 줄이기 설정을 존중한다
+- 이용 추이는 실제 데이터의 선 그래프를 사용하고 일간 활동은 블루, 월간 활동은 옐로로 표시하며 단위는 단위 : 명으로 표기한다
+- 이용 추이 기간은 키보드로 조작할 수 있는 공통 커스텀 드롭다운을 사용한다
+- 우측 게이지는 SportsMonks 경기 데이터(Fixture)의 시간당 사용량을 표시하며 만료되거나 없는 잔여량을 추정하지 않는다
+
+- 사용자 목록은 현재 시즌 순위 데이터로 K리그1·K리그2와 구단을 분류하며 알 수 없는 구단을 임의로 리그에 배정하지 않는다
+- 사용자 집계는 고정 ID 기준으로 조회하고 활동 순서로 바뀌는 RPC 페이지 길이를 전체 인원수로 사용하지 않는다
+- 환경 전환은 양쪽에 이미 존재하는 동일한 인증 이메일의 활성 관리자만 서버에서 연결하며 계정이나 권한을 자동 생성하지 않는다
+- 비밀번호를 저장하거나 재사용하지 않고 일회성 인증을 서버에서 교환하며 명시적 로그아웃은 양쪽 환경을 종료한다
+- 마케팅 초안은 현재 브라우저·환경에 저장되며 외부 게시 또는 공용 저장으로 표시하지 않는다
+- 공지·문의·신고·일정 변경은 기존 감사 RPC를 사용하고 실제 운영 데이터는 QA를 위해 변경하지 않는다
+- 수동 동기화는 역할·리그·구단/경기 범위를 검증하며 대기와 보류를 완료로 오인하지 않는다
+- 모달이 열려 있으면 공통 토스트도 해당 모달 안에서 조작할 수 있어야 한다

@@ -1,22 +1,38 @@
+import {selectPostMatchRows} from '../_shared/postMatchScope.ts';
+import { beginFootballMaintenance, withExpectedFixtureRows, maintenanceFailureResult } from '../_shared/footballMaintenance.ts';
 import { publishFixtureLineup } from '../_shared/publishFixtureLineup.ts';
+import { recoverMissingLineupPlayerIds, type SeasonSquadMember } from '../_shared/lineupIdentityRecovery.ts';
+import { getOfficialFixtureVenueDecision, resolveCanonicalFixtureStadiumId } from '../_shared/canonicalFixtureStadium.ts';
+import { resolveKleagueStandingRanks } from '../_shared/kleagueStandingPolicy.ts';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   recordFootballProviderUsage,
   type FootballRateLimit,
 } from '../_shared/footballProviderUsage.ts';
+import {
+  footballHistorySyncKey,
+  type FootballLeagueConfig,
+  validateFootballLeagueRequest,
+} from '../_shared/footballLeagueConfig.ts';
+import { persistPlayerProviderSnapshot } from '../_shared/providerSnapshots.ts';
+import { readObservedStandingDetailValue, toStandingDetailValue } from '../_shared/standingDetailValue.ts';
+import {
+  parseProviderPlayerId,
+  resolveLineupPlayerIdentity,
+} from '../_shared/providerPlayerId.ts';
+import {
+  readPlayerStatisticEvidence,
+  type PlayerStatisticEvidenceSet,
+} from '../_shared/playerStatisticEvidence.ts';
+import {
+  buildCandidateQuarantineTelemetry,
+  fetchGlobalTransferCandidatePlayerProtections,
+  fetchTransferCandidateProtections,
+  partitionCandidateProtectedRows,
+} from '../_shared/transferCandidateProtection.ts';
 
 const API_BASE_URL = 'https://api.sportmonks.com/v3/football';
-const DEFAULT_LEAGUE_ID = 1034;
-const DEFAULT_SEASON_ID = 26894;
-const DEFAULT_SEASON = 2026;
-const ENABLED_SEASON_IDS: Record<number, number> = {
-  2024: 23091,
-  2025: 25044,
-  2026: 26894,
-};
 const DEFAULT_LINEUP_FIXTURE_LIMIT = 40;
-const K_LEAGUE_2_ID = 1362;
-const K_LEAGUE_2_SEASON_ID = 27443;
 const LINEUP_CONFIRMED_TYPE_ID = 572;
 
 type ApiEnvelope<T> = {
@@ -117,7 +133,7 @@ type SquadPlayer = {
 };
 
 type SquadMember = {
-  player_id: number;
+  player_id: unknown;
   team_id: number;
   jersey_number?: number | null;
   position_id?: number | null;
@@ -135,7 +151,7 @@ type Formation = {
 };
 
 type LineupPlayer = {
-  player_id: number;
+  player_id: number | null;
   team_id: number;
   type_id?: number | null;
   player_name?: string | null;
@@ -185,22 +201,9 @@ type ProviderSeason = {
 };
 
 const TEAM_NAME_RULES: Array<[string[], string]> = [
-  [['ansangreeners', '안산그리너스'], 'ansan-greeners'],
-  [['busanipark', '부산아이파크'], 'busan-ipark'],
-  [['cheonancity', '천안시티'], 'cheonan-city'],
-  [['cheongju', '충북청주'], 'chungbuk-cheongju'],
   [['seouleland', '서울이랜드'], 'seoul-eland'],
   [['suwonfc', '수원fc'], 'suwon-fc'],
-  [['suwonbluewings', '수원삼성'], 'suwon-bluewings'],
   [['chungnamasan', '충남아산'], 'chungnam-asan'],
-  [['gimhaecity', '김해'], 'gimhae'],
-  [['gimpo', '김포'], 'gimpo'],
-  [['gyeongnam', '경남'], 'gyeongnam'],
-  [['hwaseong', '화성'], 'hwaseong'],
-  [['jeonnamdragons', '전남'], 'jeonnam'],
-  [['pajucitizen', '파주'], 'paju'],
-  [['seongnam', '성남'], 'seongnam'],
-  [['yongincity', '용인'], 'yongin'],
   [['fcseoul', 'seoul', '서울'], 'seoul'],
   [['jeonbuk', '전북'], 'jeonbuk'],
   [['ulsan', '울산'], 'ulsan'],
@@ -218,21 +221,6 @@ const TEAM_NAME_RULES: Array<[string[], string]> = [
 
 const TEAM_ID_BY_PROVIDER_ID: Record<number, string> = {
   904: 'suwon-fc',
-  2690: 'busan-ipark',
-  2366: 'suwon-bluewings',
-  3605: 'seongnam',
-  6201: 'ansan-greeners',
-  7389: 'gimhae',
-  7971: 'jeonnam',
-  7983: 'gyeongnam',
-  14732: 'seoul-eland',
-  17812: 'chungnam-asan',
-  17818: 'cheonan-city',
-  18123: 'yongin',
-  18294: 'hwaseong',
-  18334: 'chungbuk-cheongju',
-  18344: 'paju',
-  18351: 'gimpo',
 };
 
 const HOME_STADIUM_BY_TEAM: Record<string, string> = {
@@ -248,33 +236,12 @@ const HOME_STADIUM_BY_TEAM: Record<string, string> = {
   jeju: 'jeju-world-cup-stadium',
   gwangju: 'gwangju-football-stadium',
   gimcheon: 'gimcheon-stadium',
-  'ansan-greeners': 'sportmonks-venue-14052',
-  'busan-ipark': 'sportmonks-venue-2678',
-  'cheonan-city': 'sportmonks-venue-14080',
-  'chungbuk-cheongju': 'sportmonks-venue-14117',
-  'chungnam-asan': 'sportmonks-venue-14115',
-  daegu: 'sportmonks-venue-320604',
-  gimhae: 'sportmonks-venue-4787',
-  gimpo: 'sportmonks-venue-14093',
-  gyeongnam: 'sportmonks-venue-5190',
-  hwaseong: 'hwaseong-sports-town',
-  jeonnam: 'sportmonks-venue-5186',
-  paju: 'sportmonks-venue-14120',
-  seongnam: 'sportmonks-venue-2112',
-  'seoul-eland': 'sportmonks-venue-343344',
-  'suwon-bluewings': 'sportmonks-venue-324',
-  'suwon-fc': 'sportmonks-venue-14076',
-  yongin: 'yongin-mireu-stadium',
 };
 
 type StadiumLocalization = {
   nameEn: string;
   nameKo: string;
-  latitude?: number;
-  longitude?: number;
-  addressEn?: string;
   addressKo?: string;
-  sportmonksId?: number | null;
 };
 
 const STADIUM_LOCALIZATION_BY_TEAM: Record<string, StadiumLocalization> = {
@@ -328,159 +295,6 @@ const STADIUM_LOCALIZATION_BY_TEAM: Record<string, StadiumLocalization> = {
   gimcheon: {
     nameEn: 'Gimcheon Stadium',
     nameKo: '김천종합운동장',
-  },
-  'ansan-greeners': {
-    nameEn: 'Ansan Wa Stadium',
-    nameKo: '안산 와스타디움',
-    latitude: 37.3193957,
-    longitude: 126.8186467,
-    addressEn: '260 Hwarang-ro, Danwon-gu, Ansan-si, Gyeonggi-do',
-    addressKo: '경기도 안산시 단원구 화랑로 260',
-    sportmonksId: 14052,
-  },
-  'busan-ipark': {
-    nameEn: 'Busan Gudeok Stadium',
-    nameKo: '부산 구덕운동장',
-    latitude: 35.1165225,
-    longitude: 129.01449,
-    addressEn: '57 Mangyang-ro, Seo-gu, Busan',
-    addressKo: '부산광역시 서구 망양로 57',
-    sportmonksId: 2678,
-  },
-  'cheonan-city': {
-    nameEn: 'Cheonan Stadium',
-    nameKo: '천안종합운동장',
-    latitude: 36.8187472,
-    longitude: 127.1151474,
-    addressEn: '208 Beonyeong-ro, Seobuk-gu, Cheonan-si, Chungcheongnam-do',
-    addressKo: '충청남도 천안시 서북구 번영로 208',
-    sportmonksId: 14080,
-  },
-  'chungbuk-cheongju': {
-    nameEn: 'Cheongju Stadium',
-    nameKo: '청주종합경기장',
-    latitude: 36.6378917,
-    longitude: 127.4723813,
-    addressEn: '229 Sajik-daero, Seowon-gu, Cheongju-si, Chungcheongbuk-do',
-    addressKo: '충청북도 청주시 서원구 사직대로 229',
-    sportmonksId: 14117,
-  },
-  'chungnam-asan': {
-    nameEn: 'Yi Sun-sin Stadium',
-    nameKo: '이순신종합운동장',
-    latitude: 36.7681989,
-    longitude: 127.0216292,
-    addressEn: '370-24 Nambu-ro, Asan-si, Chungcheongnam-do',
-    addressKo: '충청남도 아산시 남부로 370-24',
-    sportmonksId: 14115,
-  },
-  daegu: {
-    nameEn: 'Daegu iM Bank PARK',
-    nameKo: '대구iM뱅크PARK',
-    latitude: 35.8812967,
-    longitude: 128.5879941,
-    addressEn: '191 Goseong-ro, Buk-gu, Daegu',
-    addressKo: '대구광역시 북구 고성로 191',
-    sportmonksId: 320604,
-  },
-  gimhae: {
-    nameEn: 'Gimhae Stadium',
-    nameKo: '김해종합운동장',
-    latitude: 35.2576238,
-    longitude: 128.8753665,
-    addressEn: '50 Guji-ro, Gimhae-si, Gyeongsangnam-do',
-    addressKo: '경상남도 김해시 구지로 50',
-    sportmonksId: 4787,
-  },
-  gimpo: {
-    nameEn: 'Gimpo Solteo Football Field',
-    nameKo: '김포솔터축구장',
-    latitude: 37.6408155,
-    longitude: 126.6500187,
-    addressEn: '385 Gimpohangang 3-ro, Gimpo-si, Gyeonggi-do',
-    addressKo: '경기도 김포시 김포한강3로 385',
-    sportmonksId: 14093,
-  },
-  gyeongnam: {
-    nameEn: 'Changwon Football Center',
-    nameKo: '창원축구센터',
-    latitude: 35.2226675,
-    longitude: 128.7060856,
-    addressEn: '97 Bieum-ro, Seongsan-gu, Changwon-si, Gyeongsangnam-do',
-    addressKo: '경상남도 창원시 성산구 비음로 97',
-    sportmonksId: 5190,
-  },
-  hwaseong: {
-    nameEn: 'Hwaseong Sports Town',
-    nameKo: '화성종합경기타운',
-    latitude: 37.1372825,
-    longitude: 126.924715,
-    addressEn: '470 Hyangnam-ro, Hyangnam-eup, Hwaseong-si, Gyeonggi-do',
-    addressKo: '경기도 화성시 향남읍 향남로 470',
-    sportmonksId: null,
-  },
-  jeonnam: {
-    nameEn: 'Gwangyang Football Stadium',
-    nameKo: '광양축구전용구장',
-    latitude: 34.9330583,
-    longitude: 127.7274262,
-    addressEn: '1641 Baegun-ro, Gwangyang-si, Jeollanam-do',
-    addressKo: '전라남도 광양시 백운로 1641',
-    sportmonksId: 5186,
-  },
-  paju: {
-    nameEn: 'Paju Stadium',
-    nameKo: '파주스타디움',
-    latitude: 37.7561209,
-    longitude: 126.7865965,
-    addressEn: '160 Jungang-ro, Paju-si, Gyeonggi-do',
-    addressKo: '경기도 파주시 중앙로 160',
-    sportmonksId: 14120,
-  },
-  seongnam: {
-    nameEn: 'Tancheon Stadium',
-    nameKo: '탄천종합운동장',
-    latitude: 37.4101669,
-    longitude: 127.1211863,
-    addressEn: '215 Tancheon-ro, Bundang-gu, Seongnam-si, Gyeonggi-do',
-    addressKo: '경기도 성남시 분당구 탄천로 215',
-    sportmonksId: 2112,
-  },
-  'seoul-eland': {
-    nameEn: 'Mokdong Stadium',
-    nameKo: '목동종합운동장',
-    latitude: 37.5305043,
-    longitude: 126.8830581,
-    addressEn: '939 Anyangcheon-ro, Yangcheon-gu, Seoul',
-    addressKo: '서울특별시 양천구 안양천로 939',
-    sportmonksId: 343344,
-  },
-  'suwon-bluewings': {
-    nameEn: 'Suwon World Cup Stadium',
-    nameKo: '수원월드컵경기장',
-    latitude: 37.2863794,
-    longitude: 127.0367951,
-    addressEn: '310 World Cup-ro, Paldal-gu, Suwon-si, Gyeonggi-do',
-    addressKo: '경기도 수원시 팔달구 월드컵로 310',
-    sportmonksId: 324,
-  },
-  'suwon-fc': {
-    nameEn: 'Suwon Stadium',
-    nameKo: '수원종합운동장',
-    latitude: 37.2977947,
-    longitude: 127.0113949,
-    addressEn: '893 Gyeongsu-daero, Jangan-gu, Suwon-si, Gyeonggi-do',
-    addressKo: '경기도 수원시 장안구 경수대로 893',
-    sportmonksId: 14076,
-  },
-  yongin: {
-    nameEn: 'Yongin Mireu Stadium',
-    nameKo: '용인미르스타디움',
-    latitude: 37.2496378,
-    longitude: 127.16547,
-    addressEn: '61 Dongbaekjukjeon-daero, Cheoin-gu, Yongin-si, Gyeonggi-do',
-    addressKo: '경기도 용인시 처인구 동백죽전대로 61',
-    sportmonksId: null,
   },
 };
 
@@ -713,6 +527,7 @@ function getDetailValue(
   details: StatisticDetail[] | undefined,
   typeId: number,
   developerNames: string[],
+  options: { signed?: boolean; requireObserved?: boolean } = {},
 ) {
   const detail = (details ?? []).find(item => {
     if (item.type_id === typeId) return true;
@@ -727,7 +542,8 @@ function getDetailValue(
       identifiers.includes(normalizeName(name)),
     );
   });
-  return detail ? Math.max(0, Math.trunc(toNumber(detail.value))) : 0;
+  if (options.requireObserved) return readObservedStandingDetailValue(detail?.value, options);
+  return detail ? toStandingDetailValue(toNumber(detail.value), options) : 0;
 }
 
 function normalizeKickoff(value: string) {
@@ -823,12 +639,274 @@ function getPlayerName(member: SquadMember | LineupPlayer) {
   );
 }
 
-function getPositionName(positionId?: number | null) {
-  if (positionId === 24) return 'Goalkeeper';
-  if (positionId === 25) return 'Defender';
-  if (positionId === 26) return 'Midfielder';
-  if (positionId === 27) return 'Attacker';
-  return null;
+async function inspectHistoryFixtureMappings(
+  admin: SupabaseClient,
+  token: string,
+  config: FootballLeagueConfig,
+) {
+  const [teamsPayload, seasonPayload] = await Promise.all([
+    apiInspectGetAll<Team>(token, `teams/seasons/${config.providerSeasonId}`, {
+      include: 'venue',
+    }),
+    apiInspectGet<SeasonWithFixtures>(
+      token,
+      `seasons/${config.providerSeasonId}`,
+      {
+        include:
+          'fixtures.participants;fixtures.venue;fixtures.state;fixtures.round',
+      },
+    ),
+  ]);
+  if (seasonPayload.data.league_id !== config.providerLeagueId) {
+    throw new Error(
+      `Season ${config.providerSeasonId} belongs to league ${seasonPayload.data.league_id}, not ${config.providerLeagueId}`,
+    );
+  }
+
+  const seasonStart = `${config.season}-01-01T00:00:00.000Z`;
+  const seasonEnd = `${config.season + 1}-01-01T00:00:00.000Z`;
+  const [storedTeamsResult, storedStadiumsResult, storedFixturesResult] =
+    await Promise.all([
+      admin.from('teams').select('id, name, short_name, code, sportmonks_id'),
+      admin.from('stadiums').select('id, sportmonks_id'),
+      admin
+        .from('fixtures')
+        .select(
+          'id, sportmonks_id, league_id, home_team_id, away_team_id, kickoff_at, round, status',
+        )
+        .eq('league_id', config.internalLeagueId)
+        .gte('kickoff_at', seasonStart)
+        .lt('kickoff_at', seasonEnd),
+    ]);
+  if (storedTeamsResult.error) throw storedTeamsResult.error;
+  if (storedStadiumsResult.error) throw storedStadiumsResult.error;
+  if (storedFixturesResult.error) throw storedFixturesResult.error;
+
+  const storedTeamById = new Map(
+    (storedTeamsResult.data ?? []).map(team => [String(team.id), team]),
+  );
+  const storedTeamIdByProviderId = new Map<number, string>(
+    (storedTeamsResult.data ?? []).flatMap(team =>
+      team.sportmonks_id == null
+        ? []
+        : [[Number(team.sportmonks_id), String(team.id)] as const],
+    ),
+  );
+  const teamIdByProviderId = new Map<number, string>();
+  for (const team of teamsPayload) {
+    const internalId =
+      storedTeamIdByProviderId.get(team.id) ??
+      TEAM_ID_BY_PROVIDER_ID[team.id] ??
+      resolveInternalTeamId(team.name);
+    if (internalId && storedTeamById.has(internalId)) {
+      teamIdByProviderId.set(team.id, internalId);
+    }
+  }
+
+  const stadiumIdByProviderId = new Map<number, string>(
+    (storedStadiumsResult.data ?? []).flatMap(stadium =>
+      stadium.sportmonks_id == null
+        ? []
+        : [[Number(stadium.sportmonks_id), String(stadium.id)] as const],
+    ),
+  );
+  const simulatedStadiumId = (
+    providerVenueId: number,
+    homeTeamId?: string,
+  ) =>
+    stadiumIdByProviderId.get(providerVenueId) ??
+    (homeTeamId ? HOME_STADIUM_BY_TEAM[homeTeamId] : undefined) ??
+    `sportmonks-venue-${providerVenueId}`;
+  const homeVenueFallbackByProviderTeamId = new Map<number, string>();
+  for (const team of teamsPayload) {
+    const internalTeamId = teamIdByProviderId.get(team.id);
+    const providerVenueId = team.venue?.id ?? team.venue_id ?? null;
+    if (providerVenueId == null) continue;
+    const stadiumId = simulatedStadiumId(providerVenueId, internalTeamId);
+    stadiumIdByProviderId.set(providerVenueId, stadiumId);
+    homeVenueFallbackByProviderTeamId.set(team.id, stadiumId);
+  }
+
+  const fixturesPayload = seasonPayload.data.fixtures ?? [];
+  for (const fixture of fixturesPayload) {
+    const home = getParticipant(fixture, 'home');
+    const homeTeamId = home ? teamIdByProviderId.get(home.id) : undefined;
+    const providerVenueId = fixture.venue?.id ?? fixture.venue_id ?? null;
+    if (providerVenueId == null) continue;
+    stadiumIdByProviderId.set(
+      providerVenueId,
+      simulatedStadiumId(providerVenueId, homeTeamId),
+    );
+  }
+
+  const storedFixtures = storedFixturesResult.data ?? [];
+  const storedFixtureByProviderId = new Map(
+    storedFixtures.flatMap(fixture =>
+      fixture.sportmonks_id == null
+        ? []
+        : [[Number(fixture.sportmonks_id), fixture] as const],
+    ),
+  );
+  const describeTeam = (participant: Participant | undefined) => {
+    if (!participant) return null;
+    const currentInternalTeamId = teamIdByProviderId.get(participant.id) ?? null;
+    const potentialInternalTeamId =
+      storedTeamIdByProviderId.get(participant.id) ??
+      TEAM_ID_BY_PROVIDER_ID[participant.id] ??
+      resolveInternalTeamId(participant.name) ??
+      null;
+    return {
+      provider_team_id: participant.id,
+      name: participant.name,
+      current_internal_team_id: currentInternalTeamId,
+      potential_internal_team_id: potentialInternalTeamId,
+      season_team_listed: teamsPayload.some(team => team.id === participant.id),
+    };
+  };
+
+  const unmapped = fixturesPayload.flatMap(fixture => {
+    const home = getParticipant(fixture, 'home');
+    const away = getParticipant(fixture, 'away');
+    const homeTeamId = home ? teamIdByProviderId.get(home.id) : undefined;
+    const awayTeamId = away ? teamIdByProviderId.get(away.id) : undefined;
+    const providerVenueId = fixture.venue_id ?? fixture.venue?.id ?? null;
+    const currentStadiumId = resolveCanonicalFixtureStadiumId(
+      homeTeamId,
+      providerVenueId,
+      providerVenueId === null ? undefined : stadiumIdByProviderId.get(providerVenueId),
+      undefined,
+      homeTeamId ? HOME_STADIUM_BY_TEAM[homeTeamId] : undefined,
+      fixture.id,
+      {
+        fixtureId: String(storedFixtureByProviderId.get(fixture.id)?.id ?? `sportmonks-${fixture.id}`),
+        awayTeamId, kickoffAt: normalizeKickoff(fixture.starting_at),
+        leagueId: config.internalLeagueId, season: config.season,
+        observedAt: new Date().toISOString(),
+      },
+    );
+    const reasons: string[] = [];
+    if (!home) reasons.push('missing_home_participant');
+    else if (!homeTeamId) reasons.push('unmapped_home_team');
+    if (!away) reasons.push('missing_away_participant');
+    else if (!awayTeamId) reasons.push('unmapped_away_team');
+    if (!currentStadiumId) reasons.push('missing_current_stadium_mapping');
+    if (!reasons.length) return [];
+
+    const kickoff = new Date(normalizeKickoff(fixture.starting_at)).getTime();
+    const providerFixture = storedFixtureByProviderId.get(fixture.id);
+    const equivalentFixture =
+      providerFixture ??
+      (homeTeamId && awayTeamId
+        ? storedFixtures
+            .filter(
+              stored =>
+                stored.home_team_id === homeTeamId &&
+                stored.away_team_id === awayTeamId,
+            )
+            .map(stored => ({
+              ...stored,
+              difference_ms: Math.abs(
+                new Date(String(stored.kickoff_at)).getTime() - kickoff,
+              ),
+            }))
+            .filter(stored => stored.difference_ms <= 12 * 60 * 60 * 1_000)
+            .sort((left, right) => left.difference_ms - right.difference_ms)[0]
+        : undefined);
+
+    return [
+      {
+        provider_fixture_id: fixture.id,
+        home: home
+          ? { provider_team_id: home.id, name: home.name }
+          : null,
+        away: away
+          ? { provider_team_id: away.id, name: away.name }
+          : null,
+        starting_at: fixture.starting_at,
+        round: fixture.round?.name ?? null,
+        state:
+          fixture.state?.developer_name ??
+          fixture.state?.short_name ??
+          fixture.state?.state ??
+          null,
+        provider_season_id: fixture.season_id,
+        provider_league_id: fixture.league_id,
+        internal_league_id: config.internalLeagueId,
+        db_fixture: equivalentFixture ?? null,
+        team_mapping: {
+          home: describeTeam(home),
+          away: describeTeam(away),
+        },
+        fixture_venue_id: fixture.venue_id ?? null,
+        nested_fixture_venue_id: fixture.venue?.id ?? null,
+        current_stadium_id: currentStadiumId ?? null,
+        home_team_venue_fallback_id: home
+          ? homeVenueFallbackByProviderTeamId.get(home.id) ?? null
+          : null,
+        reasons,
+      },
+    ];
+  });
+
+  return {
+    status: 'inspected',
+    mode: 'inspect-history-fixture-mapping',
+    provider: 'sportmonks',
+    provider_league_id: config.providerLeagueId,
+    provider_season_id: config.providerSeasonId,
+    internal_league_id: config.internalLeagueId,
+    season: config.season,
+    raw_fixture_count: fixturesPayload.length,
+    mapped_fixture_count: fixturesPayload.length - unmapped.length,
+    unmapped_fixture_count: unmapped.length,
+    endpoint: `seasons/${config.providerSeasonId}`,
+    inspected_at: new Date().toISOString(),
+    unmapped_fixtures: unmapped,
+  };
+}
+
+async function apiInspectGet<T>(
+  token: string,
+  path: string,
+  params: Record<string, string | number> = {},
+) {
+  const url = new URL(`${API_BASE_URL}/${path}`);
+  url.searchParams.set('api_token', token);
+  Object.entries(params).forEach(([key, value]) =>
+    url.searchParams.set(key, String(value)),
+  );
+  const response = await fetch(url);
+  const payload = (await response.json()) as ApiEnvelope<T>;
+  if (!response.ok || payload.message) {
+    throw new Error(
+      `Sportmonks ${path} failed (${response.status}): ${
+        payload.message ?? 'unknown error'
+      }`,
+    );
+  }
+  return payload;
+}
+
+async function apiInspectGetAll<T>(
+  token: string,
+  path: string,
+  params: Record<string, string | number> = {},
+) {
+  const rows: T[] = [];
+  let page = 1;
+  while (true) {
+    const payload = await apiInspectGet<T[]>(token, path, {
+      ...params,
+      page,
+      per_page: 100,
+    });
+    rows.push(...payload.data);
+    const hasMore =
+      payload.pagination?.has_more === true ||
+      (payload.pagination?.last_page ?? page) > page;
+    if (!hasMore) return rows;
+    page += 1;
+  }
 }
 
 async function apiGet<T>(
@@ -883,7 +961,7 @@ async function apiGetAll<T>(
   }
 }
 
-async function handleSyncRequest(request: Request) {
+Deno.serve(async request => {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -917,17 +995,26 @@ async function handleSyncRequest(request: Request) {
   if (!authorized) return new Response('Unauthorized', { status: 401 });
 
   const body = await request.json().catch(() => ({}));
+  const scope = validateFootballLeagueRequest(body, { allowHistorical: true });
+  if ('error' in scope) {
+    return Response.json({ error: scope.error }, { status: 400 });
+  }
+  const { config } = scope;
+
+  if (body.mode === 'inspect-history-fixture-mapping') {
+    try {
+      return Response.json(
+        await inspectHistoryFixtureMappings(admin, token, config),
+      );
+    } catch (error) {
+      return Response.json({ error: getErrorMessage(error) }, { status: 502 });
+    }
+  }
+
   if (body.mode === 'discover-seasons') {
     try {
-      const providerLeagueId = Number(body.leagueId ?? DEFAULT_LEAGUE_ID);
-      if (!Number.isSafeInteger(providerLeagueId) || providerLeagueId <= 0) {
-        return Response.json(
-          { error: 'A valid leagueId is required' },
-          { status: 400 },
-        );
-      }
       const seasons = await apiGetAll<ProviderSeason>(admin, token, 'seasons', {
-        filters: `seasonLeagues:${providerLeagueId}`,
+        filters: `seasonLeagues:${config.providerLeagueId}`,
       });
       const rows = seasons.map(providerSeason => ({
         provider: 'sportmonks',
@@ -947,7 +1034,7 @@ async function handleSyncRequest(request: Request) {
       if (error) throw error;
       return Response.json({
         provider: 'sportmonks',
-        leagueId: providerLeagueId,
+        leagueId: config.providerLeagueId,
         seasons: rows,
       });
     } catch (error) {
@@ -956,166 +1043,49 @@ async function handleSyncRequest(request: Request) {
       return Response.json({ error: message }, { status: 502 });
     }
   }
-  if (body.mode === 'discover-teams') {
+  const historyMode = body.mode === 'backfill-history';
+  const historySyncKey = historyMode ? footballHistorySyncKey(config) : null;
+  const postMatch = !historyMode && body.postMatch === true;
+  let retryRunId: string | null = null;
+  const recordRetry = async (status: string, message: string | null = null) => {
+    if (!retryRunId) return;
+    const { error } = await admin.from('sync_runs').update({ status, ...(status === 'running' ? {started_at: new Date().toISOString()} : {finished_at: new Date().toISOString()}), error_message: message }).eq('id', retryRunId).eq('job_key', 'kickon-post-match-football-sync');
+    if (error) throw new Error('ADMIN_RETRY_RECORD_FAILED');
+  };
+  if (body.adminRetryRunId !== undefined) {
+    if (!postMatch || typeof body.adminRetryRunId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.adminRetryRunId)) return Response.json({error:'INVALID_RETRY_REQUEST'}, {status:400});
+    const {data: run, error} = await admin.from('sync_runs').select('id,metadata').eq('id',body.adminRetryRunId).eq('job_key','kickon-post-match-football-sync').eq('target_id',config.internalLeagueId).eq('trigger_type','retry').eq('status','queued').maybeSingle();
+    if (error || !run || run.metadata?.internal_season !== config.season) return Response.json({error:'RETRY_REQUEST_NOT_QUEUED'}, {status:409});
+    const claimed=await admin.from('sync_runs').update({status:'running',started_at:new Date().toISOString()}).eq('id',run.id).eq('status','queued').select('id').maybeSingle();
+    if(claimed.error||!claimed.data)return Response.json({error:'RETRY_REQUEST_ALREADY_CLAIMED'}, {status:409});
+    retryRunId=run.id;
+    const ready=await admin.rpc('admin_post_match_retry_scope');
+    const current=Array.isArray(ready.data)?ready.data.find(scope=>scope.league_id===config.internalLeagueId):null;
+    if(ready.error||!current||current.generation!==run.metadata.previous_generation){
+      await recordRetry('cancelled','대상 상태가 변경되어 오래된 재시도 요청은 실행하지 않았어요');
+      return Response.json({status:'STALE_RETRY_REQUEST'},{status:409});
+    }
+  }
+  let maintenance: Awaited<ReturnType<typeof beginFootballMaintenance>>['run'] = null;
+  if (historyMode || postMatch) {
     try {
-      const providerSeasonId = Number(body.seasonId);
-      if (!Number.isSafeInteger(providerSeasonId) || providerSeasonId <= 0) {
-        return Response.json(
-          { error: 'A valid seasonId is required' },
-          { status: 400 },
-        );
-      }
-      const season = await apiGet<ProviderSeason>(
-        admin,
-        token,
-        `seasons/${providerSeasonId}`,
-      );
-      const providerTeams = await apiGetAll<Team>(
-        admin,
-        token,
-        `teams/seasons/${providerSeasonId}`,
-      );
-      const rows = providerTeams.map(team => ({
-        provider: 'sportmonks',
-        provider_season_id: providerSeasonId,
-        provider_team_id: team.id,
-        provider_team_name: team.name,
-        internal_team_id: null,
-        mapping_status: 'UNMAPPED',
-        discovered_at: new Date().toISOString(),
-      }));
-      const { error } = await admin
-        .from('football_provider_teams')
-        .upsert(rows, {
-          onConflict: 'provider,provider_season_id,provider_team_id',
-        });
-      if (error) throw error;
-      return Response.json({
-        provider: 'sportmonks',
-        leagueId: season.data.league_id,
-        seasonId: providerSeasonId,
-        teams: rows.map(row => ({
-          id: row.provider_team_id,
-          name: row.provider_team_name,
-        })),
+      const started = await beginFootballMaintenance(admin, historyMode ? 'history' : 'post_match', config);
+      if (!started.run) {
+        await recordRetry('cancelled', '다른 실행 또는 대기 조건으로 이번 재시도는 시작하지 않았어요');
+        return Response.json({status: started.status}, {
+        status: ['BLOCKED', 'LEGACY_RUNNING_UNKNOWN'].includes(started.status) ? 409 : 200,
       });
+      }
+      maintenance = started.run;
     } catch (error) {
-      const message = getErrorMessage(error);
-      console.error(message);
-      return Response.json({ error: message }, { status: 502 });
+      await recordRetry('failed', '경기 후 처리 시작 조건을 확인하지 못했어요');
+      return Response.json({error: getErrorMessage(error)}, {status: 502});
     }
   }
-  if (body.mode === 'backfill-history') {
-    await admin
-      .from('football_provider_seasons')
-      .update({ sync_status: 'RUNNING', sync_error_code: null })
-      .eq('provider', 'sportmonks')
-      .neq('sync_status', 'READY')
-      .in('provider_season_id', Object.values(ENABLED_SEASON_IDS));
-    const { data: claimed, error: claimError } = await admin.rpc(
-      'claim_football_sync',
-      {
-        target_sync_key: 'sportmonks-history-2024-2026',
-        target_cooldown_seconds: 300,
-      },
-    );
-    if (claimError) {
-      return Response.json({ error: claimError.message }, { status: 500 });
-    }
-    if (!claimed) return Response.json({ status: 'already-running' });
-
-    const results: Record<string, unknown>[] = [];
-    try {
-      const { data: existingSeasonStates } = await admin
-        .from('football_provider_seasons')
-        .select('provider_season_id, sync_status')
-        .eq('provider', 'sportmonks')
-        .in('provider_season_id', Object.values(ENABLED_SEASON_IDS));
-      const readySeasonIds = new Set(
-        (existingSeasonStates ?? [])
-          .filter(state => state.sync_status === 'READY')
-          .map(state => Number(state.provider_season_id)),
-      );
-      for (const [targetSeason, targetSeasonId] of Object.entries(
-        ENABLED_SEASON_IDS,
-      )) {
-        if (readySeasonIds.has(targetSeasonId)) {
-          results.push({ season: Number(targetSeason), status: 'cached' });
-          continue;
-        }
-        const response = await fetch(
-          `${supabaseUrl}/functions/v1/sync-football-data`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-sync-secret': suppliedSecret,
-            },
-            body: JSON.stringify({
-              leagueId: DEFAULT_LEAGUE_ID,
-              seasonId: targetSeasonId,
-              season: Number(targetSeason),
-              syncLineups: false,
-            }),
-          },
-        );
-        const result = await response.json();
-        results.push({ season: Number(targetSeason), ...result });
-        if (!response.ok) {
-          throw new Error(
-            `Season ${targetSeason} backfill failed: ${JSON.stringify(result)}`,
-          );
-        }
-      }
-      const goalBackfillResponse = await fetch(
-        `${supabaseUrl}/functions/v1/sync-live-football`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-sync-secret': suppliedSecret,
-          },
-          body: JSON.stringify({ mode: 'backfill-goals', limit: 1000 }),
-        },
-      );
-      const goalBackfill = await goalBackfillResponse.json();
-      if (!goalBackfillResponse.ok) {
-        throw new Error(
-          `Goal-event backfill failed: ${JSON.stringify(goalBackfill)}`,
-        );
-      }
-      await admin.from('football_sync_state').upsert(
-        {
-          sync_key: 'sportmonks-history-2024-2026',
-          last_succeeded_at: new Date().toISOString(),
-          last_error: null,
-        },
-        { onConflict: 'sync_key' },
-      );
-      return Response.json({ status: 'completed', results, goalBackfill });
-    } catch (error) {
-      const message = getErrorMessage(error);
-      await admin
-        .from('football_provider_seasons')
-        .update({ sync_status: 'ERROR', sync_error_code: 'UNKNOWN' })
-        .eq('provider', 'sportmonks')
-        .eq('sync_status', 'RUNNING')
-        .in('provider_season_id', Object.values(ENABLED_SEASON_IDS));
-      await admin.from('football_sync_state').upsert(
-        {
-          sync_key: 'sportmonks-history-2024-2026',
-          last_error: message,
-        },
-        { onConflict: 'sync_key' },
-      );
-      console.error(message);
-      return Response.json({ error: message, results }, { status: 502 });
-    }
-  }
-  const leagueId = Number(body.leagueId ?? DEFAULT_LEAGUE_ID);
-  const seasonId = Number(body.seasonId ?? DEFAULT_SEASON_ID);
-  const season = Number(body.season ?? DEFAULT_SEASON);
-  const syncLineups = body.syncLineups === true;
+  const leagueId = config.providerLeagueId;
+  const seasonId = config.providerSeasonId;
+  const season = config.season;
+  const syncLineups = !historyMode && body.syncLineups === true;
   const lineupFixtureLimit = Math.min(
     40,
     Math.max(
@@ -1123,44 +1093,31 @@ async function handleSyncRequest(request: Request) {
       Number(body.lineupFixtureLimit ?? DEFAULT_LINEUP_FIXTURE_LIMIT),
     ),
   );
-  const internalLeagueId =
-    leagueId === DEFAULT_LEAGUE_ID && ENABLED_SEASON_IDS[season] === seasonId
-      ? 'kleague'
-      : leagueId === K_LEAGUE_2_ID &&
-        season === DEFAULT_SEASON &&
-        seasonId === K_LEAGUE_2_SEASON_ID
-      ? 'kleague2'
-      : null;
-  if (!internalLeagueId) {
-    return Response.json(
-      { error: 'The requested K League season is not enabled' },
-      { status: 400 },
-    );
-  }
-
-  const postMatch = body.postMatch === true;
-  const postMatchSyncKey = `sportmonks-post-match-${internalLeagueId}-${season}`;
-  if (postMatch) {
-    const { data: claimed, error: claimError } = await admin.rpc(
-      'claim_football_sync',
-      {
-        target_sync_key: postMatchSyncKey,
-        target_cooldown_seconds: 240,
-      },
-    );
-    if (claimError) {
-      return Response.json({ error: claimError.message }, { status: 500 });
+  if (!historyMode && !postMatch) {
+    const { error: runningError } = await admin
+      .from('football_provider_seasons')
+      .update({ sync_status: 'RUNNING', sync_error_code: null })
+      .eq('provider', 'sportmonks')
+      .eq('provider_league_id', config.providerLeagueId)
+      .eq('provider_season_id', seasonId);
+    if (runningError) {
+      return Response.json({ error: runningError.message }, { status: 500 });
     }
-    if (!claimed) return Response.json({ status: 'already-running' });
   }
-
-  await admin
-    .from('football_provider_seasons')
-    .update({ sync_status: 'RUNNING', sync_error_code: null })
-    .eq('provider', 'sportmonks')
-    .eq('provider_season_id', seasonId);
 
   try {
+    // Protection is DB-derived and fixed before any provider payload is read.
+    // Provider true/false/absent state can therefore never weaken quarantine.
+    const candidateProtections = await fetchTransferCandidateProtections(
+      admin,
+      {
+        season,
+        leagueId: config.internalLeagueId,
+      },
+    );
+    const protectedPlayerIds = new Set(
+      candidateProtections.map(protection => protection.player_id),
+    );
     const [teamsPayload, seasonPayload, standingsPayload] = await Promise.all([
       apiGetAll<Team>(admin, token, `teams/seasons/${seasonId}`, {
         include: 'venue;statistics.details.type',
@@ -1292,10 +1249,7 @@ async function handleSyncRequest(request: Request) {
       const preferredId = homeTeamId
         ? HOME_STADIUM_BY_TEAM[homeTeamId]
         : undefined;
-      const useCanonicalHomeVenue =
-        internalLeagueId === 'kleague2' && Boolean(preferredId && homeTeamId);
       const id =
-        (useCanonicalHomeVenue ? preferredId : undefined) ??
         stadiumIdBySportmonksId.get(venue.id) ??
         preferredId ??
         `sportmonks-venue-${venue.id}`;
@@ -1307,11 +1261,10 @@ async function handleSyncRequest(request: Request) {
         venue.name,
       );
       const nameEn =
-        (useCanonicalHomeVenue ? localization?.nameEn : venue.name) ??
+        venue.name ??
         (pending?.name_en as string | null | undefined) ??
         stored?.name_en ??
         localization?.nameEn ??
-        venue.name ??
         stored?.name ??
         `Venue ${venue.id}`;
       const nameKo =
@@ -1320,7 +1273,6 @@ async function handleSyncRequest(request: Request) {
         stored?.name_ko ??
         null;
       const addressEn =
-        (useCanonicalHomeVenue ? localization?.addressEn : undefined) ||
         [venue.address, venue.city_name].filter(Boolean).join(', ') ||
         (pending?.address_en as string | null | undefined) ||
         stored?.address_en ||
@@ -1337,23 +1289,17 @@ async function handleSyncRequest(request: Request) {
         name_en: nameEn,
         name_ko: nameKo,
         latitude:
-          useCanonicalHomeVenue && localization?.latitude !== undefined
-            ? localization.latitude
-            : stored && Number(stored.latitude) !== 0
+          stored && Number(stored.latitude) !== 0
             ? stored.latitude
             : toNumber(venue.latitude),
         longitude:
-          useCanonicalHomeVenue && localization?.longitude !== undefined
-            ? localization.longitude
-            : stored && Number(stored.longitude) !== 0
+          stored && Number(stored.longitude) !== 0
             ? stored.longitude
             : toNumber(venue.longitude),
         address: addressKo ?? addressEn ?? stored?.address ?? null,
         address_en: addressEn,
         address_ko: addressKo,
-        sportmonks_id: useCanonicalHomeVenue
-          ? localization?.sportmonksId ?? null
-          : venue.id,
+        sportmonks_id: venue.id,
       });
       return id;
     };
@@ -1386,8 +1332,10 @@ async function handleSyncRequest(request: Request) {
     const { data: storedSeasonFixtures, error: storedFixtureError } =
       await admin
         .from('fixtures')
-        .select('id, home_team_id, away_team_id, kickoff_at, sportmonks_id')
-        .eq('league_id', internalLeagueId)
+        .select(
+          '*',
+        )
+        .eq('league_id', config.internalLeagueId)
         .gte('kickoff_at', seasonStart)
         .lt('kickoff_at', seasonEnd);
     if (storedFixtureError) {
@@ -1395,7 +1343,7 @@ async function handleSyncRequest(request: Request) {
     }
     const usedStoredFixtureIds = new Set<string>();
     const fixtureIdBySportmonksId = new Map<number, string>();
-    const resolveFixtureId = (
+    const resolveStoredFixture = (
       providerFixtureId: number,
       homeTeamId: string,
       awayTeamId: string,
@@ -1404,7 +1352,7 @@ async function handleSyncRequest(request: Request) {
       const byProviderId = (storedSeasonFixtures ?? []).find(
         stored => Number(stored.sportmonks_id) === providerFixtureId,
       );
-      if (byProviderId) return String(byProviderId.id);
+      if (byProviderId) return byProviderId;
       const kickoff = new Date(kickoffAt).getTime();
       const equivalent = (storedSeasonFixtures ?? [])
         .filter(
@@ -1423,46 +1371,62 @@ async function handleSyncRequest(request: Request) {
         .sort((a, b) => a.difference - b.difference)[0];
       if (equivalent) {
         usedStoredFixtureIds.add(String(equivalent.id));
-        return String(equivalent.id);
+        return equivalent;
       }
-      return `sportmonks-${providerFixtureId}`;
+      return undefined;
     };
 
-    const unmappedFixtureDetails: string[] = [];
     const fixtureRows = fixturesPayload.flatMap(fixture => {
       const home = getParticipant(fixture, 'home');
       const away = getParticipant(fixture, 'away');
       const homeTeamId = home ? teamIdBySportmonksId.get(home.id) : undefined;
       const awayTeamId = away ? teamIdBySportmonksId.get(away.id) : undefined;
-      const stadiumId =
-        internalLeagueId === 'kleague2' && homeTeamId
-          ? HOME_STADIUM_BY_TEAM[homeTeamId]
-          : fixture.venue_id
-          ? stadiumIdBySportmonksId.get(fixture.venue_id)
-          : homeTeamId
-          ? HOME_STADIUM_BY_TEAM[homeTeamId]
-          : undefined;
-      if (!home || !away || !homeTeamId || !awayTeamId || !stadiumId) {
-        unmappedFixtureDetails.push(
-          `${fixture.id}:${home?.name ?? 'unknown'}-${
-            away?.name ?? 'unknown'
-          }:venue=${fixture.venue_id ?? fixture.venue?.id ?? 'none'}`,
-        );
+      if (!home || !away || !homeTeamId || !awayTeamId) {
         return [];
       }
       const kickoffAt = normalizeKickoff(fixture.starting_at);
-      const fixtureId = resolveFixtureId(
+      const storedFixture = resolveStoredFixture(
         fixture.id,
         homeTeamId,
         awayTeamId,
         kickoffAt,
       );
+      const providerVenueId = fixture.venue_id ?? fixture.venue?.id ?? null;
+      const fixtureId = storedFixture
+        ? String(storedFixture.id)
+        : `sportmonks-${fixture.id}`;
+      const venueContext = {
+        fixtureId, awayTeamId, kickoffAt,
+        leagueId: config.internalLeagueId, season,
+        observedAt: new Date().toISOString(),
+      };
+      const officialVenue = getOfficialFixtureVenueDecision(homeTeamId, fixture.id, venueContext);
+      if (officialVenue?.applied && !stadiumById.has(officialVenue.override.stadiumId)) {
+        throw new Error(`FIXTURE_VENUE_REVIEW: missing canonical stadium for ${fixtureId}`);
+      }
+      const stadiumId = resolveCanonicalFixtureStadiumId(
+        homeTeamId,
+        providerVenueId,
+        providerVenueId === null ? undefined : stadiumIdBySportmonksId.get(providerVenueId),
+        storedFixture?.stadium_id ? String(storedFixture.stadium_id) : undefined,
+        HOME_STADIUM_BY_TEAM[homeTeamId],
+        fixture.id,
+        venueContext,
+      );
+      if (officialVenue) {
+        console.log(JSON.stringify({
+          event: 'fixture-venue-policy', fixtureId, providerVenueId,
+          mappedProviderStadiumId: providerVenueId === null ? null : stadiumIdBySportmonksId.get(providerVenueId),
+          selectedStadiumId: stadiumId, ...officialVenue,
+        }));
+      }
+      if (!stadiumId) return [];
       fixtureIdBySportmonksId.set(fixture.id, fixtureId);
       return [
         {
           id: fixtureId,
           sportmonks_id: fixture.id,
-          league_id: internalLeagueId,
+          league_id: config.internalLeagueId,
           round: parseRound(fixture.round?.name),
           home_team_id: homeTeamId,
           away_team_id: awayTeamId,
@@ -1471,24 +1435,25 @@ async function handleSyncRequest(request: Request) {
           status: mapStatus(fixture),
           home_score: getScore(fixture, home),
           away_score: getScore(fixture, away),
+          ...(maintenance ? {_historyProviderState: fixture.state?.developer_name ?? fixture.state?.short_name ?? fixture.state?.state ?? null} : {}),
           updated_at: new Date().toISOString(),
         },
       ];
     });
     if (fixtureRows.length !== fixturesPayload.length) {
       throw new Error(
-        `Only ${fixtureRows.length}/${
-          fixturesPayload.length
-        } fixtures could be mapped: ${unmappedFixtureDetails
-          .slice(0, 20)
-          .join(', ')}`,
+        `Only ${fixtureRows.length}/${fixturesPayload.length} fixtures could be mapped`,
       );
     }
-    const { error: fixtureError } = await admin
-      .from('fixtures')
-      .upsert(fixtureRows, { onConflict: 'id' });
-    if (fixtureError) {
-      throw new Error(`FIXTURE_WRITE: ${getErrorMessage(fixtureError)}`);
+    const fixtureRowsToApply = postMatch ? selectPostMatchRows(fixtureRows, storedSeasonFixtures ?? []) : fixtureRows;
+    if (maintenance) {
+      await maintenance.apply(fixtureRowsToApply, storedSeasonFixtures ?? []);
+    } else {
+      const { data: count, error: fixtureError } = await admin.rpc('sync_fixture_metadata_rows', {
+        p_rows: withExpectedFixtureRows(fixtureRows, storedSeasonFixtures ?? []),
+      });
+      if (fixtureError) throw new Error(`FIXTURE_WRITE: ${getErrorMessage(fixtureError)}`);
+      if (count !== fixtureRows.length) throw new Error('CRON46_ROW_COUNT_MISMATCH');
     }
 
     const latestStandingByTeam = new Map<number, Standing>();
@@ -1514,42 +1479,45 @@ async function handleSyncRequest(request: Request) {
         const teamId = teamIdBySportmonksId.get(standing.participant_id);
         if (!teamId) return [];
         const details = standing.details;
+        const evidenceOptions = { requireObserved: config.internalLeagueId === 'kleague2' && season === 2026 };
         return [
           {
             season,
-            league_id: internalLeagueId,
+            league_id: config.internalLeagueId,
             team_id: teamId,
             rank: standing.position,
             played: getDetailValue(details, STANDING_TYPE_IDS.played, [
               'OVERALL_MATCHED_PLAYED',
               'MATCHES_PLAYED',
-            ]),
+            ], evidenceOptions),
             points: standing.points,
             won: getDetailValue(details, STANDING_TYPE_IDS.won, [
               'OVERALL_WON',
               'WINS',
-            ]),
+            ], evidenceOptions),
             drawn: getDetailValue(details, STANDING_TYPE_IDS.drawn, [
               'OVERALL_DRAW',
               'DRAWS',
-            ]),
+            ], evidenceOptions),
             lost: getDetailValue(details, STANDING_TYPE_IDS.lost, [
               'OVERALL_LOST',
               'LOSSES',
-            ]),
+            ], evidenceOptions),
             goals_for: getDetailValue(details, STANDING_TYPE_IDS.goalsFor, [
               'OVERALL_GOALS_FOR',
               'GOALS_FOR',
-            ]),
+            ], evidenceOptions),
             goals_against: getDetailValue(
               details,
               STANDING_TYPE_IDS.goalsAgainst,
               ['OVERALL_GOALS_AGAINST', 'GOALS_AGAINST'],
+              evidenceOptions,
             ),
             goal_difference: getDetailValue(
               details,
               STANDING_TYPE_IDS.goalDifference,
               ['GOAL_DIFFERENCE'],
+              { ...evidenceOptions, signed: true },
             ),
             clean_sheets: getCleanSheetCount(
               fixturesPayload,
@@ -1562,13 +1530,55 @@ async function handleSyncRequest(request: Request) {
         ];
       },
     );
-    if (standingRows.length) {
+    let rankingAdjustmentDetected = false;
+    if (config.internalLeagueId === 'kleague2' && season === 2026) {
+      const { data: rankingOverrides, error: rankingOverridesError } = await admin
+        .from('manual_overrides').select('field_path')
+        .eq('entity_type', 'standing').eq('season', season)
+        .eq('league_id', config.internalLeagueId).is('released_at', null);
+      if (rankingOverridesError) throw rankingOverridesError;
+      const rankingFields = new Set(['rank', 'points', 'played', 'won', 'drawn', 'lost', 'goals_for', 'goals_against', 'goal_difference']);
+      rankingAdjustmentDetected = (rankingOverrides ?? []).some(row => rankingFields.has(String(row.field_path)));
+    }
+    const standingPolicy = resolveKleagueStandingRanks({
+      leagueId: config.internalLeagueId, season,
+      rankingAdjustmentDetected,
+      standings: standingRows.map(row => ({
+        teamId: row.team_id, providerRank: row.rank,
+        played: row.played, won: row.won, drawn: row.drawn, lost: row.lost,
+        goalsFor: row.goals_for, goalsAgainst: row.goals_against,
+        goalDifference: row.goal_difference, points: row.points,
+        statisticsComplete: [row.played, row.won, row.drawn, row.lost, row.goals_for, row.goals_against, row.goal_difference].every(Number.isFinite),
+      })),
+    });
+    // Hold the whole standings batch when stats cannot establish official rank.
+    // This also preserves its stored stats: partial upserts risk NOT NULL/default
+    // rank values. Fixture and other existing sync stages remain independent.
+    const writableStandingRows = standingPolicy.ranks === null ? [] : standingRows.map(row => ({
+      ...row, rank: standingPolicy.ranks![row.team_id],
+    }));
+    if (writableStandingRows.length) {
       const { error } = await admin
         .from('league_standings')
-        .upsert(standingRows, {
+        .upsert(writableStandingRows, {
           onConflict: 'season,league_id,team_id',
         });
       if (error) throw error;
+    }
+    if (config.internalLeagueId === 'kleague2' && season === 2026) {
+      const { data: persistedStandings, error: persistedStandingsError } = await admin
+        .from('league_standings').select('team_id, rank')
+        .eq('season', season).eq('league_id', config.internalLeagueId);
+      if (persistedStandingsError) throw persistedStandingsError;
+      const persistedRanks = new Map((persistedStandings ?? []).map(row => [String(row.team_id), Number(row.rank)]));
+      console.log(JSON.stringify({
+        event: 'standings-ranking-policy', leagueId: config.internalLeagueId, season,
+        source: standingPolicy.source, reasons: standingPolicy.reasons,
+        writtenRows: writableStandingRows.length,
+        comparisons: standingPolicy.comparisons.map(comparison => ({
+          ...comparison, persistedRank: persistedRanks.get(comparison.teamId) ?? null,
+        })),
+      }));
     }
 
     const { data: storedPlayerNames, error: storedPlayerNamesError } =
@@ -1590,6 +1600,18 @@ async function handleSyncRequest(request: Request) {
           : [],
       ),
     );
+    const { data: storedScoringStats, error: storedScoringStatsError } =
+      await admin
+        .from('player_scoring_stats')
+        .select('team_id, player_id')
+        .eq('season', season)
+        .eq('league_id', config.internalLeagueId);
+    if (storedScoringStatsError) throw storedScoringStatsError;
+    const storedScoringKeys = new Set(
+      (storedScoringStats ?? []).map(
+        row => `${String(row.team_id)}:${String(row.player_id)}`,
+      ),
+    );
 
     const squadResponses = await Promise.all(
       [...teamIdBySportmonksId.keys()].map(teamId =>
@@ -1601,6 +1623,12 @@ async function handleSyncRequest(request: Request) {
         ),
       ),
     );
+    const squadRequestIdByProviderTeamId = new Map(
+      [...teamIdBySportmonksId.keys()].map(providerTeamId => [
+        providerTeamId,
+        crypto.randomUUID(),
+      ]),
+    );
     const incompleteSquadCount = squadResponses.filter(
       squad => squad.length < 11,
     ).length;
@@ -1609,24 +1637,46 @@ async function handleSyncRequest(request: Request) {
         `PROVIDER_READ: ${incompleteSquadCount}/${squadResponses.length} team squads were incomplete`,
       );
     }
-    const scorerByPlayerId = new Map<string, Record<string, unknown>>();
-    const teamPlayerByPlayerId = new Map<string, Record<string, unknown>>();
+    const scorerByTeamPlayerId = new Map<string, Record<string, unknown>>();
     const localizationByPlayerId = new Map<string, Record<string, unknown>>();
+    const snapshotInputs: Array<{
+      teamId: string;
+      providerTeamId: number;
+      playerId: string;
+      requestId: string;
+      statistics: PlayerStatisticEvidenceSet;
+      rawPayload: Record<string, unknown>;
+    }> = [];
     for (const member of squadResponses.flat()) {
       const teamId = teamIdBySportmonksId.get(member.team_id);
       if (!teamId) continue;
-      const goals = getDetailValue(member.details, SCORER_TYPE_IDS.goals, [
-        'GOALS',
-      ]);
-      const appearances = getDetailValue(
+      const requestId = squadRequestIdByProviderTeamId.get(member.team_id);
+      if (!requestId) {
+        throw new Error('PROVIDER_READ: missing season squad request identity');
+      }
+      const goalsEvidence = readPlayerStatisticEvidence(
+        member.details,
+        SCORER_TYPE_IDS.goals,
+        ['GOALS'],
+      );
+      const appearancesEvidence = readPlayerStatisticEvidence(
         member.details,
         SCORER_TYPE_IDS.appearances,
         ['APPEARANCES'],
       );
-      const assists = getDetailValue(member.details, SCORER_TYPE_IDS.assists, [
-        'ASSISTS',
-      ]);
-      const playerId = String(member.player_id);
+      const assistsEvidence = readPlayerStatisticEvidence(
+        member.details,
+        SCORER_TYPE_IDS.assists,
+        ['ASSISTS'],
+      );
+      const goals = goalsEvidence.value ?? 0;
+      const appearances = appearancesEvidence.value ?? 0;
+      const playerId = parseProviderPlayerId(member.player_id);
+      if (!playerId) {
+        throw new Error(
+          'PROVIDER_READ: season squad contains an invalid provider player ID',
+        );
+      }
       const playerName = getPlayerName(member);
       const sourceDisplayName =
         member.player?.display_name ?? member.player?.common_name ?? playerName;
@@ -1647,7 +1697,7 @@ async function handleSyncRequest(request: Request) {
       });
       const row = {
         season,
-        league_id: internalLeagueId,
+        league_id: config.internalLeagueId,
         team_id: teamId,
         player_id: playerId,
         player_name: playerName,
@@ -1655,90 +1705,120 @@ async function handleSyncRequest(request: Request) {
         appearances,
         updated_at: new Date().toISOString(),
       };
-      const current = scorerByPlayerId.get(playerId);
+      const scorerKey = `${teamId}:${playerId}`;
+      const current = scorerByTeamPlayerId.get(scorerKey);
       if (
         !current ||
         goals > Number(current.goals) ||
         appearances > Number(current.appearances)
       )
-        scorerByPlayerId.set(playerId, row);
+        scorerByTeamPlayerId.set(scorerKey, row);
 
-      const player = member.player;
-      const squadRow = {
-        season,
-        league_id: internalLeagueId,
-        team_id: teamId,
-        player_id: playerId,
-        player_name: playerName,
-        display_name: sourceDisplayName,
-        display_name_ko: koreanName,
-        image_url: player?.image_path ?? null,
-        shirt_number: member.jersey_number ?? null,
-        position:
-          member.position?.name ??
-          getPositionName(member.position_id ?? member.player?.position_id),
-        detailed_position:
-          member.detailedPosition?.name ??
-          member.detailed_position?.name ??
-          null,
-        appearances,
-        goals,
-        assists,
-        height: player?.height ?? null,
-        weight: player?.weight ?? null,
-        date_of_birth: player?.date_of_birth ?? null,
-        in_squad: player?.in_squad !== false,
-        updated_at: new Date().toISOString(),
-      };
-      const currentSquadRow = teamPlayerByPlayerId.get(playerId);
-      if (
-        !currentSquadRow ||
-        appearances > Number(currentSquadRow.appearances) ||
-        goals > Number(currentSquadRow.goals)
-      )
-        teamPlayerByPlayerId.set(playerId, squadRow);
+      snapshotInputs.push({
+        teamId,
+        providerTeamId: member.team_id,
+        playerId,
+        requestId,
+        statistics: {
+          appearances: appearancesEvidence,
+          goals: goalsEvidence,
+          assists: assistsEvidence,
+        },
+        rawPayload: member as Record<string, unknown>,
+      });
     }
-    const scorerRows = [...scorerByPlayerId.values()];
-    const teamPlayerRows = [...teamPlayerByPlayerId.values()];
+    const scorerRows = [...scorerByTeamPlayerId.values()];
     const localizationRows = [...localizationByPlayerId.values()];
-    if (localizationRows.length) {
+    const globalLocalizationProtections =
+      await fetchGlobalTransferCandidatePlayerProtections(
+        admin,
+        localizationRows.map(row => String(row.provider_player_id)),
+      );
+    const globalProtectedPlayerIds = new Set(
+      globalLocalizationProtections.map(protection => protection.player_id),
+    );
+    const { eligible: eligibleScorerRows, protected: protectedScoringRows } =
+      partitionCandidateProtectedRows(
+        scorerRows,
+        protectedPlayerIds,
+        row => row.player_id,
+      );
+    const {
+      eligible: eligibleLocalizationRows,
+      protected: protectedLocalizationRows,
+    } = partitionCandidateProtectedRows(
+      localizationRows,
+      globalProtectedPlayerIds,
+      row => row.provider_player_id,
+    );
+    const scoringCreated = eligibleScorerRows.filter(
+      row =>
+        !storedScoringKeys.has(
+          `${String(row.team_id)}:${String(row.player_id)}`,
+        ),
+    ).length;
+    const scoringUpdated = eligibleScorerRows.length - scoringCreated;
+    const localizationCreated = eligibleLocalizationRows.filter(
+      row => !storedLocalizationById.has(String(row.provider_player_id)),
+    ).length;
+    const localizationUpdated =
+      eligibleLocalizationRows.length - localizationCreated;
+    const quarantineTelemetry = buildCandidateQuarantineTelemetry({
+      quarantineCount: candidateProtections.length,
+      globalLocalizationProtectedCount:
+        globalLocalizationProtections.length,
+      projectionSkipped: protectedLocalizationRows.length,
+      membershipSkipped: 0,
+      scoringSkipped: protectedScoringRows.length,
+      localizationSkipped: protectedLocalizationRows.length,
+      scoringCreated,
+      scoringUpdated,
+      localizationCreated,
+      localizationUpdated,
+    });
+    const fetchedAt = new Date().toISOString();
+    await Promise.all(
+      snapshotInputs.map(input =>
+        persistPlayerProviderSnapshot(admin, {
+          config,
+          teamId: input.teamId,
+          providerTeamId: input.providerTeamId,
+          playerId: input.playerId,
+          requestId: input.requestId,
+          endpoint: `squads/seasons/${seasonId}/teams/${input.providerTeamId}`,
+          rawPayload: input.rawPayload,
+          statistics: input.statistics,
+          fetchedAt,
+        }),
+      ),
+    );
+    if (eligibleLocalizationRows.length) {
       const { error } = await admin
         .from('football_player_localizations')
-        .upsert(localizationRows, {
+        .upsert(eligibleLocalizationRows, {
           onConflict: 'provider,provider_player_id',
         });
       if (error) throw error;
     }
-    const { error: scorerDeleteError } = await admin
-      .from('player_scoring_stats')
-      .delete()
-      .eq('season', season)
-      .eq('league_id', internalLeagueId);
-    if (scorerDeleteError) throw scorerDeleteError;
-    if (scorerRows.length) {
+    if (eligibleScorerRows.length) {
       const { error } = await admin
         .from('player_scoring_stats')
-        .upsert(scorerRows, {
-          onConflict: 'season,league_id,player_id',
+        .upsert(eligibleScorerRows, {
+          onConflict: 'season,league_id,team_id,player_id',
         });
       if (error) throw error;
     }
-    const { error: teamPlayerDeleteError } = await admin
-      .from('team_players')
-      .delete()
-      .eq('season', season)
-      .eq('league_id', internalLeagueId);
-    if (teamPlayerDeleteError) throw teamPlayerDeleteError;
-    if (teamPlayerRows.length) {
-      const { error } = await admin
-        .from('team_players')
-        .upsert(teamPlayerRows, {
-          onConflict: 'season,league_id,player_id',
-        });
-      if (error) throw error;
-    }
-
+    console.info(
+      JSON.stringify({
+        event: 'candidate_quarantine_telemetry',
+        writer: 'sync-football-data',
+        season,
+        league_id: config.internalLeagueId,
+        telemetry: quarantineTelemetry,
+      }),
+    );
     let lineupCount = 0;
+    let skippedLineupPlayers = 0;
     const now = Date.now();
     const oldestLineup = now - 45 * 24 * 60 * 60 * 1_000;
     const latestLineup = now + 12 * 60 * 60 * 1_000;
@@ -1769,7 +1849,14 @@ async function handleSyncRequest(request: Request) {
         continue;
       }
       const lineupGroups = new Map<number, LineupPlayer[]>();
-      for (const player of fixture.lineups ?? []) {
+      const recoveredLineups = await recoverMissingLineupPlayerIds(
+        fixture.season_id, fixture.lineups ?? [],
+        async (squadSeasonId, teamId) => (await apiGet<SeasonSquadMember[]>(
+          admin, token, `squads/seasons/${squadSeasonId}/teams/${teamId}`,
+          { include: 'player' },
+        )).data,
+      );
+      for (const player of recoveredLineups) {
         const group = lineupGroups.get(player.team_id) ?? [];
         group.push(player);
         lineupGroups.set(player.team_id, group);
@@ -1793,15 +1880,28 @@ async function handleSyncRequest(request: Request) {
           coach_name: null,
           fetched_at: new Date().toISOString(),
         });
-        players.forEach((player, index) => {
-          const role = player.type_id === 11 ? 'STARTER' : 'SUBSTITUTE';
+        for (const [index, player] of players.entries()) {
+          const isStarter = player.type_id === 11;
+          const identity = resolveLineupPlayerIdentity(
+            player.player_id,
+            isStarter,
+          );
+          if (identity.status === 'reject') {
+            throw new Error(
+              `PROVIDER_READ: confirmed lineup ${fixtureId} contains an invalid starter provider player ID`,
+            );
+          }
+          if (identity.status === 'skip') {
+            skippedLineupPlayers += 1;
+            continue;
+          }
+          const playerId = identity.playerId;
           playerRows.push({
             fixture_id: fixtureId,
             team_id: teamId,
-            player_id: String(player.player_id),
+            player_id: playerId,
             player_name: getPlayerName(player),
-            display_name_ko:
-              koreanPlayerNameById.get(String(player.player_id)) ?? null,
+            display_name_ko: koreanPlayerNameById.get(playerId) ?? null,
             shirt_number: player.jersey_number ?? null,
             position: player.position?.name ?? null,
             grid:
@@ -1810,10 +1910,10 @@ async function handleSyncRequest(request: Request) {
               player.formation_position === undefined
                 ? null
                 : String(player.formation_position)),
-            role,
+            role: isStarter ? 'STARTER' : 'SUBSTITUTE',
             sort_order: index,
           });
-        });
+        }
       }
       if (
         lineupRows.length !== 2 ||
@@ -1824,15 +1924,9 @@ async function handleSyncRequest(request: Request) {
       lineupCount += lineupRows.length;
     }
 
-    const { error: devFixtureDeleteError } = await admin
-      .from('fixtures')
-      .delete()
-      .like('id', 'dev-%');
-    if (devFixtureDeleteError) throw devFixtureDeleteError;
-
     const topScorersByTeam = [...teamIdBySportmonksId.values()].map(teamId => ({
       teamId,
-      players: scorerRows
+      players: eligibleScorerRows
         .filter(row => row.team_id === teamId)
         .sort(
           (a, b) =>
@@ -1847,52 +1941,39 @@ async function handleSyncRequest(request: Request) {
         })),
     }));
 
-    if (postMatch) {
-      const syncedAt = new Date().toISOString();
-      const { error: postMatchFixtureError } = await admin
-        .from('fixtures')
-        .update({ post_match_synced_at: syncedAt })
-        .eq('status', 'FINISHED')
-        .lte('post_match_sync_due_at', syncedAt)
-        .is('post_match_synced_at', null)
-        .gte('kickoff_at', seasonStart)
-        .lt('kickoff_at', seasonEnd);
-      if (postMatchFixtureError) throw postMatchFixtureError;
-      await admin.from('football_sync_state').upsert(
-        {
-          sync_key: postMatchSyncKey,
-          last_succeeded_at: syncedAt,
-          last_error: null,
-        },
-        { onConflict: 'sync_key' },
-      );
+    if (maintenance) {
+      await maintenance.finish('SUCCESS');
+      await recordRetry('succeeded');
+    } else {
+      const { error: seasonReadyError } = await admin
+        .from('football_provider_seasons')
+        .update({sync_status: 'READY', sync_error_code: null, last_synced_at: new Date().toISOString()})
+        .eq('provider', 'sportmonks')
+        .eq('provider_league_id', config.providerLeagueId)
+        .eq('provider_season_id', seasonId);
+      if (seasonReadyError) throw seasonReadyError;
     }
-
-    await admin
-      .from('football_provider_seasons')
-      .update({
-        sync_status: 'READY',
-        sync_error_code: null,
-        last_synced_at: new Date().toISOString(),
-      })
-      .eq('provider', 'sportmonks')
-      .eq('provider_season_id', seasonId);
 
     return Response.json({
       provider: 'sportmonks',
       leagueId,
+      internalLeagueId: config.internalLeagueId,
       seasonId,
       season,
+      historySyncKey: historyMode ? historySyncKey : undefined,
       teams: teamRows.length,
-      fixtures: fixtureRows.length,
-      standings: standingRows.length,
-      scorers: scorerRows.length,
-      players: teamPlayerRows.length,
+      fixtures: fixtureRowsToApply.length,
+      standings: writableStandingRows.length,
+      standingsPolicy: { source: standingPolicy.source, reasons: standingPolicy.reasons },
+      scorers: eligibleScorerRows.length,
+      players: eligibleScorerRows.length,
       lineups: lineupCount,
+      skippedLineupPlayers,
+      telemetry: quarantineTelemetry,
       topScorersByTeam,
       playerNames:
         body.includePlayerNames === true
-          ? teamPlayerRows.map(row => ({
+          ? eligibleScorerRows.map(row => ({
               teamId: row.team_id,
               playerId: row.player_id,
               name: row.player_name,
@@ -1901,155 +1982,28 @@ async function handleSyncRequest(request: Request) {
     });
   } catch (error) {
     const message = getErrorMessage(error);
-    await admin
+    if (maintenance) {
+      if (maintenance.canRecordFailure) {
+        try { await maintenance.finish(maintenanceFailureResult(error), error); }
+        catch (completionError) { console.error(getErrorMessage(completionError)); }
+      }
+      await recordRetry(message.includes('OUTCOME_UNKNOWN') ? 'partial' : 'failed', message.slice(0,1000)).catch(error=>console.error(getErrorMessage(error)));
+      console.error(message);
+      return Response.json({error: message}, {status: maintenanceFailureResult(error) === 'BLOCKED' ? 409 : 500});
+    }
+    const { error: seasonErrorUpdateError } = await admin
       .from('football_provider_seasons')
       .update({
         sync_status: 'ERROR',
         sync_error_code: getSyncErrorCode(message),
       })
       .eq('provider', 'sportmonks')
+      .eq('provider_league_id', config.providerLeagueId)
       .eq('provider_season_id', seasonId);
-    if (postMatch) {
-      await admin
-        .from('football_sync_state')
-        .upsert(
-          { sync_key: postMatchSyncKey, last_error: message },
-          { onConflict: 'sync_key' },
-        );
-    }
+    if (seasonErrorUpdateError) console.error(seasonErrorUpdateError.message);
     console.error(message);
     return Response.json({ error: message }, { status: 500 });
+  } finally {
+    await maintenance?.stop();
   }
-}
-
-type BackgroundSyncResult = {
-  ok: boolean;
-  status: number;
-  error: string | null;
-};
-
-function backgroundRuntime() {
-  return (globalThis as typeof globalThis & {
-    EdgeRuntime?: { waitUntil: (promise: Promise<unknown>) => void };
-  }).EdgeRuntime;
-}
-
-async function runBackgroundSync(
-  request: Request,
-  requests: Record<string, unknown>[],
-  syncRunId: string | null,
-) {
-  const results: BackgroundSyncResult[] = await Promise.all(
-    requests.map(async payload => {
-      try {
-        const response = await handleSyncRequest(
-          new Request(request.url, {
-            method: 'POST',
-            headers: request.headers,
-            body: JSON.stringify(payload),
-          }),
-        );
-        const body = await response.clone().json().catch(() => ({}));
-        const error = body && typeof body === 'object' && !Array.isArray(body) &&
-            typeof (body as { error?: unknown }).error === 'string'
-          ? (body as { error: string }).error
-          : null;
-        return { ok: response.ok, status: response.status, error };
-      } catch (error) {
-        return { ok: false, status: 500, error: getErrorMessage(error) };
-      }
-    }),
-  );
-
-  if (!syncRunId) return;
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error('Background sync could not finalize its sync run');
-    return;
-  }
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const failures = results.filter(result => !result.ok);
-  const status = failures.length === 0
-    ? 'succeeded'
-    : failures.length === results.length
-    ? 'failed'
-    : 'partial';
-  const errorMessage = failures
-    .map(result => result.error ?? `HTTP ${result.status}`)
-    .join(' | ')
-    .slice(0, 1_000) || null;
-  const { error } = await admin
-    .from('sync_runs')
-    .update({
-      status,
-      finished_at: new Date().toISOString(),
-      failed_count: failures.length,
-      error_code: failures.length ? 'sync_failure' : null,
-      error_message: errorMessage,
-    })
-    .eq('id', syncRunId)
-    .eq('status', 'running');
-  if (error) console.error(`Background sync run finalization failed: ${error.message}`);
-}
-
-Deno.serve(async request => {
-  if (request.method !== 'POST') return handleSyncRequest(request);
-  const body = await request.clone().json().catch(() => ({}));
-  if (!body || typeof body !== 'object' || Array.isArray(body) ||
-      (body as { background?: unknown }).background !== true) {
-    return handleSyncRequest(request);
-  }
-
-  const suppliedSecret = request.headers.get('x-sync-secret') ?? '';
-  const expectedSecret = Deno.env.get('FOOTBALL_SYNC_SECRET');
-  let authorized = Boolean(expectedSecret && suppliedSecret === expectedSecret);
-  if (!authorized) {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      return Response.json(
-        { error: 'Supabase server config is missing' },
-        { status: 500 },
-      );
-    }
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: verified, error } = await admin.rpc(
-      'verify_live_football_sync_secret',
-      { candidate: suppliedSecret },
-    );
-    authorized = !error && verified === true;
-  }
-  if (!authorized) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-  const requests = (body as { requests?: unknown }).requests;
-  if (!Array.isArray(requests) || requests.length < 1 || requests.length > 2 ||
-      requests.some(payload => !payload || typeof payload !== 'object' || Array.isArray(payload))) {
-    return Response.json({ error: 'One or two sync requests are required' }, { status: 400 });
-  }
-  const runtime = backgroundRuntime();
-  if (!runtime) {
-    return Response.json({ error: 'Background execution is unavailable' }, { status: 503 });
-  }
-  const syncRunIdValue = (body as { syncRunId?: unknown }).syncRunId;
-  const syncRunId = typeof syncRunIdValue === 'string' &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(syncRunIdValue)
-    ? syncRunIdValue
-    : null;
-  runtime.waitUntil(
-    runBackgroundSync(
-      request,
-      requests as Record<string, unknown>[],
-      syncRunId,
-    ).catch(error => console.error(`Background sync failed: ${getErrorMessage(error)}`)),
-  );
-  return Response.json(
-    { status: 'accepted', requests: requests.length },
-    { status: 202 },
-  );
 });

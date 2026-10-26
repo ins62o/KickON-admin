@@ -1,0 +1,2 @@
+[functions.collect-admin-resources]
+verify_jwt = false
