@@ -28,3 +28,32 @@ test('dispatch observations retain historical preferences, zero devices and earl
 test('malformed dispatch observations fail visibly instead of inventing missing preferences or counts',async()=>{
  for(const recipient_diagnosis of [{},'snapshot',{...diagnosis,version:2},{...diagnosis,captured_at:'invalid'},{...diagnosis,match_enabled:undefined},{...diagnosis,registered_devices:-1},{...diagnosis,registered_devices:1},{...diagnosis,selected_devices:0.5},{...diagnosis,outcome:'TARGETS_SELECTED'},{...diagnosis,stage:'other'},{...diagnosis,stage:'closed_before_selection',outcome:'CLOSED_BEFORE_SELECTION'},{...diagnosis,preference_exists:false},{...diagnosis,phase:undefined}])await assert.rejects(readPushDeliveryDetail(client({...detail,recipient_diagnosis}),id),/확인할 수 없어요/);
 });
+
+const attempt={id:'123',target_id:'00000000-0000-4000-8000-000000000010',platform:'android',attempt_number:1,status:'INVALID_TOKEN',classification:'INVALID_TOKEN',error_code:'UNREGISTERED',error_class:null,response_status:404,retry_delay_ms:null,attempted_at:'2026-10-31T03:00:25Z',completed_at:'2026-10-31T03:00:26Z'};
+const diagnostics={version:1,attempts:[attempt],truncated:false,next_retry_at:null};
+const attemptedDetail={...detail,status:'COMPLETED',attempts:1,failed:1,suppressed:0,reasons:[{code:'UNREGISTERED',count:1}]};
+test('optional diagnostics preserve the recorded Android rejection without inventing a retry or provider message',async()=>{
+ const result=await readPushDeliveryDetail(client({...attemptedDetail,diagnostics}),id);
+ assert.deepEqual(result.diagnostics,diagnostics);
+ assert.equal(result.diagnostics?.attempts[0].response_status,404);
+ assert.equal(result.diagnostics?.next_retry_at,null);
+ assert.equal((await readPushDeliveryDetail(client(attemptedDetail),id)).diagnostics,undefined);
+});
+test('malformed attempt diagnostics fail visibly instead of fabricating provider evidence',async()=>{
+ for(const bad of [
+  {...diagnostics,version:2},{...diagnostics,attempts:null},{...diagnostics,truncated:true},
+  {...diagnostics,next_retry_at:'invalid'},{...diagnostics,next_retry_at:'2026-10-31T03:05:00Z'},
+  ...[{response_status:0},{response_status:600},{response_status:'404'},{attempt_number:0},{retry_delay_ms:-1},{attempted_at:null},{completed_at:'invalid'},{id:'1.5'},{target_id:'raw-device-token'},{status:undefined},{error_code:undefined}].map(change=>({...diagnostics,attempts:[{...attempt,...change}]})),
+  {...diagnostics,attempts:[attempt,attempt]},
+ ])await assert.rejects(readPushDeliveryDetail(client({...attemptedDetail,diagnostics:bad}),id),/확인할 수 없어요/);
+});
+test('bounded history distinguishes older omitted attempts from unrecorded history',async()=>{
+ const value={...attemptedDetail,attempts:31,diagnostics:{...diagnostics,truncated:true}};
+ assert.equal((await readPushDeliveryDetail(client(value),id)).diagnostics?.truncated,true);
+ await assert.rejects(readPushDeliveryDetail(client({...value,diagnostics:{...diagnostics,attempts:Array.from({length:31},(_,i)=>({...attempt,id:String(i+1)}))}}),id),/확인할 수 없어요/);
+});
+
+test('retry reservation belongs only to a recorded retrying outbox',async()=>{
+ const value={...attemptedDetail,status:'RETRY',diagnostics:{...diagnostics,next_retry_at:'2026-10-31T03:05:00Z'}};
+ assert.equal((await readPushDeliveryDetail(client(value),id)).diagnostics?.next_retry_at,'2026-10-31T03:05:00Z');
+});

@@ -1,4 +1,4 @@
-import type {PushMode,PushSettings,PushType,PushDeliveryOutcome} from './push-settings.ts';
+import type {PushMode,PushSettings,PushType,PushDeliveryOutcome,PushDeliveryDetail,PushDeliveryAttempt,PushOverview} from './push-settings.ts';
 
 export const pushKinds=[
  {key:'match',description:'응원 구단 경기의 진행 상황과 득점·득점 취소를 안내해요',type:'MATCH',name:'경기 알림',when:'경기 시작 득점 득점 취소 전반 종료 후반 시작 경기 종료',audience:'해당 경기 양 팀의 팬 중 경기 알림을 켠 사용자'},
@@ -25,7 +25,8 @@ export type PushFailureEvidence={code:string;count:number|null};
 export type PushRecipient={id:string;user_id:string;nickname:string|null;team:{id:string;name:string;code:string}|null;delivery_outcome?:PushDeliveryOutcome;failure_reasons?:PushFailureEvidence[];expires_at?:string|null;targets_materialized_at?:string|null;phase?:string|null;title:string|null;body:string|null;created_at:string;status:string;last_attempted_at:string|null;last_error_code:string|null;attempts:number;targets:number;succeeded:number;failed:number;pending:number;unknown:number;shadowed:number;suppressed:number};
 export function pushRecipientStatus(row:PushRecipient){
  const recorded={success:{label:'접수 성공',tone:'green'},partial:{label:'부분 성공',tone:'orange'},failure:{label:'발송 실패',tone:'red'},expired:{label:'만료',tone:'orange'},unknown:{label:'결과 불명',tone:'orange'},no_target:{label:'토큰 없음',tone:'neutral'},excluded:{label:'발송 제외',tone:'neutral'}};
- if(row.delivery_outcome&&row.delivery_outcome!=='pending')return recorded[row.delivery_outcome];
+ // A metric's broad failure bucket must not erase a recorded device success.
+ if(row.delivery_outcome&&row.delivery_outcome!=='pending'&&!(row.delivery_outcome==='failure'&&row.succeeded>0))return recorded[row.delivery_outcome];
  if(row.unknown>0||row.status==='UNKNOWN_OUTCOME')return {label:'결과 불명',tone:'orange'};
  if(row.succeeded>0){
   if(!['COMPLETED','SUPPRESSED','DISMISSED','SHADOWED','DEAD_LETTER'].includes(row.status)&&(row.pending>0||['PENDING','PROCESSING','RETRY'].includes(row.status)))return {label:row.status==='RETRY'?'재시도 대기':'처리 중',tone:'blue'};
@@ -60,7 +61,7 @@ export function pushDeliveryReason(code:string){
 
 export const pushDeliveryMetrics=[
  {key:'success',field:'today_succeeded',title:'오늘 발송 성공',empty:'오늘 접수 성공한 알림이 없어요'},
- {key:'failure',field:'today_failed',title:'오늘 발송 실패',empty:'오늘 발송에 실패한 알림이 없어요'},
+ {key:'failure',field:'today_failed',title:'오늘 실패·미발송',empty:'오늘 실패·미발송 내역이 없어요'},
  {key:'pending',field:'pending',title:'발송 대기',empty:'발송 대기 중인 알림이 없어요'},
 ] as const;
 export const pushFailureReasons=[
@@ -76,9 +77,9 @@ export const pushFailureReasons=[
 export function pushFailureSummary(row:PushRecipient){
  const reasons=row.failure_reasons?.length?row.failure_reasons:row.last_error_code?[{code:row.last_error_code,count:null}]:[];
  const recorded=reasons.map(reason=>`${pushDeliveryReason(reason.code)}${reason.count===null?'':` (기기 ${reason.count.toLocaleString('ko-KR')}개)`}`).join(' · ');
- if(row.delivery_outcome==='partial')return `대상 기기 ${row.targets.toLocaleString('ko-KR')}개 중 ${row.succeeded.toLocaleString('ko-KR')}개에만 접수됐어요 · ${recorded||'나머지 기기의 구체적인 사유는 확인할 수 없어요'}`;
+ if(pushRecipientStatus(row).label==='부분 성공')return `대상 기기 ${row.targets.toLocaleString('ko-KR')}개 중 ${row.succeeded.toLocaleString('ko-KR')}개에만 접수됐어요 · ${recorded||'나머지 기기의 구체적인 사유는 확인할 수 없어요'}`;
  if(recorded)return recorded;
- if(row.delivery_outcome==='no_target')return '발송 대상 확인 당시 등록된 푸시 토큰이 0개였어요 · 토큰이 등록되지 않은 이유는 확인할 수 없어요';
+ if(row.delivery_outcome==='no_target')return '이 알림에 생성된 발송 대상 기기가 없어요 · 기기가 선정되지 않은 이유는 확인할 수 없어요';
  if(row.delivery_outcome==='unknown'||row.status==='UNKNOWN_OUTCOME')return '푸시 서버 접수 결과를 확인할 기록이 없어요';
  if(row.status==='SHADOWED')return '기록 전용 모드로 처리되어 실제 푸시를 발송하지 않았어요';
  if(row.delivery_outcome==='expired')return '알림 유효 시간이 지나 발송하지 못했어요';
@@ -87,3 +88,42 @@ export function pushFailureSummary(row:PushRecipient){
 
 const pushEvidenceFormatter=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
 export function pushEvidenceTime(value:string){return pushEvidenceFormatter.format(new Date(value));}
+
+
+// Codes are identifiers, never a place to render arbitrary provider text or device tokens.
+export function pushDiagnosticCode(value:string|null){
+ if(value===null||!value.trim())return '기록 없음';
+ if(value==='REDACTED'||value.length>63||/^(?:sbp_|sb_|eyJ)|bearer|token[=:]/i.test(value))return '민감할 수 있는 값 숨김';
+ return /^(?:[A-Z]+(?:_[A-Z0-9]+)+|[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+)$/.test(value)||['UNREGISTERED','UNAUTHENTICATED','UNAVAILABLE','INTERNAL','UNKNOWN','Error','REDACTED','SUCCESS','PENDING','PROCESSING','RETRY','COMPLETED','SUPPRESSED','DISMISSED','SHADOWED','SUCCEEDED','TRANSIENT','PERMANENT'].includes(value)?value:'민감할 수 있는 값 숨김';
+}
+export function pushNoTargetDiagnosis(data:PushDeliveryDetail){
+ const diagnosis=data.recipient_diagnosis;
+ const recordedZero=diagnosis?.stage==='target_selection'&&diagnosis.outcome==='NO_REGISTERED_DEVICE'&&diagnosis.registered_devices===0&&diagnosis.selected_devices===0&&data.targets===0&&data.attempts===0;
+ return {
+  summary:recordedZero?'대상 기기를 확인할 때 등록된 푸시 기기가 0개여서 발송을 시도하지 않았어요':'이 알림의 발송 대상 기기가 없어요 기기 미선정의 구체적인 원인은 당시 기록으로 확인해야 해요',
+  unknown:'기기가 등록되지 않은 이유와 당시 휴대폰의 알림 권한은 이 조회 기록으로 확인할 수 없어요',
+  nextCheck:'앱의 알림 권한 확인, 토큰 발급, 등록 요청과 저장 결과 이력을 확인해 주세요',
+ };
+}
+export function pushAttemptStage(attempt:Pick<PushDeliveryAttempt,'response_status'|'error_code'>){
+ if(attempt.response_status!==null)return '공급자 응답';
+ if(['SEND_AUTHORIZATION_DENIED','SEND_AUTHORIZATION_UNAVAILABLE','PREFERENCE_DISABLED','TOKEN_OWNERSHIP_CHANGED','LEGACY_REGISTRATION_EXPIRED','PUSH_EXPIRED'].includes(attempt.error_code??''))return '발송 직전 대상 확인';
+ if(['PROVIDER_RESPONSE_LOST','PROVIDER_TIMEOUT_UNKNOWN','LEASE_EXPIRED_AFTER_RESERVATION'].includes(attempt.error_code??''))return '공급자 접수 결과 미확인';
+ if(attempt.error_code==='PROVIDER_CONNECT_FAILED')return '공급자 연결';
+ return '단계 미기록';
+}
+export function pushFailureNextCheck(code:string|null){
+ if(['UNREGISTERED','Unregistered','BadDeviceToken','INVALID_TOKEN'].includes(code??''))return '앱이 새 푸시 토큰을 발급받아 등록했는지 확인해 주세요 앱 삭제 여부는 이 기록만으로 알 수 없어요';
+ if(['AUTH_CONFIGURATION','InvalidProviderToken','ExpiredProviderToken','DeviceTokenNotForTopic','BadTopic','UNAUTHENTICATED','PERMISSION_DENIED'].includes(code??''))return '해당 환경의 공급자 인증 설정과 앱 식별자 연결을 확인해 주세요';
+ if(['PROVIDER_TIMEOUT_UNKNOWN','PROVIDER_RESPONSE_LOST','LEASE_EXPIRED_AFTER_RESERVATION'].includes(code??''))return '공급자 접수 여부를 확인하기 전에는 재발송을 결정하지 마세요 중복 수신 가능성이 있어요';
+ if(code==='PUSH_EXPIRED')return '알림 생성부터 발송 처리까지 걸린 시간과 유효 시각을 비교해 주세요';
+ if(code==='PREFERENCE_DISABLED')return '대상 확인 당시 해당 종류의 앱 알림 설정 기록을 확인해 주세요';
+ return '발송 ID와 시도 시각으로 처리 로그를 확인해 주세요';
+}
+
+export function pushFailureBreakdown(data:Pick<PushOverview,'today_failed'|'today_partial'|'today_expired'|'today_unknown'|'today_no_target'|'today_excluded'>){
+ const categories=[{label:'만료',count:data.today_expired},{label:'결과 불명',count:data.today_unknown},{label:'토큰 없음',count:data.today_no_target},{label:'부분 성공',count:data.today_partial},{label:'발송 제외',count:data.today_excluded}];
+ const failure=data.today_failed-categories.reduce((sum,row)=>sum+row.count,0);
+ if(!Number.isSafeInteger(failure)||failure<0||categories.some(row=>!Number.isSafeInteger(row.count)||row.count<0))return null;
+ return [{label:'발송 오류',count:failure},...categories].filter(row=>row.count>0);
+}

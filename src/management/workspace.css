@@ -687,3 +687,14 @@
 .push-failure-explanation p { margin:0; color:var(--wm-ink); font-size:13px; }
 .push-failure-explanation :is(code,span) { color:var(--wm-muted); font-size:12px; }
 @media(max-width:800px){.push-metric-failures th:first-child{width:36%;}.push-metric-failures :is(th,td):last-child{width:64%;}.push-metric-failures .push-recipient-user{align-items:flex-start;}.push-metric-failures .push-recipient-user .team-mark{flex-shrink:0;}}
+
+.push-delivery-reasons { margin-bottom:24px; }
+.push-delivery-reasons .push-next-check { margin-top:10px; color:var(--wm-muted); font-size:13px; }
+.push-attempt-history { margin-block:24px; }
+.push-attempt-history h3 { margin:0 0 12px; font-size:16px; }
+.push-attempt, .push-trace { border-top:1px solid var(--wm-line); padding:14px 0; }
+.push-attempt summary, .push-trace summary { cursor:pointer; font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+.push-attempt .workspace-details { margin:10px 0; }
+.push-attempt .workspace-details > div { grid-template-columns:130px minmax(0,1fr); }
+.push-failure-breakdown { color:var(--wm-ink); }
+@media(max-width:420px){.push-attempt .workspace-details > div{grid-template-columns:100px minmax(0,1fr);}}

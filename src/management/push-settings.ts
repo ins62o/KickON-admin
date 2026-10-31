@@ -86,11 +86,33 @@ function validRecipientDiagnosis(value:unknown):value is PushRecipientDiagnosis{
   &&row.outcome===(row.selected_devices===0?'NO_REGISTERED_DEVICE':'TARGETS_SELECTED');
 }
 
-export type PushDeliveryDetail=Pick<PushRecipient,'status'|'created_at'|'last_attempted_at'|'last_error_code'|'attempts'|'targets'|'succeeded'|'failed'|'pending'|'unknown'|'shadowed'|'suppressed'>&{completed_at:string|null;last_success_at:string|null;current_preference:boolean|null;recipient_diagnosis?:PushRecipientDiagnosis|null;reasons:{code:string;count:number|null}[]};
+
+export type PushDeliveryAttempt={id:string;target_id:string;platform:string;attempt_number:number;status:string;classification:string|null;error_code:string|null;error_class:string|null;response_status:number|null;retry_delay_ms:number|null;attempted_at:string;completed_at:string|null};
+export type PushDeliveryDiagnostics={version:1;attempts:PushDeliveryAttempt[];truncated:boolean;next_retry_at:string|null};
+function validDeliveryDiagnostics(value:unknown,total:number,status:string):value is PushDeliveryDiagnostics{
+ if(!value||typeof value!=='object')return false;
+ const row=value as PushDeliveryDiagnostics;
+ const timestamp=(value:unknown)=>typeof value==='string'&&Number.isFinite(Date.parse(value));
+ if(row.version!==1||!Array.isArray(row.attempts)||row.attempts.length>30||row.attempts.length>total||row.truncated!==(total>row.attempts.length)||row.next_retry_at!==null&&(!timestamp(row.next_retry_at)||status!=='RETRY'))return false;
+ const seen=new Set<string>();
+ for(const attempt of row.attempts){
+  if(!attempt||typeof attempt.id!=='string'||!/^\d+$/.test(attempt.id)||seen.has(attempt.id)||typeof attempt.target_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(attempt.target_id)
+   ||typeof attempt.platform!=='string'||!attempt.platform||typeof attempt.status!=='string'||!attempt.status
+   ||!Number.isSafeInteger(attempt.attempt_number)||attempt.attempt_number<1
+   ||[attempt.classification,attempt.error_code,attempt.error_class].some(value=>value!==null&&typeof value!=='string')
+   ||attempt.response_status!==null&&(!Number.isInteger(attempt.response_status)||attempt.response_status<100||attempt.response_status>599)
+   ||attempt.retry_delay_ms!==null&&(!Number.isSafeInteger(attempt.retry_delay_ms)||attempt.retry_delay_ms<0)
+   ||!timestamp(attempt.attempted_at)||attempt.completed_at!==null&&!timestamp(attempt.completed_at))return false;
+  seen.add(attempt.id);
+ }
+ return true;
+}
+export type PushDeliveryDetail=Pick<PushRecipient,'status'|'created_at'|'last_attempted_at'|'last_error_code'|'attempts'|'targets'|'succeeded'|'failed'|'pending'|'unknown'|'shadowed'|'suppressed'>&{completed_at:string|null;last_success_at:string|null;current_preference:boolean|null;recipient_diagnosis?:PushRecipientDiagnosis|null;diagnostics?:PushDeliveryDiagnostics|null;reasons:{code:string;count:number|null}[]};
 export async function readPushDeliveryDetail(client:SupabaseClient,outboxId:string):Promise<PushDeliveryDetail>{
  const invalid=()=>Error('푸시 발송 상세를 확인할 수 없어요 다시 시도해 주세요');
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(outboxId))throw invalid();
  const {data,error}=await client.rpc('get_admin_push_delivery_detail',{p_outbox_id:outboxId}).abortSignal(AbortSignal.timeout(10000));
  if(error||!data||data.recipient_diagnosis!=null&&!validRecipientDiagnosis(data.recipient_diagnosis)||data.current_preference!==null&&typeof data.current_preference!=='boolean'||typeof data.status!=='string'||typeof data.created_at!=='string'||!Number.isFinite(Date.parse(data.created_at))||[data.completed_at,data.last_success_at,data.last_attempted_at].some(value=>value!==null&&(typeof value!=='string'||!Number.isFinite(Date.parse(value))))||data.last_error_code!==null&&typeof data.last_error_code!=='string'||['attempts','targets','succeeded','failed','pending','unknown','shadowed','suppressed'].some(key=>!Number.isSafeInteger(data[key])||data[key]<0)||data.succeeded+data.failed+data.pending+data.unknown+data.shadowed+data.suppressed>data.targets||!Array.isArray(data.reasons)||data.reasons.some((reason:{code:unknown;count:unknown}|null)=>!reason||typeof reason.code!=='string'||!reason.code.trim()||reason.count!==null&&(!Number.isSafeInteger(reason.count)||(reason.count as number)<1)))throw invalid();
+ if(data.diagnostics!=null&&!validDeliveryDiagnostics(data.diagnostics,data.attempts,data.status))throw invalid();
  return data as PushDeliveryDetail;
 }
