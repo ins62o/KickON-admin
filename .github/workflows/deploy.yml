@@ -1,4 +1,4 @@
-name: Validate KICKON administrator
+name: Verify and deploy KICKON administrator
 on:
   pull_request:
     branches: [Dev, Prod]
@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: kickon-admin-verify-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/Prod' }}
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -41,3 +41,55 @@ jobs:
               npm run lint
               npm run build -- --mode design-preview
             '
+
+  deploy-production:
+    name: Publish KICKON administrator
+    needs: verify
+    if: github.ref == 'refs/heads/Prod' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://admin.kickon.kr
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_PAGER: ''
+      KICKON_ENVIRONMENT: production
+      KICKON_LOGIN_ENVIRONMENT: development
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_URL }}
+      NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_URL }}
+      NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_KICKON_PRODUCTION_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE: ${{ vars.NEXT_PUBLIC_SPORTSMONKS_API_ALLOWANCE }}
+      VITE_ADMIN_API_BASE_URL: https://smihjaucucffmsbktnmp.supabase.co/functions/v1/kickon-admin-api
+      SITE_URL: ${{ vars.ADMIN_SITE_URL }}
+      S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+      DISTRIBUTION_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Build the validated Vite application with public configuration only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          node scripts/verify-deploy-artifact.mjs
+          node -e 'require("fs").writeFileSync("dist/build-info.json",JSON.stringify({commit:process.env.GITHUB_SHA,run:process.env.GITHUB_RUN_ID}))'
+      - name: Configure existing AWS deployment identity
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          role-session-name: kickon-admin-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+      - name: Preserve the previous entry, publish static files, and verify the live site
+        shell: bash
+        run: bash scripts/publish-admin-static.sh
