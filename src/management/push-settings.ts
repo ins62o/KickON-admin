@@ -1,5 +1,5 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {isPushKind,isPushResultFilter,isPushPhaseFilter,pushFailureReasons,type PushKind,type PushRecipient,type PushResultFilter,type PushPhaseFilter,type PushFailureEvidence} from './push-model.ts';
+import {isPushKind,isPushResultFilter,isPushPhaseFilter,pushFailureReasons,pushDeliveryCounts,type PushKind,type PushRecipient,type PushResultFilter,type PushPhaseFilter,type PushFailureEvidence} from './push-model.ts';
 
 export type PushMode='OFF'|'SHADOW'|'ALLOWLIST'|'FULL';
 export type PushType='MATCH'|'LINEUP'|'COMMUNITY'|'ATTENDANCE'|'SYSTEM';
@@ -8,6 +8,7 @@ export async function readPushOverview(client:SupabaseClient):Promise<PushOvervi
  const {data,error}=await client.rpc('get_admin_push_overview').abortSignal(AbortSignal.timeout(10000));
  const invalid=()=>Error('푸시 알림 집계를 확인할 수 없어요 다시 시도해 주세요');
  if(error||!data||['checked_at','day_start','day_end'].some(key=>typeof data[key]!=='string'||!Number.isFinite(Date.parse(data[key])))||['total_users','enabled_users','disabled_users','unknown_users','today_succeeded','today_failed','today_partial','today_expired','today_unknown','today_no_target','today_excluded','pending','lineup_enabled_users','match_enabled_users','community_enabled_users','match_partial_users'].some(key=>!Number.isSafeInteger(data[key])||data[key]<0)||data.total_users!==data.enabled_users+data.disabled_users+data.unknown_users)throw invalid();
+ if(pushDeliveryCounts(data)===null)throw invalid();
  if(['lineup_enabled_users','match_enabled_users','community_enabled_users','match_partial_users'].some(key=>data[key]>data.enabled_users))throw invalid();
  const checked=Date.parse(data.checked_at),start=Date.parse(data.day_start),end=Date.parse(data.day_end);
  if(start>checked||checked>=end||end-start!==86400000||new Date(start+9*3600000).toISOString().slice(11)!=='00:00:00.000Z')throw invalid();
@@ -46,17 +47,17 @@ function checkedPushRecipients(data:unknown):PushRecipients{
  return value;
 }
 
-export type PushMetric='enabled'|'success'|'failure'|'pending';
+export type PushMetric='enabled'|'success'|'failure'|'delivery_failure'|'partial'|'expired'|'unknown'|'no_target'|'excluded'|'pending';
 export type PushDeliveryOutcome='success'|'partial'|'failure'|'expired'|'unknown'|'no_target'|'excluded'|'pending';
 export type PushFailureReason='all'|'failure'|'partial'|'expired'|'unknown'|'no_target'|'excluded';
 export type PushMetricRecipient=PushRecipient&{kind:PushKind;metric_at:string|null;completed_at:string|null;delivery_outcome:PushDeliveryOutcome;expired:number;failure_reasons:PushFailureEvidence[];expires_at:string|null;targets_materialized_at:string|null};
 export async function readPushMetricRecipients(client:SupabaseClient,metric:Exclude<PushMetric,'enabled'>,query:string,page:number,reason:PushFailureReason='all'):Promise<{total:number;rows:PushMetricRecipient[]}>{
  const invalid=()=>Error('푸시 발송 내역을 확인할 수 없어요 다시 시도해 주세요');
- if(!['success','failure','pending'].includes(metric)||!pushFailureReasons.some(option=>option.value===reason)||metric!=='failure'&&reason!=='all'||typeof query!=='string'||query.length>100||!Number.isSafeInteger(page)||page<1||page>1000000)throw invalid();
+ if(!['success','failure','delivery_failure','partial','expired','unknown','no_target','excluded','pending'].includes(metric)||!pushFailureReasons.some(option=>option.value===reason)||metric!=='failure'&&reason!=='all'||typeof query!=='string'||query.length>100||!Number.isSafeInteger(page)||page<1||page>1000000)throw invalid();
  const {data,error}=await client.rpc('get_admin_push_metric_recipients',{p_metric:metric==='failure'&&reason!=='all'?reason==='failure'?'delivery_failure':reason:metric,p_query:query.trim(),p_page:page}).abortSignal(AbortSignal.timeout(10000));
  if(error)throw invalid();
  const result=checkedPushRecipients(data);
- for(const row of result.rows as PushMetricRecipient[])if((metric==='failure'?!['failure','partial','expired','unknown','no_target','excluded'].includes(row.delivery_outcome)||reason!=='all'&&row.delivery_outcome!==reason:row.delivery_outcome!==metric)||!Number.isSafeInteger(row.expired)||row.expired<0||row.expired>row.suppressed||!Array.isArray(row.failure_reasons)||row.failure_reasons.some(reason=>!reason||typeof reason.code!=='string'||!reason.code.trim()||reason.count!==null&&(!Number.isSafeInteger(reason.count)||reason.count<1||reason.count>row.targets))||row.failure_reasons.reduce((n,reason)=>n+(reason.count??0),0)>row.targets||!isPushKind(row.kind)||[row.metric_at,row.completed_at,row.expires_at,row.targets_materialized_at].some(at=>at!==null&&(typeof at!=='string'||!Number.isFinite(Date.parse(at)))))throw invalid();
+ for(const row of result.rows as PushMetricRecipient[])if((metric==='failure'?!['failure','partial','expired','unknown','no_target','excluded'].includes(row.delivery_outcome)||reason!=='all'&&row.delivery_outcome!==reason:row.delivery_outcome!==(metric==='delivery_failure'?'failure':metric))||!Number.isSafeInteger(row.expired)||row.expired<0||row.expired>row.suppressed||!Array.isArray(row.failure_reasons)||row.failure_reasons.some(reason=>!reason||typeof reason.code!=='string'||!reason.code.trim()||reason.count!==null&&(!Number.isSafeInteger(reason.count)||reason.count<1||reason.count>row.targets))||row.failure_reasons.reduce((n,reason)=>n+(reason.count??0),0)>row.targets||!isPushKind(row.kind)||[row.metric_at,row.completed_at,row.expires_at,row.targets_materialized_at].some(at=>at!==null&&(typeof at!=='string'||!Number.isFinite(Date.parse(at)))))throw invalid();
  return result as {total:number;rows:PushMetricRecipient[]};
 }
 export type PushEnabledUser={user_id:string;nickname:string|null;team:PushRecipient['team'];match_enabled:boolean|null;goal_enabled:boolean|null;lineup_enabled:boolean|null;community_enabled:boolean|null;enabled:true};

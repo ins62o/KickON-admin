@@ -24,7 +24,7 @@ export function pushSettingStatus(data:PushSettings|null,type:PushType){
 export type PushFailureEvidence={code:string;count:number|null};
 export type PushRecipient={id:string;user_id:string;nickname:string|null;team:{id:string;name:string;code:string}|null;delivery_outcome?:PushDeliveryOutcome;failure_reasons?:PushFailureEvidence[];expires_at?:string|null;targets_materialized_at?:string|null;phase?:string|null;title:string|null;body:string|null;created_at:string;status:string;last_attempted_at:string|null;last_error_code:string|null;attempts:number;targets:number;succeeded:number;failed:number;pending:number;unknown:number;shadowed:number;suppressed:number};
 export function pushRecipientStatus(row:PushRecipient){
- const recorded={success:{label:'접수 성공',tone:'green'},partial:{label:'부분 성공',tone:'orange'},failure:{label:'발송 실패',tone:'red'},expired:{label:'만료',tone:'orange'},unknown:{label:'결과 불명',tone:'orange'},no_target:{label:'토큰 없음',tone:'neutral'},excluded:{label:'발송 제외',tone:'neutral'}};
+ const recorded={success:{label:'접수 성공',tone:'green'},partial:{label:'부분 성공',tone:'orange'},failure:{label:'발송 실패',tone:'red'},expired:{label:'만료',tone:'orange'},unknown:{label:'결과 불명',tone:'orange'},no_target:{label:'발송 기기 없음',tone:'neutral'},excluded:{label:'발송 제외',tone:'neutral'}};
  // A metric's broad failure bucket must not erase a recorded device success.
  if(row.delivery_outcome&&row.delivery_outcome!=='pending'&&!(row.delivery_outcome==='failure'&&row.succeeded>0))return recorded[row.delivery_outcome];
  if(row.unknown>0||row.status==='UNKNOWN_OUTCOME')return {label:'결과 불명',tone:'orange'};
@@ -60,10 +60,26 @@ export function pushDeliveryReason(code:string){
 }
 
 export const pushDeliveryMetrics=[
- {key:'success',field:'today_succeeded',title:'오늘 발송 성공',empty:'오늘 접수 성공한 알림이 없어요'},
- {key:'failure',field:'today_failed',title:'오늘 실패·미발송',empty:'오늘 실패·미발송 내역이 없어요'},
- {key:'pending',field:'pending',title:'발송 대기',empty:'발송 대기 중인 알림이 없어요'},
+ {key:'success',title:'오늘 발송 성공',empty:'오늘 접수 성공한 알림이 없어요'},
+ {key:'delivery_failure',title:'오늘 발송 오류',empty:'오늘 발송 오류가 없어요'},
+ {key:'no_target',title:'오늘 발송 기기 없음',empty:'오늘 발송 기기가 없었던 알림이 없어요'},
+ {key:'expired',title:'오늘 만료',empty:'오늘 만료된 알림이 없어요'},
+ {key:'unknown',title:'오늘 결과 미확정',empty:'오늘 결과가 미확정인 알림이 없어요'},
+ {key:'partial',title:'오늘 부분 성공',empty:'오늘 일부 기기에만 접수된 알림이 없어요'},
+ {key:'excluded',title:'오늘 발송 제외',empty:'오늘 발송에서 제외된 알림이 없어요'},
+ {key:'pending',title:'발송 대기',empty:'발송 대기 중인 알림이 없어요'},
 ] as const;
+
+// today_failed is the legacy sum of six distinct outcomes, not a delivery-error count.
+// Keep every outcome visible and reject inconsistent/unsafe aggregates instead of clamping.
+export function pushDeliveryCounts(data:Pick<PushOverview,'today_succeeded'|'today_failed'|'today_partial'|'today_expired'|'today_unknown'|'today_no_target'|'today_excluded'|'pending'>){
+ const values=[data.today_succeeded,data.today_failed,data.today_partial,data.today_expired,data.today_unknown,data.today_no_target,data.today_excluded,data.pending];
+ if(values.some(value=>!Number.isSafeInteger(value)||value<0))return null;
+ const other=data.today_partial+data.today_expired+data.today_unknown+data.today_no_target+data.today_excluded;
+ const failure=data.today_failed-other,total=data.today_succeeded+data.today_failed+data.pending;
+ if(!Number.isSafeInteger(other)||!Number.isSafeInteger(failure)||failure<0||!Number.isSafeInteger(total))return null;
+ return {success:data.today_succeeded,delivery_failure:failure,no_target:data.today_no_target,expired:data.today_expired,unknown:data.today_unknown,partial:data.today_partial,excluded:data.today_excluded,pending:data.pending,total};
+}
 export const pushFailureReasons=[
  {value:'all',label:'전체'},
  {value:'failure',label:'발송 오류'},

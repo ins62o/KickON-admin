@@ -680,7 +680,13 @@
 .push-overview-scope { margin:0; }
 
 .push-overview { grid-template-columns:repeat(5,minmax(0,1fr)); }
-@media(max-width:760px){.push-overview{grid-template-columns:repeat(2,minmax(0,1fr));}.push-overview > .workspace-stat:last-child{grid-column:1/-1;}}
+.workspace-stats.push-overview > .workspace-stat:nth-child(5n)::after { display:none; }
+@media(max-width:760px){
+ .push-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .workspace-stats.push-overview > .workspace-stat:nth-child(n) { border-bottom:0; border-radius:18px; }
+ .workspace-stats.push-overview > .workspace-stat:nth-child(even)::after { display:none; }
+ .workspace-stats.push-overview > .workspace-stat:nth-child(odd):not([aria-pressed="true"]):not(:has(+ [aria-pressed="true"]))::after { display:block; }
+}
 
 .push-metric-failures :is(th,td):last-child { width:38%; white-space:normal; }
 .push-failure-explanation { display:grid; gap:6px; margin-top:8px; text-align:left; line-height:1.6; overflow-wrap:anywhere; }

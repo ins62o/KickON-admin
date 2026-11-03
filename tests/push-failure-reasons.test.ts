@@ -22,9 +22,12 @@ test('expiry and absent/unrecognized evidence remain explicit rather than guesse
 
 test('evidence timestamps preserve seconds and use Korean time',()=>{assert.match(pushEvidenceTime('2026-10-24T05:00:09Z'),/14:00:09/);});
 
-test('failure and non-send totals have truthful labels and retain their category filters',()=>{
- assert.equal(pushModel.pushDeliveryMetrics.find(metric=>metric.key==='failure')?.title,'오늘 실패·미발송');
- assert.deepEqual(pushModel.pushFailureReasons.map(reason=>reason.value),['all','failure','expired','unknown','no_target','partial','excluded']);
+test('every overview outcome has its own selectable card without a broad failure bucket',()=>{
+ const counts=pushModel.pushDeliveryCounts({today_succeeded:3,today_failed:20,today_partial:0,today_expired:0,today_unknown:0,today_no_target:19,today_excluded:0,pending:2});
+ assert.ok(counts);
+ assert.deepEqual(pushModel.pushDeliveryMetrics.map(metric=>[metric.key,counts[metric.key]]),[
+  ['success',3],['delivery_failure',1],['no_target',19],['expired',0],['unknown',0],['partial',0],['excluded',0],['pending',2],
+ ]);
 });
 test('diagnosis proves zero registered devices only from the historical snapshot',()=>{
  const base={...row,current_preference:false,completed_at:null,last_success_at:null,reasons:[]};

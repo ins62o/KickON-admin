@@ -39,3 +39,24 @@ test('delivery card reads reject malformed evidence, unsupported filters and den
  await assert.rejects(readPushMetricRecipients(client(null),'success',null as never,1),/확인할 수 없어요/);
  await assert.rejects(readPushMetricRecipients(client(null),'success','',0),/확인할 수 없어요/);
 });
+
+test('separate outcome cards request only their own server category and reject another category',async()=>{
+ const examples=[
+  ['delivery_failure','failure',{succeeded:0,failed:1}],
+  ['no_target','no_target',{targets:0,succeeded:0,attempts:0}],
+  ['expired','expired',{succeeded:0,suppressed:1,expired:1}],
+  ['unknown','unknown',{succeeded:0,unknown:1,status:'UNKNOWN_OUTCOME'}],
+  ['partial','partial',{targets:2,succeeded:1,failed:1}],
+  ['excluded','excluded',{succeeded:0,suppressed:1}],
+ ] as const;
+ for(const [metric,outcome,patch] of examples){
+  const row={...recipient,...patch,delivery_outcome:outcome};
+  const result=await readPushMetricRecipients(client({total:1,rows:[row]},null,(name,args)=>{
+   assert.equal(name,'get_admin_push_metric_recipients');
+   assert.deepEqual(args,{p_metric:metric,p_query:'팬',p_page:2});
+  }),metric,' 팬 ',2);
+  assert.equal(result.rows[0].delivery_outcome,outcome);
+  await assert.rejects(readPushMetricRecipients(client({total:1,rows:[recipient]}),metric,'',1),/확인할 수 없어요/);
+  await assert.rejects(readPushMetricRecipients(client({total:1,rows:[row]}),metric,'',1,'expired'),/확인할 수 없어요/);
+ }
+});
