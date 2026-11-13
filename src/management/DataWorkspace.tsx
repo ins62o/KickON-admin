@@ -116,7 +116,14 @@ function DataToolsWorkspace({admin,active,tab,filters,onFiltersChange,teamId,onS
   const fixtureLoader=useCallback(()=>readFixtures(fixtureLeague,team,`${SEASON}-01-01`,`${SEASON}-12-31`,page,fixtureFilter,selectedRound),[fixtureLeague,team,selectedRound,page,fixtureFilter]);
   const fixtures=useResource(fixtureLoader);
   const writable=canWrite(admin.role,"data"),teams=catalogue.data?.teams??[],standings=catalogue.data?.standings??[];
-  const canChangeMembership=admin.role==="super_admin"&&authEnvironment==="production";
+  const membershipPermissionLoader=useCallback(async()=>{
+    if(!active||tab!=="teams"||authEnvironment!=="production"||!authClient||!admin.userId)return false;
+    if(admin.role==="super_admin")return true;
+    if(admin.role!=="admin")return false;
+    const {data,error}=await authClient.rpc("admin_can_apply_official_memberships");
+    return !error&&data===true;
+  },[active,tab,admin.role,admin.userId]);
+  const canChangeMembership=useResource(membershipPermissionLoader).data===true;
   const detailTeam=teamId?teams.find(item=>item.id===teamId):null;
   // Keep the detail mounted while its catalogue reloads after saving.
   if(detailTeam&&selectedTeam?.team!==detailTeam)setSelectedTeam({team:detailTeam,league:teamLeague(standings,detailTeam.id),standing:teamStanding(standings,detailTeam.id)});
