@@ -1,5 +1,6 @@
 import {TeamMark} from "./TeamMark";
 import {useCallback,useState} from "react";
+import {UserRound} from "lucide-react";
 import {memberAccountState,dateLabel,leagueLabel,type Member,type Team} from "./model";
 import {readUserHistory} from "./data";
 import type {MemberHistoryKind} from "./member-history";
@@ -19,7 +20,7 @@ function MemberHistoryPanel({userId,kind,active}:{userId:string;kind:MemberHisto
   const history=useResource(load),summary=history.data?.attendanceSummary;
   return <div className="member-history-panel" hidden={!active} aria-label={labels[kind]} aria-busy={history.loading}>
     {history.loading?<WorkspaceSkeleton/>:history.error?<Empty error={history.error} retry={history.reload}/>:<>
-      {summary?<div className="member-attendance-summary"><div><span>직관 승률</span><strong>{`${(summary.winRate??0).toLocaleString("ko-KR",{maximumFractionDigits:1})}%`}</strong></div><span>{summary.wins}승 {summary.draws}무 {summary.losses}패</span></div>:null}
+      {summary?<div className="member-attendance-summary"><div><span>직관 승률</span><strong>{summary.winRate===null?"—":`${summary.winRate.toLocaleString("ko-KR",{maximumFractionDigits:1})}%`}</strong></div><span>{summary.wins}승 {summary.draws}무 {summary.losses}패</span></div>:null}
       {!history.data?.rows.length?<Empty message={`${labels[kind]} 내역이 없어요`}/>:<div className="member-history-list">{history.data.rows.map(row=>kind==="attendances"?<article className="member-history-item member-attendance-item" key={row.id}><div className="member-attendance-info"><strong>{row.title}</strong><div className="member-history-meta"><span>{row.context}</span><time dateTime={row.createdAt}>{dateLabel(row.createdAt,true)}</time></div></div><span className="attendance-result" data-result={row.result??"UNKNOWN"} aria-label={`직관 결과: ${resultLabels[row.result??"UNKNOWN"]}`}>{resultLabels[row.result??"UNKNOWN"]}</span></article>:<details className="member-history-item" key={row.id}><summary><strong>{row.title}</strong><span className="member-history-meta"><span>{row.context}</span><time dateTime={row.createdAt}>{dateLabel(row.createdAt,true)}</time>{row.status?<Badge>{visibility[row.status]??"미확인"}</Badge>:null}</span></summary><p>{row.content||"본문이 없어요"}</p></details>)}</div>}
       {history.data?.total?<Pager page={page} total={history.data.total} onChange={setPage}/>:null}
     </>}
@@ -28,11 +29,36 @@ function MemberHistoryPanel({userId,kind,active}:{userId:string;kind:MemberHisto
 export function MemberDetailDialog({member,team,league,onClose}:{member:Member;team:Team|undefined;league:string|null;onClose:()=>void}){
   const [kind,setKind]=useState<MemberHistoryKind>("posts");
   return <Dialog title="사용자 상세정보" className="member-detail-dialog" dismissOnBackdrop onClose={onClose}>
-    <div className="member-profile"><h3>{member.nickname||"이름 없음"}</h3><MemberStatus status={member.account_status}/></div>
-    <dl className="workspace-details member-details"><div><dt>사용자 ID</dt><dd>{member.user_id}</dd></div><div><dt>응원 구단</dt><dd className="member-team">{team?<TeamMark team={team}/>:null}<span>{member.team_name||"미선택"}</span></dd></div><div><dt>리그</dt><dd>{leagueLabel(league)}</dd></div><div><dt>가입일</dt><dd>{dateLabel(member.joined_at,true)}</dd></div><div><dt>최근 활동</dt><dd>{dateLabel(member.recent_activity_at,true)}</dd></div></dl>
-    <div className="workspace-stats compact"><Stat label="게시글" value={member.post_count} unit="건"/><Stat label="댓글" value={member.comment_count} unit="건"/><Stat label="직관 인증" value={member.attendance_count} unit="건"/></div>
+    <div className="member-status-window">
+      <section className="member-profile" aria-label="사용자 프로필">
+        <div className="member-avatar-frame" aria-hidden="true">
+          {team?<TeamMark team={team}/>:<UserRound size={44} strokeWidth={1.4}/>}
+        </div>
+        <div className="member-profile-identity">
+          <h3>{member.nickname||"이름 없음"}</h3>
+          <MemberStatus status={member.account_status}/>
+        </div>
+        <div className="member-profile-team">
+          <span>응원 구단</span>
+          <strong>{team?.name||member.team_name||"미선택"}</strong>
+          <span className="member-league">{leagueLabel(league)}</span>
+        </div>
+      </section>
+      <div className="member-status-content">
+        <div className="workspace-stats compact member-stat-grid" aria-label="사용자 활동 수치">
+          <Stat label="게시글" value={member.post_count} unit="건"/>
+          <Stat label="댓글" value={member.comment_count} unit="건"/>
+          <Stat label="직관 인증" value={member.attendance_count} unit="건"/>
+        </div>
+        <dl className="member-details">
+          <div className="member-user-id"><dt>사용자 ID</dt><dd>{member.user_id}</dd></div>
+          <div><dt>가입일</dt><dd>{dateLabel(member.joined_at,true)}</dd></div>
+          <div><dt>최근 활동</dt><dd>{dateLabel(member.recent_activity_at,true)}</dd></div>
+        </dl>
+      </div>
+    </div>
     <section className="member-history" aria-label="사용자 활동 내역">
-      <WorkspaceTabs value={kind} items={Object.entries(labels).map(([value,label])=>({value,label}))} onChange={value=>setKind(value as MemberHistoryKind)}/>
+      <WorkspaceTabs label="사용자 활동 종류" value={kind} items={Object.entries(labels).map(([value,label])=>({value,label}))} onChange={value=>setKind(value as MemberHistoryKind)}/>
       <div className="member-history-panels">{(["posts","comments","attendances"] as const).map(value=><MemberHistoryPanel key={value} userId={member.user_id} kind={value} active={kind===value}/>)}</div>
     </section>
   </Dialog>;

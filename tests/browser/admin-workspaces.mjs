@@ -30,6 +30,7 @@ async function run(browser,name,callback,options={}){
  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce',acceptDownloads:true,...options.context});
  await context.addInitScript(({theme,initial})=>{localStorage.setItem('kickon-admin-theme',theme);window.qaInitial=initial},{theme:options.theme||'light',initial:options.initial||{}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin!==base)return route.abort();if(url.pathname==='/api/admin/system-metrics'&&options.initial?.monitoring){const payload=monitoringFixture(options.initial.monitoring,route.request().postDataJSON().range);payload.restart={allowed:['admin','super_admin'].includes(options.role||'admin'),configured:Boolean(options.initial.restart),projectRef:'a'.repeat(20),cooldownUntil:null};return route.fulfill({json:payload});}if(url.pathname==='/api/admin/project-restart'){if(!options.initial?.restart)return route.abort();const body=route.request().postDataJSON();return (async()=>{await page.evaluate(body=>window.qa.writes.push({name:'project-restart',body}),body);await new Promise(resolve=>setTimeout(resolve,600));return options.initial.restart==='error'?route.fulfill({status:503,json:{error:'QA 재시작 요청을 처리하지 못했어요'}}):route.fulfill({status:202,json:{status:options.initial.restart,cooldownUntil:new Date(Date.now()+300000).toISOString(),message:options.initial.restart==='accepted'?'DB 서버 재시작 요청을 보냈어요 복구 상태는 모니터링에서 확인해 주세요':'재시작 요청의 처리 결과를 확인할 수 없어요 모니터링을 확인하고 중복 요청을 피해주세요'}});})();}if(url.pathname==='/preview-qa')return route.fulfill({contentType:'text/html',body:html(options.role||'admin',url.searchParams.get('qaScreen')==='login'?'login':'dashboard')});if(url.pathname==='/src/auth/client.ts')return route.fulfill({contentType:'application/javascript',body:options.initial?.environment==='production'?authFixture.replace("authEnvironment='development'","authEnvironment='production'"):authFixture});if(url.pathname==='/src/management/data.ts')return route.fulfill({contentType:'application/javascript',body:managementFixture});return route.continue()});
+ await context.route(`${base}/teams/team-0.webp`,route=>route.fulfill({path:path.resolve('public/teams/seoul.webp')}));
  const page=await context.newPage();page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',error=>errors.push(error.message));const start=Date.now();
  try{await page.goto(`${base}/preview-qa?page=${options.page||'dashboard'}${options.tab?`&tab=${options.tab}`:''}${options.push?`&push=${options.push}`:''}${options.sync?`&sync=${options.sync}`:''}`);await page.locator('.dashboard-header').waitFor();await callback(page,context);assert.deepEqual(errors,[],'No unhandled browser errors');results.push({name,passed:true,durationMs:Date.now()-start});console.log(`PASS ${name}`)}catch(error){await page.screenshot({path:path.join(artifacts,`failure-${results.length}.png`),fullPage:true}).catch(()=>{});results.push({name,passed:false,error:error.message,stack:error.stack,browserErrors:errors});console.error(`FAIL ${name}: ${error.message}`)}finally{await context.close()}
  fs.writeFileSync(path.join(artifacts,'results.json'),JSON.stringify(results,null,2));
@@ -96,13 +97,13 @@ async function auditDropdowns(page,scope){
  await run(browser,'Data tab pending reads complete once while monitoring is visible',async page=>{
   await ready(page);await page.evaluate(()=>window.qa.delay=400);await dataTab(page,'구단 관리');await page.waitForFunction(()=>window.qa.reads.some(row=>row.name==='catalogue'));await page.evaluate(()=>window.cachedPendingTools=document.querySelector('.data-tools-content'));await dataTab(page,'서버 모니터링');await page.waitForFunction(()=>{const stats=[...document.querySelectorAll('.data-tools-content .workspace-stat')];return window.qa.reads.some(row=>row.name==='fixtures')&&stats.length===4&&stats.every(el=>el.getAttribute('aria-busy')!=='true'&&el.querySelector('strong')?.textContent!=='—')&&!document.querySelector('.data-tools-content [aria-busy="true"]');});const reads=await page.evaluate(()=>window.qa.reads);await dataTab(page,'구단 관리');assert.equal(await page.evaluate(()=>window.cachedPendingTools===document.querySelector('.data-tools-content')),true);assert.deepEqual(await page.locator('[aria-busy="true"]:visible').evaluateAll(nodes=>nodes.map(el=>el.outerHTML)),[]);assert.deepEqual(await page.evaluate(()=>window.qa.reads),reads);assert.equal(reads.filter(row=>row.name==='catalogue').length,1);
  },{page:'data',initial:{monitoring:true}});
- await run(browser,'Users cache is lazy, retains filters and pages across menus, and refreshes explicitly',async page=>{
+ await run(browser,'Users cache is lazy and retains filters and pages across menus',async page=>{
   await ready(page);const reads=()=>page.evaluate(()=>Object.fromEntries(['catalogue','members','memberActivity'].map(name=>[name,window.qa.reads.filter(row=>row.name===name).length])));
   assert.deepEqual(await reads(),{catalogue:0,members:0,memberActivity:0});
-  await menu(page,'사용자').click();await ready(page);await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).fill('팬');await page.getByRole('button',{name:'열기',exact:true}).click();await page.getByRole('button',{name:'다음',exact:true}).click();
+  await menu(page,'사용자').click();await ready(page);await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).fill('팬');await page.getByRole('button',{name:'2페이지',exact:true}).click();
   await page.evaluate(()=>window.cachedUsers=document.querySelector('.users-workspace'));const row=await page.locator('.member-row').first().textContent();assert.equal(await page.locator('.member-row').count(),5);
-  for(const section of ['운영 관리','대시보드']){await menu(page,section).click();await ready(page);const beforeReturn=await reads();await menu(page,'사용자').click();await ready(page);assert.deepEqual(await reads(),beforeReturn);assert.equal(await page.evaluate(()=>window.cachedUsers===document.querySelector('.users-workspace')),true);assert.equal(await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).inputValue(),'팬');assert.equal(await page.locator('.member-row').first().textContent(),row);assert.equal(await page.getByRole('button',{name:'닫기',exact:true}).getAttribute('aria-expanded'),'true');}
-  const beforeRefresh=await reads();assert.equal(beforeRefresh.members,1);assert.equal(beforeRefresh.memberActivity,1);await page.getByRole('button',{name:'새로고침',exact:true}).click();await ready(page);assert.deepEqual(await reads(),Object.fromEntries(Object.entries(beforeRefresh).map(([name,count])=>[name,count+1])));
+  for(const section of ['운영 관리','대시보드']){await menu(page,section).click();await ready(page);const beforeReturn=await reads();await menu(page,'사용자').click();await ready(page);assert.deepEqual(await reads(),beforeReturn);assert.equal(await page.evaluate(()=>window.cachedUsers===document.querySelector('.users-workspace')),true);assert.equal(await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).inputValue(),'팬');assert.equal(await page.locator('.member-row').first().textContent(),row);}
+  const loaded=await reads();assert.equal(loaded.members,1);assert.equal(loaded.memberActivity,1);assert.equal(await page.locator('.users-workspace').getByRole('button',{name:'새로고침',exact:true}).count(),0);
  });
  await run(browser,'Users pending reads finish once while another menu is active',async page=>{
   await ready(page);await page.evaluate(()=>window.qa.delay=500);await menu(page,'사용자').click();await page.waitForFunction(()=>window.qa.reads.some(row=>row.name==='memberActivity'));await menu(page,'운영 관리').click();await ready(page);await menu(page,'사용자').click();await ready(page);assert.equal(await page.locator('.member-row').count(),15);assert.equal(await page.evaluate(()=>window.qa.reads.filter(row=>row.name==='members').length),1);assert.equal(await page.evaluate(()=>window.qa.reads.filter(row=>row.name==='memberActivity').length),1);
@@ -244,15 +245,136 @@ async function auditDropdowns(page,scope){
  });
  await run(browser,'Dashboard failure preserves unknown values and shows Toast',async page=>{await ready(page);assert.equal(await page.locator('.metric-value').first().textContent(),'—');await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('group',{name:'스포츠 API 호출 사용률 집계 불가',exact:true}).count(),1)},{initial:{fail:['admin_get_dashboard_summary','get_admin_provider_usage']}});
  await run(browser,'Loading skeletons replace dashboard data until reads finish',async page=>{await page.locator('.dashboard-body-skeleton').waitFor();assert.equal(await page.locator('.overview-metric-link').count(),0);await ready(page);assert.equal(await page.locator('.overview-metric-link').count(),4)},{initial:{delay:700}});
- await run(browser,'Users pagination, sorting, league/team/search filters and unknown counts',async page=>{
-  await ready(page);assert.equal(await page.locator('.member-row').count(),15);await page.getByRole('button',{name:'다음',exact:true}).click();assert.equal(await page.locator('.member-row').count(),5);assert.match(await page.locator('.member-row').last().textContent(),/—/);await page.getByRole('button',{name:'게시글 많은 순으로 정렬',exact:true}).click();assert.match(await page.locator('.member-row').first().textContent(),/테스트 팬 00/);await page.getByRole('button',{name:'게시글 적은 순으로 정렬',exact:true}).click();assert.match(await page.locator('.member-row').first().textContent(),/테스트 팬 18/);
+ for(const theme of ['light','dark'])await run(browser,`Users ${theme} list search layout, pagination, sorting, team filters and unknown counts`,async page=>{
+  await ready(page);assert.equal(await page.locator('.member-row').count(),15);await page.getByRole('button',{name:'2페이지',exact:true}).click();assert.equal(await page.locator('.member-row').count(),5);assert.match(await page.locator('.member-row').last().textContent(),/—/);await page.getByRole('button',{name:'게시글 많은 순으로 정렬',exact:true}).click();assert.match(await page.locator('.member-row').first().textContent(),/테스트 팬 00/);await page.getByRole('button',{name:'게시글 적은 순으로 정렬',exact:true}).click();assert.match(await page.locator('.member-row').first().textContent(),/테스트 팬 18/);
   assert.equal(await page.getByRole('combobox',{name:/^계정 상태:/}).count(),0);
-  await page.getByRole('button',{name:'K리그 2',exact:true}).click();assert.equal(await page.locator('.member-row').count(),8);await select(page,'응원 구단','수원 삼성');assert.equal(await page.locator('.member-row').count(),2);await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).fill('팬 05');assert.equal(await page.locator('.member-row').count(),1);await page.getByRole('searchbox').fill('');await page.getByRole('button',{name:'전체 리그',exact:true}).click();assert.equal(await page.locator('.member-row').count(),15);await page.getByRole('searchbox').fill('팬 01');assert.equal(await page.locator('.member-row').count(),1);assert.match(await page.locator('.member-row').first().textContent(),/팬 01/);
+  assert.equal(await page.locator('.club-filters,.club-filter-heading').count(),0);
+  assert.equal(await page.getByRole('button',{name:'전체 리그',exact:true}).count(),0);
+  for(const width of [1440,801,800,390,320]){
+   await page.setViewportSize({width,height:1000});
+   const heading=await page.getByRole('heading',{name:/^사용자 목록/}).boundingBox();
+   const team=await page.getByRole('combobox',{name:'응원 구단: 모든 응원 팀',exact:true}).boundingBox();
+   const search=await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).boundingBox();
+   if(width>800){
+    assert.ok(team.x>=heading.x+heading.width,'Desktop team filter appears to the right of the list heading');
+    assert.ok(Math.abs(team.y+team.height/2-heading.y-heading.height/2)<1,'Desktop team filter aligns with the list heading');
+   }else{
+    assert.ok(team.y>=search.y+search.height,'Mobile team filter appears below the search field');
+   }
+   assert.equal(await page.locator('.user-list-toolbar .seed-select-trigger__value').evaluate(element=>element.scrollWidth<=element.clientWidth),true,'Default team label remains readable');
+   assert.ok(search.y>=heading.y+heading.height,'Search appears below the user list heading');
+   assert.ok(search.width>=180,'Search remains readable');
+   if(width<=760){
+    const filters=await page.locator('.user-list-filters').boundingBox();
+    const field=await page.locator('.user-list-filters .workspace-seed-search').boundingBox();
+    assert.ok(Math.abs(field.width-filters.width)<1,'Mobile search fills the list width');
+   }
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   await page.locator('.users-workspace .table-toolbar').screenshot({path:path.join(artifacts,`users-toolbar-${theme}-${width}.png`)});
+   await page.screenshot({path:path.join(artifacts,`users-list-${theme}-${width}.png`),fullPage:true});
+  }
+  await select(page,'응원 구단','수원 삼성');assert.equal(await page.locator('.member-row').count(),2);await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).fill('팬 05');assert.equal(await page.locator('.member-row').count(),1);await page.getByRole('searchbox').fill('');await select(page,'응원 구단','모든 응원 팀');assert.equal(await page.locator('.member-row').count(),15);await page.getByRole('searchbox').fill('팬 01');assert.equal(await page.locator('.member-row').count(),1);assert.match(await page.locator('.member-row').first().textContent(),/팬 01/);
   await page.getByRole('searchbox').fill('없는 팬');await page.getByText('조건에 맞는 사용자가 없어요',{exact:true}).waitFor();
- },{page:'users'});
- await run(browser,'User detail histories, keyboard close and focus return',async page=>{
-  await ready(page);const member=page.getByRole('button',{name:'테스트 팬 00',exact:true});await member.click();const dialog=page.getByRole('dialog',{name:'사용자 상세정보',exact:true});await dialog.waitFor();await ready(page);await dialog.getByText('내가 작성한 게시글',{exact:true}).waitFor();await dialog.getByRole('button',{name:'작성 댓글',exact:true}).click();await dialog.getByText('내가 작성한 댓글',{exact:true}).waitFor();await dialog.getByRole('button',{name:'직관 인증',exact:true}).click();await dialog.getByText('직관 승률',{exact:true}).waitFor();await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal(await member.evaluate(el=>el===document.activeElement),true);
- },{page:'users'});
+ },{page:'users',theme});
+ for(const theme of ['light','dark'])await run(browser,`Users ${theme} numbered pagination jumps ten pages and keeps search in sync`,async page=>{
+  await ready(page);
+  const workspace=page.locator('.users-workspace');
+  const navigation=workspace.getByRole('navigation',{name:'페이지 탐색',exact:true});
+  const previous=navigation.getByRole('button',{name:'이전 10페이지',exact:true});
+  const next=navigation.getByRole('button',{name:'다음 10페이지',exact:true});
+  assert.equal(await navigation.count(),1);
+  assert.equal(await workspace.getByRole('heading',{name:'사용자 목록',exact:true}).textContent(),'사용자 목록');
+  assert.equal(await workspace.getByRole('button',{name:'새로고침',exact:true}).count(),0);
+  assert.equal(await workspace.locator('.inline-count,.workspace-pager > span').count(),0);
+  assert.deepEqual(await navigation.locator('.workspace-page-numbers button').allTextContents(),['1','2','3','4','5','6','7','8','9']);
+  assert.equal(await navigation.getByRole('button',{name:'1페이지',exact:true}).getAttribute('aria-current'),'page');
+  assert.equal(await previous.isDisabled(),true);
+  assert.equal(await previous.textContent(),'');assert.equal(await next.textContent(),'');
+  assert.equal(await workspace.locator(':scope > .workspace-stats > .workspace-stat').count(),3);
+  for(const width of [1440,390,320]){
+   await page.setViewportSize({width,height:1000});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   assert.equal(await navigation.getByRole('button').evaluateAll(buttons=>buttons.every(button=>{const bounds=button.getBoundingClientRect();return bounds.width>=24&&bounds.height>=44;})),true);
+   const summary=workspace.locator(':scope > .workspace-stats');
+   assert.equal(await summary.evaluate(root=>{
+    const cards=[...root.children],top=cards[0].getBoundingClientRect().top;
+    return cards.every(card=>{
+     const bounds=card.getBoundingClientRect(),value=card.querySelector('strong > span[aria-hidden="true"]').getBoundingClientRect(),unit=card.querySelector('small').getBoundingClientRect();
+     return Math.abs(bounds.top-top)<1&&unit.left>=value.right&&unit.top<value.bottom&&unit.right<=bounds.right;
+    });
+   }),true,'Three summary counts keep their units beside the values');
+   await navigation.screenshot({path:path.join(artifacts,`users-pages-${theme}-${width}.png`)});
+   await summary.screenshot({path:path.join(artifacts,`users-summary-${theme}-${width}.png`)});
+   await workspace.locator('.table-toolbar').screenshot({path:path.join(artifacts,`users-toolbar-${theme}-${width}.png`)});
+  }
+  await next.click();assert.equal(await navigation.getByRole('button',{name:'11페이지',exact:true}).getAttribute('aria-current'),'page');
+  await next.click();assert.equal(await navigation.getByRole('button',{name:'21페이지',exact:true}).getAttribute('aria-current'),'page');
+  await previous.click();assert.equal(await navigation.getByRole('button',{name:'11페이지',exact:true}).getAttribute('aria-current'),'page');
+  await previous.click();assert.equal(await navigation.getByRole('button',{name:'1페이지',exact:true}).getAttribute('aria-current'),'page');
+  await navigation.getByRole('button',{name:'9페이지',exact:true}).click();assert.match(await workspace.locator('.member-row').first().textContent(),/테스트 팬 120/);
+  await previous.click();assert.equal(await navigation.getByRole('button',{name:'1페이지',exact:true}).getAttribute('aria-current'),'page');
+  for(let target=11;target<=101;target+=10){
+   await next.click();
+   assert.equal(await navigation.getByRole('button',{name:`${target}페이지`,exact:true}).getAttribute('aria-current'),'page');
+  }
+  await next.focus();await page.keyboard.press('Enter');
+  assert.deepEqual(await navigation.locator('.workspace-page-numbers button').allTextContents(),['100','101','102']);
+  assert.equal(await navigation.getByRole('button',{name:'102페이지',exact:true}).getAttribute('aria-current'),'page');
+  assert.match(await workspace.locator('.member-row').first().textContent(),/테스트 팬 1515/);
+  assert.equal(await next.isDisabled(),true);
+  await workspace.getByRole('searchbox').fill('팬 00');assert.equal(await navigation.count(),0);assert.equal(await workspace.locator('.member-row').count(),1);
+  await workspace.getByRole('searchbox').fill('');assert.equal(await navigation.getByRole('button',{name:'1페이지',exact:true}).getAttribute('aria-current'),'page');
+  await workspace.getByRole('searchbox').fill('없는 팬');assert.equal(await navigation.count(),0);
+  assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'users',theme,initial:{memberCount:1530}});
+ for(const theme of ['light','dark'])await run(browser,`User detail ${theme} status panels, histories and keyboard focus`,async page=>{
+  await ready(page);
+  const member=page.getByRole('button',{name:'테스트 팬 00',exact:true});
+  await member.click();
+  const dialog=page.getByRole('dialog',{name:'사용자 상세정보',exact:true});
+  await dialog.waitFor();await ready(page);
+  await dialog.locator('.member-avatar-frame img').evaluate(image=>image.decode());
+  assert.equal(await dialog.locator('.member-profile h3').textContent(),'테스트 팬 00');
+  assert.deepEqual(await statValues(dialog),['19건','0건','0건']);
+  await dialog.getByText('내가 작성한 게시글',{exact:true}).click();
+  await dialog.locator('.member-history-panel:not([hidden])').getByText('사용자 활동 본문',{exact:true}).waitFor();
+  for(const width of [1440,768,390,320]){
+   await page.setViewportSize({width,height:1000});
+   await dialog.evaluate(element=>element.scrollTop=0);
+   const profile=await dialog.locator('.member-profile').boundingBox();
+   const content=await dialog.locator('.member-status-content').boundingBox();
+   if(width>600)assert.ok(content.x>=profile.x+profile.width,'Desktop status panels sit side by side');
+   else assert.ok(content.y>=profile.y+profile.height,'Mobile status panels stack below the profile');
+   assert.equal(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth),true,`Dialog fits ${width}px`);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   await dialog.screenshot({path:path.join(artifacts,`member-status-${theme}-${width}.png`)});
+  }
+  await dialog.getByRole('button',{name:'작성 댓글',exact:true}).click();
+  await dialog.getByText('내가 작성한 댓글',{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'직관 인증',exact:true}).click();
+  await dialog.getByText('직관 승률',{exact:true}).waitFor();
+  assert.equal(await dialog.locator('.member-attendance-summary strong').textContent(),'100%');
+  await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+  assert.equal(await member.evaluate(element=>element===document.activeElement),true);
+  assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'users',theme});
+ for(const theme of ['light','dark'])await run(browser,`User detail ${theme} long names and unknown values stay readable`,async page=>{
+  await ready(page);await page.locator('.member-row').first().getByRole('button').click();
+  const dialog=page.getByRole('dialog',{name:'사용자 상세정보',exact:true});
+  await dialog.waitFor();await ready(page);
+  await dialog.getByText('미선택',{exact:true}).waitFor();
+  await dialog.getByText('리그 미분류',{exact:true}).waitFor();
+  await dialog.getByText('미확인',{exact:true}).waitFor();
+  assert.deepEqual(await statValues(dialog),['—','—','—']);
+  await page.setViewportSize({width:320,height:800});
+  assert.equal(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth),true);
+  assert.equal(await dialog.locator('.member-profile h3,.member-details dd').evaluateAll(elements=>elements.every(element=>element.scrollWidth<=element.clientWidth)),true);
+  await dialog.getByRole('button',{name:'직관 인증',exact:true}).click();
+  assert.equal(await dialog.locator('.member-attendance-summary strong').textContent(),'—');
+  await dialog.getByText('예정',{exact:true}).waitFor();
+  await dialog.screenshot({path:path.join(artifacts,`member-status-edge-${theme}-320.png`)});
+  assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'users',theme,initial:{memberProfileEdge:true,memberUnsettled:true}});
  await run(browser,'User read failure and retry do not invent zero totals',async page=>{await ready(page);await page.getByText('QA 정보를 불러오지 못했어요 다시 시도해 주세요',{exact:true}).waitFor();assert.match(await page.locator('.workspace-stat').first().textContent(),/—/);await page.evaluate(()=>window.qa.fail=[]);await page.getByRole('button',{name:'다시 불러오기',exact:true}).click();await ready(page);assert.equal(await page.locator('.member-row').count(),15)},{page:'users',initial:{fail:['members']}});
  await run(browser,'Operations tabs keep summary DOM and queries stable, including history resets',async page=>{
   await ready(page);await page.evaluate(()=>{window.stats=document.querySelector('.workspace-stats');window.changes=0;new MutationObserver(rows=>window.changes+=rows.length).observe(window.stats,{childList:true,subtree:true,characterData:true})});

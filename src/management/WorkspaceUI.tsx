@@ -1,8 +1,8 @@
 import {useEffect,useId,useRef,useState,type ReactNode} from "react";
-import {Search,X,RefreshCw,Inbox,TriangleAlert} from "lucide-react";
+import {Search,X,RefreshCw,Inbox,TriangleAlert,ChevronLeft,ChevronRight} from "lucide-react";
 import {AnimatedNumber} from "../components/AnimatedNumber";
 import {Toast} from "../components/Toast";
-import {ActionButton,Badge as SeedBadge,Skeleton,Tabs,TextField} from "@seed-design/react";
+import {ActionButton,Badge as SeedBadge,Icon,Skeleton,Tabs,TextField,usePagination} from "@seed-design/react";
 import {CustomSelect} from '../components/CustomSelect';
 export function WorkspaceTabs({value,items,onChange,children,label="관리 항목",mobileSelect=false}:{value:string;items:{value:string;label:string;count?:number|null}[];onChange:(value:string)=>void;children?:ReactNode;label?:string;mobileSelect?:boolean}){
   const select=mobileSelect?<div className="workspace-tabs-mobile"><CustomSelect label={label} value={value} options={items} onChange={onChange}/></div>:null;
@@ -25,6 +25,34 @@ export function WorkspaceSkeleton(){return <div className="workspace-skeleton" a
 export function Pager({page,total,onChange,pageSize=15,disabled=false,showTotal=true}:{page:number;total:number;onChange:(page:number)=>void;pageSize?:number;disabled?:boolean;showTotal?:boolean}){
   const pages=Math.max(1,Math.ceil(total/pageSize));
   return <div className="workspace-pager">{showTotal?<span>{total.toLocaleString("ko-KR")}건</span>:null}<div><ActionButton type="button" variant="neutralWeak" size="small" disabled={disabled||page<=1} onClick={()=>onChange(page-1)}>이전</ActionButton><span>{page} / {pages}</span><ActionButton type="button" variant="neutralWeak" size="small" disabled={disabled||page>=pages} onClick={()=>onChange(page+1)}>다음</ActionButton></div></div>;
+}
+export function NumberedPager({page,total,onChange,pageSize=15}:{page:number;total:number;onChange:(page:number)=>void;pageSize?:number}){
+  const pagination = usePagination({page,totalPages:Math.ceil(total/pageSize),onPageChange:onChange});
+  if (pagination.totalPages <= 1) return null;
+  const firstPage = Math.floor((pagination.page - 1) / 9) * 9 + 1;
+  const pageNumbers = Array.from(
+    {length:Math.min(9,pagination.totalPages-firstPage+1)},
+    (_,index) => firstPage + index,
+  );
+  return <nav {...pagination.rootProps} className="workspace-pager workspace-numbered-pager" aria-label="페이지 탐색">
+    <div>
+      <ActionButton type="button" variant="neutralWeak" size="small" layout="iconOnly" aria-label="이전 10페이지"
+        disabled={!pagination.hasPreviousPage} onClick={() => pagination.goToPage(pagination.page-10)}>
+        <Icon svg={<ChevronLeft aria-hidden="true"/>}/>
+      </ActionButton>
+      <div className="workspace-page-numbers">
+        {pageNumbers.map(pageNumber => <ActionButton key={pageNumber} type="button" variant="ghost" size="small"
+          aria-label={`${pageNumber}페이지`} aria-current={pageNumber===pagination.page?"page":undefined}
+          onClick={() => pagination.goToPage(pageNumber)}>
+          {pageNumber}
+        </ActionButton>)}
+      </div>
+      <ActionButton type="button" variant="neutralWeak" size="small" layout="iconOnly" aria-label="다음 10페이지"
+        disabled={!pagination.hasNextPage} onClick={() => pagination.goToPage(pagination.page+10)}>
+        <Icon svg={<ChevronRight aria-hidden="true"/>}/>
+      </ActionButton>
+    </div>
+  </nav>;
 }
 export function Refresh({onClick,disabled=false}:{onClick:()=>void;disabled?:boolean}){return <button className="admin-icon-button" type="button" aria-label="새로고침" title="새로고침" aria-busy={disabled} disabled={disabled} onClick={onClick}><RefreshCw size={20} aria-hidden="true"/></button>;}
 export function Badge({children,tone="neutral"}:{children:ReactNode;tone?:string}){return <SeedBadge.Root variant="weak" tone={tone==="green"?"positive":tone==="red"?"critical":tone==="orange"?"warning":tone==="blue"?"brand":"neutral"}><SeedBadge.Label>{children}</SeedBadge.Label></SeedBadge.Root>;}
