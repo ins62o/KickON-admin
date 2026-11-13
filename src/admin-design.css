@@ -1,6 +1,6 @@
 /* Toss-inspired desktop admin foundations; SEED supplies accessible interactions. */
 :root,:root[data-theme="light"][data-seed-color-mode] {
-  --seed-font-family:"Inter","Pretendard Variable",Arial,sans-serif;
+  --seed-font-family:var(--font-sans);
   --seed-color-fg-brand:#1b64da;
   --seed-color-fg-brand-contrast:#1957c2;
   --seed-color-bg-brand-solid:#1b64da;

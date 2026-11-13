@@ -117,7 +117,7 @@
   --border-soft: rgba(0, 0, 0, 0.08);
   --field-focus: #006bcd;
   --green: #17c964;
-  --font-sans: "Inter", "Pretendard Variable", Arial, sans-serif;
+  --font-sans: "Pretendard Variable", "Inter", Arial, sans-serif;
   --font-serif: "Source Serif 4", Georgia, serif;
   color-scheme: light;
   font-family: var(--font-sans);

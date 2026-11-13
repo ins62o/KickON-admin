@@ -39,8 +39,8 @@ async function auditDropdowns(page,scope){
  scope=scope??(await page.getByRole('dialog').count()?page.getByRole('dialog'):page);
  const combos=scope.getByRole('combobox');const count=await combos.count();
  for(let index=0;index<count;index++){
-  const combo=combos.nth(index);await combo.scrollIntoViewIfNeeded();const alignment=await combo.evaluate(el=>{const box=el.getBoundingClientRect(),arrow=el.querySelector('.seed-select-trigger__suffixIcon').getBoundingClientRect(),value=el.querySelector('.seed-select-trigger__value').getBoundingClientRect(),style=getComputedStyle(el);return {name:el.getAttribute('aria-label'),inset:box.right-arrow.right,padding:parseFloat(style.paddingRight),separated:value.right<=arrow.left-6,height:box.height,valueCenter:(value.top+value.bottom)/2,arrowCenter:(arrow.top+arrow.bottom)/2}});assert.ok(Math.abs(alignment.inset-alignment.padding)<1,JSON.stringify(alignment));assert.equal(alignment.separated,true,JSON.stringify(alignment));assert.ok(Math.abs(alignment.valueCenter-alignment.arrowCenter)<2,JSON.stringify(alignment));assert.ok(alignment.height>=40,JSON.stringify(alignment));
-  const dialogsBefore=await page.getByRole('dialog').count();await combo.click();const list=page.getByRole('listbox');await list.waitFor();assert.equal(await list.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=159&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),true);const option=page.getByRole('option').first();await option.scrollIntoViewIfNeeded();assert.equal(await option.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))}),true);await page.keyboard.press('Escape');await list.waitFor({state:'hidden'});assert.equal(await page.getByRole('dialog').count(),dialogsBefore,'Escape closes the dropdown before its parent dialog');
+  const combo=combos.nth(index);await combo.scrollIntoViewIfNeeded();const alignment=await combo.evaluate(el=>{const box=el.getBoundingClientRect(),arrow=el.querySelector('.seed-select-trigger__suffixIcon').getBoundingClientRect(),value=el.querySelector('.seed-select-trigger__value').getBoundingClientRect(),style=getComputedStyle(el);return {name:el.getAttribute('aria-label'),width:box.width,fontSize:getComputedStyle(el.querySelector('.seed-select-trigger__value')).fontSize,inset:box.right-arrow.right,padding:parseFloat(style.paddingRight),separated:value.right<=arrow.left-6,height:box.height,valueCenter:(value.top+value.bottom)/2,arrowCenter:(arrow.top+arrow.bottom)/2}});assert.ok(Math.abs(alignment.inset-alignment.padding)<1,JSON.stringify(alignment));assert.equal(alignment.separated,true,JSON.stringify(alignment));assert.ok(Math.abs(alignment.valueCenter-alignment.arrowCenter)<2,JSON.stringify(alignment));assert.ok(alignment.height>=40,JSON.stringify(alignment));
+  const dialogsBefore=await page.getByRole('dialog').count();await combo.click();const list=page.getByRole('listbox');await list.waitFor();assert.equal(await list.evaluate((el,width)=>{const r=el.getBoundingClientRect();return Math.abs(r.width-width)<1&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight},alignment.width),true);const option=page.getByRole('option').first();await option.scrollIntoViewIfNeeded();assert.equal(await option.locator('.seed-select-item__label').evaluate(el=>getComputedStyle(el).fontSize),alignment.fontSize);assert.equal(await option.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))}),true);await page.keyboard.press('Escape');await list.waitFor({state:'hidden'});assert.equal(await page.getByRole('dialog').count(),dialogsBefore,'Escape closes the dropdown before its parent dialog');
  }
  return count;
 }
@@ -230,11 +230,22 @@ async function auditDropdowns(page,scope){
   await dialog.getByRole('button',{name:'개발 DB 재시작',exact:true}).click();await dialog.waitFor({state:'hidden'});assert.equal(requests.length,2);assert.equal(requests[0].requestId,requests[1].requestId);assert.equal(await page.getByRole('button',{name:'DB 서버 재시작',exact:true}).isDisabled(),true);
  },{page:'data',initial:{monitoring:true,restart:'accepted'}});
 
- await run(browser,'Dashboard metrics, chart keyboard controls, search and refresh',async page=>{
+ await run(browser,'Dashboard metrics, chart keyboard controls and recent sync',async page=>{
   await ready(page);assert.deepEqual(await page.locator('.metric-heading h2').allTextContents(),['전체 사용자','커뮤니티','직관 인증','1:1 문의']);assert.equal(await page.locator('.metric-value .visually-hidden').allTextContents().then(v=>v.join(',')),'20,123,42,2');
   const period=page.getByRole('combobox',{name:'이용 추이 기간: 최근 7일',exact:true});await period.focus();await page.keyboard.press('ArrowDown');await page.keyboard.press('End');await page.keyboard.press('Enter');assert.equal(await page.getByRole('combobox',{name:'이용 추이 기간: 최근 30일',exact:true}).count(),1);assert.equal(await page.locator('.line-day').count(),30);
-  await page.getByRole('searchbox',{name:'동기화 작업 검색',exact:true}).fill('선수단');assert.equal(await page.locator('.sync-panel tbody tr').count(),1);await page.getByRole('searchbox',{name:'동기화 작업 검색',exact:true}).fill('');await select(page,'동기화 상태','오류');assert.equal(await page.locator('.sync-panel tbody tr').count(),1);
-  const before=await page.evaluate(()=>window.qa.reads.filter(x=>x.name==='admin_get_dashboard_summary').length);await page.getByRole('button',{name:'새로고침',exact:true}).click();await ready(page);assert.equal(await page.evaluate(()=>window.qa.reads.filter(x=>x.name==='admin_get_dashboard_summary').length),before+1);
+  const sync=page.locator('.sync-panel');
+  assert.deepEqual(await sync.locator('thead th').allTextContents(),['작업','최근 완료','상태']);
+  assert.equal(await sync.getByRole('searchbox').count(),0);assert.equal(await sync.getByRole('combobox').count(),0);
+  assert.equal(await sync.locator('tbody tr').count(),2);
+  assert.equal(await sync.locator('tbody tr').first().locator('time').getAttribute('datetime'),'2026-10-19T00:01:00Z');
+  assert.equal(await sync.locator('tbody tr').nth(1).locator('td').first().textContent(),'—');
+  for(const width of [1440,390,320]){
+   await page.setViewportSize({width,height:1000});
+   assert.equal(await sync.getByRole('columnheader',{name:'최근 완료',exact:true}).isVisible(),true);
+   assert.equal(await sync.locator('tbody tr').first().locator('time').isVisible(),true);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }
+  assert.equal(await page.getByRole('button',{name:'새로고침',exact:true}).count(),0);
  });
  await run(browser,'Dashboard cards and persistent header, history and account keyboard',async page=>{
   await ready(page);await page.evaluate(()=>window.header=document.querySelector('.dashboard-header'));
@@ -243,6 +254,20 @@ async function auditDropdowns(page,scope){
   }
   await menu(page,'사용자').click();await page.goBack();await page.getByRole('heading',{level:1,name:'대시보드',exact:true}).waitFor();await page.getByRole('button',{name:'계정 메뉴',exact:true}).click();await page.getByRole('region',{name:'계정 정보',exact:true}).waitFor();await page.keyboard.press('Escape');assert.equal(await page.getByRole('button',{name:'계정 메뉴',exact:true}).getAttribute('aria-expanded'),'false');
  });
+ for(const theme of ['light','dark'])await run(browser,`Header ${theme} scrolls with the page without covering workspace menus`,async page=>{
+  await ready(page);
+  for(const width of [1440,801,800,390]){
+   await page.setViewportSize({width,height:900});await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+   const original=await page.locator('.dashboard-header').boundingBox();
+   await page.evaluate(()=>window.scrollTo({top:300,behavior:'instant'}));
+   const actual=await page.locator('.dashboard-header').evaluate(el=>{const box=el.getBoundingClientRect();return {top:box.top,bottom:box.bottom,scroll:window.scrollY};});
+   assert.ok(Math.abs(actual.top-(original.y-actual.scroll))<1,JSON.stringify({width,original,actual}));assert.ok(actual.bottom<0,'Header leaves the viewport with the document');
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   if(width===1440||width===390)await page.screenshot({path:path.join(artifacts,`header-scroll-${theme}-${width}.png`)});
+  }
+  await menu(page,'대시보드').click();await ready(page);await page.getByRole('heading',{level:1,name:'대시보드',exact:true}).waitFor();
+  await page.getByRole('button',{name:'계정 메뉴',exact:true}).click();await page.getByRole('region',{name:'계정 정보',exact:true}).waitFor();await page.keyboard.press('Escape');
+ },{page:'operations',theme});
  await run(browser,'Dashboard failure preserves unknown values and shows Toast',async page=>{await ready(page);assert.equal(await page.locator('.metric-value').first().textContent(),'—');await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('group',{name:'스포츠 API 호출 사용률 집계 불가',exact:true}).count(),1)},{initial:{fail:['admin_get_dashboard_summary','get_admin_provider_usage']}});
  await run(browser,'Loading skeletons replace dashboard data until reads finish',async page=>{await page.locator('.dashboard-body-skeleton').waitFor();assert.equal(await page.locator('.overview-metric-link').count(),0);await ready(page);assert.equal(await page.locator('.overview-metric-link').count(),4)},{initial:{delay:700}});
  for(const theme of ['light','dark'])await run(browser,`Users ${theme} list search layout, pagination, sorting, team filters and unknown counts`,async page=>{
@@ -276,6 +301,56 @@ async function auditDropdowns(page,scope){
   await select(page,'응원 구단','수원 삼성');assert.equal(await page.locator('.member-row').count(),2);await page.getByRole('searchbox',{name:'닉네임 · 사용자 ID 검색',exact:true}).fill('팬 05');assert.equal(await page.locator('.member-row').count(),1);await page.getByRole('searchbox').fill('');await select(page,'응원 구단','모든 응원 팀');assert.equal(await page.locator('.member-row').count(),15);await page.getByRole('searchbox').fill('팬 01');assert.equal(await page.locator('.member-row').count(),1);assert.match(await page.locator('.member-row').first().textContent(),/팬 01/);
   await page.getByRole('searchbox').fill('없는 팬');await page.getByText('조건에 맞는 사용자가 없어요',{exact:true}).waitFor();
  },{page:'users',theme});
+ for(const theme of ['light','dark'])await run(browser,`Users ${theme} team membership dialog uses the full roster and restores focus`,async page=>{
+  await ready(page);await menu(page,'사용자').click();await ready(page);await select(page,'응원 구단','FC 서울');await page.getByRole('searchbox').fill('없는 팬');
+  const reads=await page.evaluate(()=>window.qa.reads),opener=page.getByRole('button',{name:'구단별 가입 현황',exact:true});
+  assert.equal(await opener.textContent(),'');assert.equal(await opener.getAttribute('aria-haspopup'),'dialog');
+  await opener.focus();await page.keyboard.press('Enter');const modal=page.getByRole('dialog',{name:'구단별 가입 현황',exact:true});await modal.waitFor();
+  assert.deepEqual(await modal.getByRole('tab').allTextContents(),['K리그 1','K리그 2','미분류']);
+  const groups=modal.locator('.team-membership-group');assert.equal(await groups.count(),1);assert.equal(await modal.getByRole('tab',{name:'K리그 1',exact:true}).getAttribute('aria-selected'),'true');
+  const counts=await modal.locator('.team-membership-row dd').allTextContents();assert.equal(counts.length,5);
+  assert.equal(await modal.locator('.team-membership-bar > span').count(),5);
+  const ratios=await modal.locator('.team-membership-bar').evaluateAll(bars=>bars.map(bar=>bar.firstElementChild.getBoundingClientRect().width/bar.getBoundingClientRect().width));
+  assert.ok(Math.abs(ratios[0]-1)<.01);assert.ok(Math.abs(ratios.at(-1)-2/3)<.01);
+  assert.equal(await modal.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('dd').textContent(),'3명');
+  assert.deepEqual(await groups.first().locator('dd').allTextContents(),['3명','3명','3명','2명','2명']);
+  assert.equal(await modal.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('img').getAttribute('src'),'/teams/team-0.webp');
+  await modal.getByRole('tab',{name:'K리그 1',exact:true}).focus();await page.keyboard.press('ArrowRight');
+  assert.equal(await modal.getByRole('tab',{name:'K리그 2',exact:true}).getAttribute('aria-selected'),'true');assert.equal(await groups.count(),1);
+  counts.push(...await modal.locator('.team-membership-row dd').allTextContents());assert.equal(await modal.getByText('FC 서울',{exact:true}).count(),0);await modal.getByText('수원 삼성',{exact:true}).waitFor();
+  assert.equal(await modal.locator('.team-membership-bar').evaluateAll(bars=>bars.every(bar=>Math.abs(bar.firstElementChild.getBoundingClientRect().width-bar.getBoundingClientRect().width)<1)),true,'Bars scale to the selected league');
+  await page.keyboard.press('ArrowRight');assert.equal(await modal.getByRole('tab',{name:'미분류',exact:true}).getAttribute('aria-selected'),'true');
+  counts.push(...await modal.locator('.team-membership-row dd').allTextContents());assert.equal(counts.reduce((sum,count)=>sum+Number(count.replace(/[^0-9]/g,'')),0),23);
+  await page.keyboard.press('Home');assert.equal(await modal.getByRole('tab',{name:'K리그 1',exact:true}).getAttribute('aria-selected'),'true');
+  for(const width of [1440,390,320]){
+   await page.setViewportSize({width,height:900});
+   assert.equal(await modal.evaluate(el=>{const box=el.getBoundingClientRect();return box.left>=0&&box.right<=innerWidth&&box.top>=0&&box.bottom<=innerHeight&&el.scrollWidth<=el.clientWidth;}),true);
+   assert.equal(await modal.locator('.team-membership-bar').evaluateAll(bars=>bars.every(bar=>{const box=bar.getBoundingClientRect(),row=bar.closest('.team-membership-row').getBoundingClientRect();return box.width>0&&box.left>=row.left&&box.right<=row.right&&box.bottom<=row.bottom;})),true);
+   const heading=await page.locator('.user-list-toolbar > h2').boundingBox(),button=await page.locator('.team-membership-button').boundingBox();assert.ok(button.x>heading.x+heading.width);assert.ok(Math.abs(button.y+button.height/2-heading.y-heading.height/2)<2);
+   await modal.screenshot({path:path.join(artifacts,`team-membership-${theme}-${width}.png`)});
+   await modal.getByRole('tab',{name:'K리그 2',exact:true}).click();assert.equal(await groups.count(),1);assert.equal(await modal.locator('.team-membership-row').count(),4);
+   await modal.screenshot({path:path.join(artifacts,`team-membership-k2-${theme}-${width}.png`)});await modal.getByRole('tab',{name:'K리그 1',exact:true}).click();
+  }
+  await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'});assert.equal(await opener.evaluate(el=>el===document.activeElement),true);
+  assert.deepEqual(await page.evaluate(()=>window.qa.reads),reads);assert.equal(await page.getByRole('searchbox').inputValue(),'없는 팬');assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+  await opener.click();await page.goBack();await page.getByRole('heading',{name:'대시보드',level:1,exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
+ },{theme,initial:{memberCount:23},context:{reducedMotion:theme==='dark'?'no-preference':'reduce'}});
+ await run(browser,'Users team membership keeps missing teams separate and displays measured zero counts',async page=>{
+  await ready(page);await page.getByRole('button',{name:'구단별 가입 현황',exact:true}).click();const modal=page.getByRole('dialog',{name:'구단별 가입 현황',exact:true});await modal.waitFor();
+  assert.equal(await modal.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('dd').textContent(),'0명');
+  assert.equal(await modal.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('.team-membership-bar > span').evaluate(el=>el.getBoundingClientRect().width),0);
+  const counts=await modal.locator('dd').allTextContents();await modal.getByRole('tab',{name:'K리그 2',exact:true}).click();counts.push(...await modal.locator('dd').allTextContents());
+  assert.equal(await modal.locator('.team-membership-bar > span').evaluateAll(fills=>fills.every(fill=>fill.getBoundingClientRect().width===0)),true,'An empty league has empty bars');
+  await modal.getByRole('tab',{name:'미분류',exact:true}).click();const unknown=modal.locator('.team-membership-group');
+  assert.equal(await unknown.locator('.team-membership-row').filter({hasText:'응원 팀 미설정'}).locator('dd').textContent(),'1명');
+  assert.equal(await unknown.locator('.team-membership-row').filter({hasText:'미등록 구단'}).locator('dd').textContent(),'1명');
+  counts.push(...await modal.locator('dd').allTextContents());assert.equal(counts.reduce((sum,count)=>sum+Number(count.replace(/[^0-9]/g,'')),0),3);
+ },{page:'users',initial:{memberCount:3,memberTeamEdge:true}});
+ await run(browser,'Users team membership waits for roster reads and never turns failed counts into zero',async page=>{
+  const opener=page.getByRole('button',{name:'구단별 가입 현황',exact:true});await opener.click();const modal=page.getByRole('dialog',{name:'구단별 가입 현황',exact:true});await modal.locator('.workspace-skeleton').waitFor();await ready(page);
+  assert.equal(await modal.locator('.team-membership-row').count(),0);await modal.getByText('QA 정보를 불러오지 못했어요 다시 시도해 주세요',{exact:true}).waitFor();
+  await page.evaluate(()=>window.qa.fail=[]);await modal.getByRole('button',{name:'다시 불러오기',exact:true}).click();await ready(page);assert.equal(await modal.locator('.team-membership-row').count(),5);assert.deepEqual(await modal.getByRole('tab').allTextContents(),['K리그 1','K리그 2']);await closeDialog(page);
+ },{page:'users',initial:{delay:700,fail:['members'],allTeamsClassified:true}});
  for(const theme of ['light','dark'])await run(browser,`Users ${theme} numbered pagination jumps ten pages and keeps search in sync`,async page=>{
   await ready(page);
   const workspace=page.locator('.users-workspace');
@@ -382,9 +457,71 @@ async function auditDropdowns(page,scope){
   await page.getByRole('button',{name:'게시 중인 공지 목록 보기',exact:true}).click();await ready(page);await select(page,'처리 상태','숨김');await page.getByRole('searchbox',{name:'제목 검색',exact:true}).fill('테스트');await page.goBack();await page.getByRole('tab',{name:'커뮤니티',selected:true,exact:true}).waitFor();await page.goForward();await page.getByRole('combobox',{name:'처리 상태: 전체 상태',exact:true}).waitFor();assert.equal(await page.getByRole('searchbox',{name:'제목 검색',exact:true}).inputValue(),'');
  },{page:'operations'});
  await run(browser,'Community title-only rows, pagination, detail and search',async page=>{
-  await ready(page);assert.equal(await page.locator('.activity-row').count(),15);assert.equal(await page.getByText('커뮤니티 본문 0',{exact:true}).count(),0);await page.getByRole('button',{name:'커뮤니티 제목 0',exact:true}).click();await page.getByRole('dialog').getByText('커뮤니티 본문 0',{exact:true}).waitFor();await closeDialog(page);await page.getByRole('button',{name:'다음',exact:true}).click();await ready(page);assert.equal(await page.locator('.activity-row').count(),1);await page.getByRole('searchbox').fill('없는 게시글');await ready(page);await page.getByText('검색 결과가 없어요',{exact:true}).waitFor();
+  await ready(page);assert.deepEqual(await page.locator('.community-table thead th').allTextContents(),['게시글','작성자','게시판','작성일']);assert.equal(await page.locator('.community-table tbody tr').first().locator('th,td').count(),4);
+  await ready(page);assert.equal(await page.locator('.activity-row').count(),15);assert.equal(await page.getByText('커뮤니티 본문 0',{exact:true}).count(),0);await page.getByRole('button',{name:'커뮤니티 제목 0',exact:true}).click();await page.getByRole('dialog').getByText('커뮤니티 본문 0',{exact:true}).waitFor();await closeDialog(page);await page.getByRole('button',{name:'2페이지',exact:true}).click();await ready(page);assert.equal(await page.locator('.activity-row').count(),1);await page.getByRole('searchbox').fill('없는 게시글');await ready(page);await page.getByText('검색 결과가 없어요',{exact:true}).waitFor();assert.equal(await page.getByRole('navigation',{name:'페이지 탐색',exact:true}).count(),0);
  },{page:'operations'});
- await run(browser,'Attendance detail displays fixture, GPS, stadium and result',async page=>{await ready(page);await page.getByRole('button',{name:'FC 서울 vs 수원 삼성',exact:true}).click();await page.getByRole('dialog',{name:'직관 인증 상세정보',exact:true}).waitFor();await ready(page);await page.getByText('GPS 인증',{exact:true}).waitFor();await page.getByText('2 : 1',{exact:true}).waitFor();await closeDialog(page)},{page:'operations',tab:'attendances'});
+ for(const theme of ['light','dark'])await run(browser,`Community ${theme} numbered pagination removes duplicate totals and jumps ten pages`,async page=>{
+  await ready(page);const panel=page.locator('.activity-workspace');
+  assert.equal(await panel.getByRole('button',{name:'새로고침',exact:true}).count(),0);
+  assert.equal(await panel.locator('.workspace-toolbar .inline-count').textContent(),'210건');
+  const pager=panel.getByRole('navigation',{name:'페이지 탐색',exact:true});
+  assert.equal(await pager.count(),1);assert.equal(await pager.locator(':scope > span').count(),0);
+  assert.deepEqual(await pager.locator('.workspace-page-numbers button').allTextContents(),['1','2','3','4','5','6','7','8','9']);
+  assert.equal(await pager.getByRole('button',{name:'이전 10페이지',exact:true}).isDisabled(),true);
+  await pager.getByRole('button',{name:'다음 10페이지',exact:true}).click();await ready(page);
+  assert.equal(await pager.getByRole('button',{name:'11페이지',exact:true}).getAttribute('aria-current'),'page');
+  assert.match(await panel.locator('.activity-row').first().textContent(),/커뮤니티 제목 150/);
+  assert.equal(await page.evaluate(()=>window.qa.reads.filter(row=>row.name==='activity').at(-1).args.page),11);
+  await pager.getByRole('button',{name:'다음 10페이지',exact:true}).click();await ready(page);
+  assert.equal(await pager.getByRole('button',{name:'14페이지',exact:true}).getAttribute('aria-current'),'page');
+  assert.equal(await pager.getByRole('button',{name:'다음 10페이지',exact:true}).isDisabled(),true);
+  await pager.getByRole('button',{name:'이전 10페이지',exact:true}).click();await ready(page);
+  assert.equal(await pager.getByRole('button',{name:'4페이지',exact:true}).getAttribute('aria-current'),'page');
+  await panel.getByRole('searchbox').fill('제목 0');await ready(page);assert.equal(await pager.count(),0);assert.equal(await panel.locator('.activity-row').count(),1);
+  await panel.getByRole('searchbox').fill('');await ready(page);assert.equal(await pager.getByRole('button',{name:'1페이지',exact:true}).getAttribute('aria-current'),'page');
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await panel.locator('.workspace-toolbar').screenshot({path:path.join(artifacts,`community-toolbar-${theme}-${width}.png`)});await panel.locator('.workspace-table-wrap').screenshot({path:path.join(artifacts,`community-rows-${theme}-${width}.png`)});await pager.screenshot({path:path.join(artifacts,`community-pages-${theme}-${width}.png`)});}
+  assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'operations',theme,initial:{activityCount:210}});
+ for(const theme of ['light','dark'])await run(browser,`Attendance ${theme} compact rows retain user, match, date, result and detail access`,async page=>{
+  await ready(page);const table=page.locator('.attendance-table'),rows=table.locator('.activity-row'),first=rows.first();
+  assert.deepEqual(await table.locator('thead th').allTextContents(),['사용자','경기','인증일','결과']);
+  assert.equal(await first.locator('th,td').count(),4);assert.equal(await first.locator('th img').getAttribute('src'),'/teams/team-0.webp');
+  assert.equal(await first.locator('.attendance-user').textContent(),'테스트 팬 00FC 서울');
+  assert.equal(await first.locator('.attendance-venue').textContent(),'서울월드컵경기장');
+  assert.deepEqual(await table.locator('.attendance-result').allTextContents(),['승리','무승부','패배','예정','미확인']);
+  assert.equal(await rows.last().locator('.attendance-user small').textContent(),'미선택');
+  for(const width of [1440,801,800,390,320]){
+   await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   assert.equal(await first.locator('time').isVisible(),true);assert.equal(await first.locator('.attendance-result').isVisible(),true);
+   assert.equal(await first.getByRole('button',{name:'FC 서울 vs 수원 삼성',exact:true}).isVisible(),true);
+   assert.equal(await rows.evaluateAll(elements=>elements.every(row=>row.scrollWidth<=row.clientWidth)),true,'Long names and fixtures fit each row');
+   if(width===1440||width===390){await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:path.join(artifacts,`attendance-overview-${theme}-${width}.png`)});}
+  }
+  const opener=first.getByRole('button',{name:'FC 서울 vs 수원 삼성',exact:true});await opener.focus();await page.keyboard.press('Enter');
+  await page.getByRole('dialog',{name:'직관 인증 상세정보',exact:true}).waitFor();await ready(page);await page.getByRole('dialog').getByText('GPS 인증',{exact:true}).waitFor();await page.getByRole('dialog').getByText('2 : 1',{exact:true}).waitFor();await closeDialog(page);
+  assert.equal(await opener.evaluate(el=>el===document.activeElement),true);assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'operations',tab:'attendances',theme,initial:{attendanceOverview:true}});
+ for(const theme of ['light','dark'])await run(browser,`Notice ${theme} list uses numbered pages, filters and readable mobile metadata`,async page=>{
+  await ready(page);const panel=page.locator('.notices-workspace'),rows=panel.locator('.inbox-row'),pager=panel.getByRole('navigation',{name:'페이지 탐색',exact:true});
+  assert.equal(await panel.getByRole('button',{name:'새로고침',exact:true}).count(),0);
+  assert.equal(await panel.locator('h2 .inline-count').textContent(),'17건');
+  assert.deepEqual(await panel.locator('thead th').allTextContents(),['제목','게시판','등록일','상태']);
+  assert.equal(await panel.locator('.workspace-pager > span').count(),0);assert.equal(await rows.count(),15);
+  await pager.getByRole('button',{name:'2페이지',exact:true}).click();await ready(page);assert.equal(await rows.count(),2);
+  assert.equal(await page.evaluate(()=>window.qa.reads.filter(row=>row.name==='inbox').at(-1).args.page),2);
+  await select(page,'처리 상태','숨김');await ready(page);assert.equal(await rows.count(),8);assert.equal(await pager.count(),0);
+  await panel.getByRole('searchbox',{name:'제목 검색',exact:true}).fill('테스트 공지 16');await ready(page);assert.equal(await rows.count(),1);assert.equal(await panel.locator('h2 .inline-count').textContent(),'1건');
+  await panel.getByRole('searchbox').fill('');await select(page,'처리 상태','전체 상태');await ready(page);
+  assert.equal(await pager.getByRole('button',{name:'1페이지',exact:true}).getAttribute('aria-current'),'page');
+  for(const width of [1440,801,800,390,320]){
+   await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   assert.equal(await rows.first().locator('.notice-list-meta').isVisible(),width<=800);
+   assert.equal(await panel.locator('tbody .seed-badge__label').evaluateAll(labels=>labels.every(label=>{const range=document.createRange();range.selectNodeContents(label);return range.getClientRects().length===1;})),true,'Notice status stays on one line');
+   assert.equal(await panel.getByRole('button',{name:'공지 작성',exact:true}).isVisible(),true);
+   if(width===1440||width===390){await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});return new Promise(resolve=>window.requestAnimationFrame(()=>window.requestAnimationFrame(resolve)));});await page.screenshot({path:path.join(artifacts,`notice-list-${theme}-${width}.png`)});}
+  }
+  const opener=panel.getByRole('button',{name:'테스트 공지 0',exact:true});await opener.focus();await page.keyboard.press('Enter');await page.getByRole('dialog',{name:'공지사항',exact:true}).waitFor();await closeDialog(page);assert.equal(await opener.evaluate(el=>el===document.activeElement),true);assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'operations',tab:'notices',theme});
  await run(browser,'Notice validation Toast, dialog dropdown, create, edit and visibility RPCs',async page=>{
   await ready(page);await page.getByRole('button',{name:'공지 작성',exact:true}).click();const dialog=page.getByRole('dialog',{name:'공지사항 작성',exact:true});await dialog.getByRole('button',{name:'공지 등록',exact:true}).click();await dialog.getByRole('alert').waitFor();assert.equal(await page.evaluate(()=>window.qa.writes.length),0);await dialog.getByRole('button',{name:'알림 닫기',exact:true}).click();await select(page,'대상 구단','FC 서울');assert.equal(await dialog.getByRole('combobox',{name:'노출 범위: 구단 게시판',exact:true}).count(),1);await dialog.getByLabel('제목',{exact:true}).fill('새 테스트 공지');await dialog.getByLabel('내용',{exact:true}).fill('새 테스트 공지 내용입니다');await dialog.getByRole('button',{name:'공지 등록',exact:true}).click();await dialog.waitFor({state:'hidden'});await ready(page);await page.getByRole('button',{name:'새 테스트 공지',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'수정',exact:true}).click();await page.getByRole('dialog').getByLabel('제목',{exact:true}).fill('수정한 테스트 공지');await page.getByRole('button',{name:'수정 저장',exact:true}).click();await ready(page);await page.getByRole('button',{name:'수정한 테스트 공지',exact:true}).click();await page.getByRole('button',{name:'공지 숨기기',exact:true}).click();await ready(page);assert.deepEqual(await page.evaluate(()=>window.qa.writes.map(x=>x.name)),['admin_create_community_notice','admin_update_community_notice','admin_set_content_visibility']);
  },{page:'operations',tab:'notices'});
@@ -716,7 +853,14 @@ async function auditDropdowns(page,scope){
  for(const motion of ['no-preference','reduce'])await run(browser,`Stadium dropdown ${motion} floats without changing dialog scroll`,async page=>{
   await ready(page);await dataTab(page,'경기 일정');await ready(page);
   for(const [width,height] of [[1440,900],[967,667],[390,844],[390,568]]){
-   await page.setViewportSize({width,height});const modal=await openFixture(page,0,true);await page.waitForFunction(()=>[...document.querySelectorAll('dialog[open]')].every(el=>el.getAnimations().every(a=>a.playState==='finished')));const trigger=modal.getByRole('combobox',{name:/^경기장:/});await trigger.scrollIntoViewIfNeeded();const before=await modal.evaluate(el=>({height:el.scrollHeight,top:el.scrollTop}));await trigger.click();const list=modal.getByRole('listbox',{name:'경기장',exact:true});await list.waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('[role="listbox"]')].every(el=>el.getAnimations().every(a=>a.playState==='finished')));
+   await page.setViewportSize({width,height});const modal=await openFixture(page,0,true);
+   assert.equal(await modal.evaluate(el=>getComputedStyle(el).animationName!=='none'),motion==='no-preference');
+   await page.waitForFunction(()=>[...document.querySelectorAll('dialog[open]')].every(el=>el.getAnimations().every(a=>a.playState==='finished')));
+   assert.equal(await modal.evaluate(el=>getComputedStyle(el).transform),'none');
+   const trigger=modal.getByRole('combobox',{name:/^경기장:/});await trigger.scrollIntoViewIfNeeded();const before=await modal.evaluate(el=>({height:el.scrollHeight,top:el.scrollTop}));await trigger.click();const list=modal.getByRole('listbox',{name:'경기장',exact:true});await list.waitFor();
+   assert.equal(await list.evaluate(el=>getComputedStyle(el).animationName!=='none'),motion==='no-preference');
+   await page.waitForFunction(()=>[...document.querySelectorAll('[role="listbox"]')].every(el=>el.getAnimations().every(a=>a.playState==='finished')));
+   assert.equal(await list.evaluate(el=>getComputedStyle(el).transform),'none');
    assert.ok((await modal.evaluate(el=>el.scrollHeight))<=before.height+1,`dialog scroll grew at ${width}x${height} (${motion})`);assert.equal(await modal.evaluate(el=>el.scrollTop),before.top);const box=await list.boundingBox();assert.ok(box.y>=0&&box.y+box.height<=height,JSON.stringify({box,width,height,motion}));assert.equal(await list.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}),true,'menu is not clipped by dialog');await page.screenshot({path:path.join(artifacts,`stadium-dropdown-${motion}-${width}-${height}.png`)});
    const area=list.locator('.seed-select__scrollArea');await area.hover();await page.mouse.wheel(0,500);await page.waitForFunction(()=>document.querySelector('[role="listbox"] .seed-select__scrollArea').scrollTop>0);await page.mouse.wheel(0,5000);await page.waitForFunction(()=>{const el=document.querySelector('[role="listbox"] .seed-select__scrollArea');return el.scrollTop+el.clientHeight>=el.scrollHeight-1;});await page.mouse.wheel(0,5000);await page.waitForTimeout(100);assert.equal(await modal.evaluate(el=>el.scrollTop),before.top);await page.keyboard.press('Escape');await list.waitFor({state:'hidden'});assert.equal(await modal.isVisible(),true);await trigger.click();await list.waitFor();await page.keyboard.press('End');await page.keyboard.press('Enter');await list.waitFor({state:'hidden'});assert.notEqual(await modal.locator('input[name="stadium"]').inputValue(),'stadium-0');await closeDialog(page);
   }

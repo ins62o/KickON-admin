@@ -9,7 +9,7 @@ import {readCatalogue,readInbox,readOperationCounts,mutate,updateNotice,changeNo
 import {dateLabel,leagueLabel,teamLeague,type Team,type Standing} from "./model";
 import {TeamMark} from "./TeamMark";
 import {canWrite} from "./permissions";
-import {Badge,Dialog,Empty,Feedback,Pager,Refresh,SearchField,Stat,WorkspaceSkeleton,WorkspaceTabs} from "./WorkspaceUI";
+import {Badge,Dialog,Empty,Feedback,NumberedPager,Pager,Refresh,SearchField,Stat,WorkspaceSkeleton,WorkspaceTabs} from "./WorkspaceUI";
 import {InquirySender} from "./InquirySender";
 import {ReportDetails} from "./ReportDetails";
 import {reportReasons as reasons,reportTargets,reportStatuses} from "./report-detail";
@@ -79,8 +79,44 @@ export function OperationsWorkspace({admin,tab,onTabChange}:{admin:AdminIdentity
   };
   return <div className="management-workspace"><div className="workspace-stats three"><Stat label="게시 중인 공지" value={counts.data?.[0]??null} unit="건" onClick={()=>changeTab("notices")}/><Stat label="답변 대기 문의" value={counts.data?.[1]??null} unit="건" onClick={()=>changeTab("inquiries")}/><Stat label="확인할 신고" value={counts.data?.[2]??null} unit="건" onClick={()=>changeTab("reports")}/></div>
     <WorkspaceTabs mobileSelect value={tab} onChange={changeTab} items={[{value:"community",label:"커뮤니티"},{value:"attendances",label:"직관 인증"},{value:"marketing",label:"마케팅 관리"},{value:"notices",label:"공지사항"},{value:"inquiries",label:"1:1 문의"},{value:"reports",label:"신고 접수"},{value:"app-updates",label:"앱 업데이트"}]}>
-    {tab==="community"||tab==="attendances"?<ActivityWorkspace key={tab} kind={tab}/>:tab==="marketing"?<MarketingStudio/>:tab==='app-updates'?<AppReleaseManager admin={admin}/>:<section className="workspace-panel"><div className="workspace-toolbar"><h2>{kind==="notices"?"공지사항":kind==="inquiries"?"문의 접수 내역":"신고 접수 내역"}</h2><div className="workspace-tools"><SearchField value={query} onChange={value=>{setQuery(value);setPage(1);}} placeholder={kind==="reports"?"신고 내용 검색":"제목 검색"}/><CustomSelect label="처리 상태" value={status} onChange={value=>{setStatus(value);setPage(1);}} options={[{value:"all",label:"전체 상태"},...filters[kind].map(value=>({value,label:statusNames[value]}))]}/></div><div className="workspace-actions"><Refresh onClick={inbox.reload} disabled={inbox.loading}/>{kind==="notices"&&writable?<ActionButton variant="brandSolid" size="small" type="button" onClick={()=>setCompose(true)}>공지 작성</ActionButton>:null}</div></div>
-    {inbox.loading?<WorkspaceSkeleton/>:inbox.error?<Empty error={inbox.error} retry={inbox.reload}/>:<><div className="workspace-table-wrap"><table className={`workspace-table inbox-table${kind==="notices"?" notice-table":""}`}><thead><tr><th>{kind==="reports"?"신고 사유":"제목"}</th><th>{kind==="notices"?"노출 범위":kind==="inquiries"?"유형":"대상"}</th><th>접수일</th><th>상태</th></tr></thead><tbody>{inbox.data?.rows.map(row=><tr key={row.id} className="inbox-row" onClick={()=>setSelected(row)}><th scope="row"><button type="button" className="row-title" aria-haspopup="dialog"><b>{row.title||row.subject||reasons[row.reason??""]||row.reason||"기타 신고"}</b></button></th><td>{kind==="notices"?(row.board==="TEAM"?(catalogue.data?.teams.find(t=>t.id===row.team_id)?.name??"구단 게시판"):"자유 게시판"):kind==="inquiries"?(categories[row.category??""]??row.category):(reportTargets[row.target_type??""]??"미확인")}</td><td>{dateLabel(row.created_at).replace(/\.$/,"")}</td><td><Badge tone={["RECEIVED","OPEN"].includes(row.status??"")?"orange":["ANSWERED","RESOLVED","VISIBLE"].includes(row.status??row.moderation_status??"")?"green":"neutral"}>{statusNames[row.status??row.moderation_status??""]??"미확인"}</Badge></td></tr>)}</tbody></table></div>{!inbox.data?.rows.length?<Empty message="조건에 맞는 접수 내역이 없어요"/>:null}<Pager page={page} total={inbox.data?.total??0} onChange={setPage}/></>}
+    {tab==="community"||tab==="attendances"?<ActivityWorkspace key={tab} kind={tab}/>:tab==="marketing"?<MarketingStudio/>:tab==='app-updates'?<AppReleaseManager admin={admin}/>:<section className={`workspace-panel${kind==="notices"?" notices-workspace":""}`}>
+      <div className="workspace-toolbar">
+        <h2>{kind==="notices"?<>공지사항 {inbox.data?<span className="inline-count">{inbox.data.total.toLocaleString("ko-KR")}건</span>:null}</>:kind==="inquiries"?"문의 접수 내역":"신고 접수 내역"}</h2>
+        <div className="workspace-tools">
+          <SearchField value={query} onChange={value=>{setQuery(value);setPage(1);}} placeholder={kind==="reports"?"신고 내용 검색":"제목 검색"}/>
+          <CustomSelect label="처리 상태" value={status} onChange={value=>{setStatus(value);setPage(1);}} options={[{value:"all",label:"전체 상태"},...filters[kind].map(value=>({value,label:statusNames[value]}))]}/>
+        </div>
+        {kind!=="notices"||writable?<div className="workspace-actions">
+          {kind!=="notices"?<Refresh onClick={inbox.reload} disabled={inbox.loading}/>:null}
+          {kind==="notices"&&writable?<ActionButton variant="brandSolid" size="small" type="button" onClick={()=>setCompose(true)}>공지 작성</ActionButton>:null}
+        </div>:null}
+      </div>
+    {inbox.loading?<WorkspaceSkeleton/>:inbox.error?<Empty error={inbox.error} retry={inbox.reload}/>:<>
+      <div className="workspace-table-wrap">
+        <table className={`workspace-table inbox-table${kind==="notices"?" notice-table":""}`}>
+          <thead><tr>
+            <th scope="col">{kind==="reports"?"신고 사유":"제목"}</th>
+            <th scope="col">{kind==="notices"?"게시판":kind==="inquiries"?"유형":"대상"}</th>
+            <th scope="col">{kind==="notices"?"등록일":"접수일"}</th><th scope="col">상태</th>
+          </tr></thead>
+          <tbody>{inbox.data?.rows.map(row=>{
+            const board=row.board==="TEAM"?(catalogue.data?.teams.find(team=>team.id===row.team_id)?.name??"구단 게시판"):"자유 게시판";
+            const created=dateLabel(row.created_at).replace(/\.$/,"");
+            return <tr key={row.id} className="inbox-row" onClick={()=>setSelected(row)}>
+              <th scope="row">
+                <button type="button" className="row-title" aria-haspopup="dialog"><b>{row.title||row.subject||reasons[row.reason??""]||row.reason||"기타 신고"}</b></button>
+                {kind==="notices"?<span className="notice-list-meta"><span>{board}</span><time dateTime={row.created_at}>{created}</time></span>:null}
+              </th>
+              <td title={kind==="notices"?board:undefined}>{kind==="notices"?board:kind==="inquiries"?(categories[row.category??""]??row.category):(reportTargets[row.target_type??""]??"미확인")}</td>
+              <td><time dateTime={row.created_at}>{created}</time></td>
+              <td><Badge tone={["RECEIVED","OPEN"].includes(row.status??"")?"orange":["ANSWERED","RESOLVED","VISIBLE"].includes(row.status??row.moderation_status??"")?"green":"neutral"}>{statusNames[row.status??row.moderation_status??""]??"미확인"}</Badge></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+      {!inbox.data?.rows.length?<Empty message="조건에 맞는 접수 내역이 없어요"/>:null}
+      {kind==="notices"?<NumberedPager page={page} total={inbox.data?.total??0} onChange={setPage}/>:<Pager page={page} total={inbox.data?.total??0} onChange={setPage}/>}
+    </>}
     </section>}
     </WorkspaceTabs>
     {compose?<Dialog title="공지사항 작성" pending={pending} onClose={()=>setCompose(false)}><NoticeForm teams={catalogue.data?.teams??[]} standings={catalogue.data?.standings??[]} pending={pending} onSubmit={submit}/></Dialog>:null}

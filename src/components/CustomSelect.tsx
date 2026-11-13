@@ -10,7 +10,7 @@ export function CustomSelect({value,options,onChange,label,disabled=false,placem
   const container=useMemo(()=>({current:root?.closest<HTMLElement>("dialog")??null}),[root]);
   const selected=options.find(option=>option.value===value);
   const groups=[...new Set(options.map(option=>option.group))];
-  return <div ref={setRoot} className="custom-select seed-admin-select"><Select.Root value={[value]} onValueChange={values=>{if(values[0]!==undefined)onChange(values[0]);}} open={open} onOpenChange={(next,details)=>{if(details?.reason==="escapeKeyDown")details.event.preventDefault();setOpen(next);}} disabled={disabled} size="responsive" placement={placement} strategy="fixed">
+  return <div ref={setRoot} className="custom-select seed-admin-select"><Select.Root value={[value]} onValueChange={values=>{if(values[0]!==undefined)onChange(values[0]);}} open={open} onOpenChange={(next,details)=>{if(details?.reason==="escapeKeyDown")details.event.preventDefault();setOpen(next);}} disabled={disabled} size="medium" placement={placement} strategy="fixed">
     <Select.Trigger aria-label={`${label}: ${selected?.label??value}`} data-value={value}>
       <span className="select-option-label">{selected?.icon?<span className="admin-select-icon" aria-hidden="true">{selected.icon}</span>:null}<Select.Value>{selected?.label??value}</Select.Value></span><Select.SuffixIcon svg={<ChevronDown aria-hidden="true"/>}/>
     </Select.Trigger>

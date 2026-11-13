@@ -14,7 +14,7 @@ export function ActivityChart({trend,failed,period,onPeriodChange}: {trend:Trend
   const path=(field:"dau"|"mau")=>{let connected=false;return slots.map(({day},index)=>{if(!day){connected=false;return "";}const command=connected?"L":"M";connected=true;return `${command}${((index+.5)/period*640).toFixed(2)},${(182-day[field]/ceiling*174).toFixed(2)}`;}).join(" ");};
   return <section id="activity" className="dashboard-panel activity-panel" aria-labelledby="activity-heading">
     <div className="panel-heading"><h2 id="activity-heading">이용 추이</h2><CustomSelect label="이용 추이 기간" value={String(period)} options={[7,14,30].map(value=>({value:String(value),label:`최근 ${value}일`}))} onChange={value=>{onPeriodChange(Number(value));setSelected(null);}}/></div>
-    <div className="chart-legend"><span><i className="legend-dau"/>일간 활동</span><span><i className="legend-mau"/>월간 활동</span><span className="chart-unit">단위 : 명</span></div>
+    <div className="chart-legend"><span><i className="legend-dau"/>일간 활동</span><span><i className="legend-mau"/>월간 활동</span></div>
     <div className="line-chart"><div className="chart-scale">{[4,3,2,1,0].map(value=><span key={value}>{(ceiling*value/4).toLocaleString("ko-KR")}</span>)}</div>
       <div className="line-plot"><svg viewBox="0 0 640 190" preserveAspectRatio="none" role="img" aria-label="일간 활동은 파란색, 월간 활동은 노란색으로 표시한 이용 추이 그래프">
         {[0,1,2,3,4].map(i=><line key={i} x1="0" x2="640" y1={8+i*43.5} y2={8+i*43.5} className="line-grid"/>)}
