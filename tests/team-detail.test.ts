@@ -80,3 +80,14 @@ test('stale and failed roster responses are errors rather than empty or successf
  const failed={from(){const q={select(){return q;},eq(){return q;},order(){return q;},range(){return q;},then(resolve:(value:unknown)=>unknown){return Promise.resolve(resolve({data:null,error:{message:'network failure'}}));}};return q;}} as unknown as SupabaseClient;
  await assert.rejects(readTeamPlayers(failed,'seoul','kleague'),/처리하지 못/);
 });
+
+test('official membership review rejects repeated players and unrelated edits',async()=>{
+ const {parseOfficialMemberships}=await import('../src/management/official-memberships.ts');
+ const row={operation_id:'bbad1055-d516-45a6-8c69-a5c9a51b5250',player_id:'100',official_player_id:'200',name:'선수',date_of_birth:'2000-01-02',from_team_id:'seoul',from_league_id:'kleague',to_team_id:'incheon',to_league_id:'kleague',expected_updated_at:'2026-10-20T00:00:00Z',verified_at:'2026-11-13T00:00:00Z',shirt_number:21,stats:{appearances:0,goals:0,assists:0},sources:[{kind:'player_profile',url:'https://www.kleague.com/record/playerDetail.do?playerId=200',sha256:'a'.repeat(64)},{kind:'current_squad',url:'https://www.kleague.com/player.do?type=active',sha256:'b'.repeat(64)},{kind:'season_statistics',url:'https://www.kleague.com/record/selectPersonalRecordByClub.do',sha256:'c'.repeat(64)}]};
+ const bundle={season:2026,reason:'K리그 공식 선수단 확인',players:[row]};
+ assert.deepEqual(parseOfficialMemberships(JSON.stringify(bundle),2026),bundle);
+ for(const players of [[row,row],[{...row,position:'FW'}],[{...row,to_team_id:'seoul'}],[{...row,sources:[row.sources[0],row.sources[0]]}]]){
+  assert.throws(()=>parseOfficialMemberships(JSON.stringify({...bundle,players}),2026));
+ }
+ assert.throws(()=>parseOfficialMemberships(JSON.stringify(bundle),2025),/시즌/);
+});
