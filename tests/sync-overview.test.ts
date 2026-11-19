@@ -20,6 +20,10 @@ test('schedules use confirmed UTC cron settings and display recurring local time
  for(const [input,output] of [['* * * * *','매분'],['*/5 * * * *','5분마다'],['10 19 * * *','매일 04시 10분'],['40 19 * * *','매일 04시 40분'],['15-40/5 19 * * *','매일 04시 15분 ~ 40분 사이 5분마다'],['17 * * * *','매시간 17분']])assert.equal(syncScheduleLabel(input),output);
  for(const input of ['0 0 * * 1','not cron','99 19 * * *','0 24 * * *'])assert.equal(syncScheduleLabel(input),'사용자 지정 주기');
 });
+test('schedule labels include the accepted pg_cron seconds intervals',()=>{
+ for(const [input,output] of [['5 seconds','5초마다'],['1 second','1초마다'],['05 SECONDS','5초마다'],['59 seconds','59초마다']])assert.equal(syncScheduleLabel(input),output);
+ for(const input of ['0 seconds','60 seconds','5 seconds extra'])assert.equal(syncScheduleLabel(input),'사용자 지정 주기');
+});
 test('scheduler dispatch success stays distinct from data completion and pending work never inherits an older success',()=>{
  assert.deepEqual(cronResult('succeeded'),{label:'예약 실행 완료',tone:'neutral'});assert.equal(cronResult(null).label,'기록 없음');
  const row={last_attempted_at:'2026-10-20T00:00:00Z',last_succeeded_at:'2026-10-19T00:00:00Z',last_error:null};

@@ -50,7 +50,13 @@ export function automaticSyncJobs(jobs:CronJob[]){
  const rank=(job:CronJob)=>{const index=order.indexOf(syncTask(job.job_name).name);return index<0?order.length:index;};
  return [...jobs].sort((a,b)=>rank(a)-rank(b)||a.job_name.localeCompare(b.job_name));
 }
+export function cronIntervalSeconds(schedule:string){
+ const interval=Number(/^\+?(\d+)\s*seconds?$/i.exec(schedule.trim())?.[1]);
+ return interval>=1&&interval<=59?interval:null;
+}
 export function syncScheduleLabel(schedule:string){
+ const interval=cronIntervalSeconds(schedule);
+ if(interval!==null)return `${interval}초마다`;
  const parts=schedule.trim().split(/\s+/);if(parts.length!==5)return '사용자 지정 주기';
  const [minute,hour,day,month,weekday]=parts;
  if(day!=='*'||month!=='*'||weekday!=='*')return '사용자 지정 주기';

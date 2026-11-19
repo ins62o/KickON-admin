@@ -1,5 +1,5 @@
 import type {SyncJob} from './data.ts';
-import {syncTask,type CronJob} from './sync-model.ts';
+import {cronIntervalSeconds,syncTask,type CronJob} from './sync-model.ts';
 
 export type LiveLeagueHealth={league_id:string;paused:boolean|null;lineup_targets:number;live_targets:number;postponed_targets:number;due_since:string|null;lineup_poll_at:string|null;lineup_http_status:number|null;live_poll_at:string|null;live_http_status:number|null};
 export type MaintenanceIssue={league_id:string;season:number;kind:'history'|'post_match';state:'BLOCKED'|'ERROR';reason_code:string|null};
@@ -24,7 +24,10 @@ function scheduledAt(schedule:string,now:number){
 }
 export function schedulerLight(job:CronJob,now:number):SyncLight{
  if(!job.active)return light('gray','중단됨','자동 실행이 꺼져 있어요');
- const started=Date.parse(job.last_started_at??''),due=scheduledAt(job.schedule,now-180000);
+ const started=Date.parse(job.last_started_at??''),interval=cronIntervalSeconds(job.schedule);
+ const graceCutoff=now-180000;
+ // Interval jobs have no wall-clock boundary. Allow a full period plus the existing grace.
+ const due=interval===null?scheduledAt(job.schedule,graceCutoff):graceCutoff-interval*1000;
  if(!Number.isFinite(started)||started>now+5000||due===null)return light('gray','확인 불가','예약 실행 기록을 확인할 수 없어요');
  if(job.last_status!==null&&!['succeeded','running','starting','connecting','sending'].includes(job.last_status))return light('red','예약 오류','최근 예약 작업이 실패했어요');
  if(started<due)return light('red','실행 지연','예정된 예약 실행이 3분 넘게 확인되지 않았어요');

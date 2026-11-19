@@ -19,6 +19,25 @@ test('scheduler lights distinguish disabled, failed, delayed and unsupported rec
  assert.equal(schedulerLight(daily,Date.parse('2026-10-19T19:14:00Z')).tone,'red');
  assert.equal(schedulerLight({...job,schedule:'15-40/5 19 * * *',last_started_at:'2026-10-19T19:40:00Z'},now).tone,'green');
 });
+test('second-based watchdog schedules use actual recent starts and preserve failure and delay',()=>{
+ const watchdog={...job,job_name:'kickon-native-watchdog-v1',schedule:'5 seconds'};
+ assert.equal(schedulerLight(watchdog,now).label,'예약 정상');
+ assert.equal(schedulerLight(watchdog,now+185000).tone,'green');
+ assert.equal(schedulerLight(watchdog,now+185001).label,'실행 지연');
+ assert.equal(schedulerLight({...watchdog,last_status:'failed'},now).label,'예약 오류');
+ assert.equal(schedulerLight({...watchdog,last_status:'running'},now).label,'예약 실행 중');
+ assert.equal(schedulerLight({...watchdog,last_started_at:null},now).tone,'gray');
+ assert.equal(schedulerLight({...watchdog,schedule:'60 seconds'},now).tone,'gray');
+});
+test('the error count resolves with a successful watchdog and preserves an actual watchdog error',()=>{
+ const health=snapshot(),watchdog={...job,job_name:'kickon-native-watchdog-v1',schedule:'5 seconds'};
+ const metrics={...job,job_name:'kickon-team-metrics-reconciliation'};
+ health.provider_disagreements=[{league_id:'kleague2',affected_count:2}];
+ assert.equal(automaticSyncLight(metrics,health).label,'공급자 불일치');
+ assert.equal(automaticSyncErrors([watchdog,metrics],health).count,0);
+ assert.equal(automaticSyncErrors([{...watchdog,last_status:'failed'},metrics],health).count,1);
+ assert.equal(automaticSyncErrors([{...watchdog,last_started_at:null},metrics],health).count,null);
+});
 test('no-match green requires an actual recent worker heartbeat, never scheduler success alone',()=>{
  const health=snapshot();assert.equal(automaticSyncLight(job,health).label,'정상 대기');
  health.live.last_succeeded_at=old;assert.equal(automaticSyncLight(job,health).tone,'red');
