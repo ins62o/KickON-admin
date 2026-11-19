@@ -69,9 +69,24 @@ test('unavailable or incomplete health never reports zero errors',()=>{
  assert.equal(automaticSyncErrors([{...job,last_started_at:null}],health).count,null);
  assert.equal(automaticSyncErrors([{...job,last_status:'failed'}],health).count,1);
 });
+test('provider disagreements warn only for club season stats and never hide a real sync error',()=>{
+ const health=snapshot(),metrics={...job,job_name:'kickon-team-metrics-sync'},squad={...job,job_name:'kickon-team-squad-refresh'};
+ health.provider_disagreements=[{league_id:'kleague2',affected_count:2}];
+ const warning=automaticSyncLight(metrics,health);
+ assert.equal(warning.tone,'orange');assert.equal(warning.label,'공급자 불일치');assert.match(warning.detail,/K리그 2 2건/);
+ assert.equal(automaticSyncErrors([metrics],health).count,0);
+ assert.equal(automaticSyncLight(squad,health).tone,'green');
+ assert.equal(automaticSyncLight({...metrics,last_status:'failed'},health).tone,'red');
+ health.states=[{sync_key:'team-metrics:integrity:2026:kleague2',season:2026,league_id:'kleague2',last_attempted_at:null,last_succeeded_at:null,last_error:'PLAYER_STATS_PROJECTION_MISMATCH'}];
+ assert.equal(automaticSyncLight(metrics,health).tone,'red');
+ assert.equal(automaticSyncErrors([metrics],health).count,1);
+});
 test('health RPC validates evidence and keeps denied, missing or malformed responses unknown',async()=>{
  const client=(data:unknown,error:unknown=null)=>({rpc(name:string){assert.equal(name,'get_admin_football_sync_health');return {abortSignal(signal:AbortSignal){assert.ok(signal instanceof AbortSignal);return Promise.resolve({data,error});}};}} as unknown as SupabaseClient);
  assert.deepEqual(await readSyncHealth(client(snapshot())),snapshot());
+ const warning={...snapshot(),provider_disagreements:[{league_id:'kleague',affected_count:13}]};
+ assert.deepEqual(await readSyncHealth(client(warning)),warning);
+ for(const disagreement of [null,[{league_id:'other',affected_count:1}],[{league_id:'kleague',affected_count:0}],[...warning.provider_disagreements,...warning.provider_disagreements]])await assert.rejects(readSyncHealth(client({...warning,provider_disagreements:disagreement})),/확인/);
  for(const data of [null,{}, {...snapshot(),checked_at:'invalid'},{...snapshot(),live:{...snapshot().live,leagues:[league,league]}},{...snapshot(),live:{...snapshot().live,leagues:[league,{...league,league_id:'kleague2',lineup_targets:null}]}}])await assert.rejects(readSyncHealth(client(data)),/확인/);
  await assert.rejects(readSyncHealth(client(snapshot(),{message:'denied'})),/확인/);
 });

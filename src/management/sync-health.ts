@@ -3,8 +3,9 @@ import {syncTask,type CronJob} from './sync-model.ts';
 
 export type LiveLeagueHealth={league_id:string;paused:boolean|null;lineup_targets:number;live_targets:number;postponed_targets:number;due_since:string|null;lineup_poll_at:string|null;lineup_http_status:number|null;live_poll_at:string|null;live_http_status:number|null};
 export type MaintenanceIssue={league_id:string;season:number;kind:'history'|'post_match';state:'BLOCKED'|'ERROR';reason_code:string|null};
-export type SyncHealth={checked_at:string;jobs:CronJob[];states:SyncJob[];maintenance:MaintenanceIssue[];live:{last_attempted_at:string|null;last_succeeded_at:string|null;has_error:boolean;running:boolean;leagues:LiveLeagueHealth[]}};
-export type SyncLight={tone:'green'|'red'|'gray';label:string;detail:string};
+export type ProviderDisagreement={league_id:'kleague'|'kleague2';affected_count:number};
+export type SyncHealth={checked_at:string;jobs:CronJob[];states:SyncJob[];maintenance:MaintenanceIssue[];provider_disagreements?:ProviderDisagreement[];live:{last_attempted_at:string|null;last_succeeded_at:string|null;has_error:boolean;running:boolean;leagues:LiveLeagueHealth[]}};
+export type SyncLight={tone:'green'|'red'|'gray'|'orange';label:string;detail:string};
 const light=(tone:SyncLight['tone'],label:string,detail:string):SyncLight=>({tone,label,detail});
 const recent=(at:string|null,now:number)=>{const age=now-Date.parse(at??'');return age>=-5000&&age<=180000;};
 
@@ -64,12 +65,13 @@ export function automaticSyncLight(job:CronJob,health:SyncHealth|null,error=''):
  if(matching.some(state=>state.last_error?.trim()))return light('red','갱신 오류','이전 실행에서 발생한 데이터 처리 오류가 아직 해소되지 않았어요');
  if(scheduler.tone!=='green')return scheduler;
  const states=matching.filter(state=>Date.parse(state.last_attempted_at??'')>=Date.parse(job.last_started_at??'')-120000);
- if(states.length){
-  if(states.some(state=>state.last_error?.trim()))return light('red','갱신 오류','최근 데이터 처리 작업에 오류가 기록됐어요');
-  if(states.every(state=>Date.parse(state.last_succeeded_at??'')>=Date.parse(state.last_attempted_at??'')))return light('green','갱신 성공','최근 데이터 처리 작업이 정상 종료됐어요');
-  return light('gray','처리 확인 중','데이터 처리 작업의 종료 결과를 기다리고 있어요');
+ if(states.length&&!states.every(state=>Date.parse(state.last_succeeded_at??'')>=Date.parse(state.last_attempted_at??'')))return light('gray','처리 확인 중','데이터 처리 작업의 종료 결과를 기다리고 있어요');
+ const disagreements=health.provider_disagreements;
+ if(task==='구단 시즌 통계'&&disagreements?.length){
+  const counts=disagreements.map(row=>`${row.league_id==='kleague'?'K리그 1':'K리그 2'} ${row.affected_count}건`).join(' · ');
+  return light('orange','공급자 불일치',`공식 기록과 앱은 일치하고 공급자 기록이 달라요 (${counts})`);
  }
- return scheduler;
+ return states.length?light('green','갱신 성공','최근 데이터 처리 작업이 정상 종료됐어요'):scheduler;
 }
 
 export function automaticSyncErrors(jobs:CronJob[],health:SyncHealth|null,error=''){

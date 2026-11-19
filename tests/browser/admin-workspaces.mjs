@@ -809,6 +809,24 @@ async function auditDropdowns(page,scope){
   }
   await page.evaluate(()=>{window.qa.syncHealthMode='live';window.qa.fail.push('syncHealth');});await page.clock.fastForward(15000);await lamp.getByText('—',{exact:true}).waitFor();assert.equal(await modal.getByText('정상',{exact:true}).count(),0);await page.evaluate(()=>window.qa.fail=[]);await modal.getByRole('button',{name:'다시 불러오기',exact:true}).click();await ready(page);await lamp.getByText('정상',{exact:true}).waitFor();await closeDialog(page);await dataTab(page,'구단 관리');await ready(page);const reads=await page.evaluate(()=>window.qa.reads.filter(r=>r.name==='syncHealth').length);await page.clock.fastForward(30000);assert.equal(await page.evaluate(()=>window.qa.reads.filter(r=>r.name==='syncHealth').length),reads);assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
  },{page:'data',theme,initial:{monitoring:true,syncOverview:true}});
+ for(const environment of ['development','production'])await run(browser,`Provider stats warning and projection error in ${environment}`,async page=>{
+  await ready(page);
+  const metrics=page.locator('.automatic-sync-table tr').filter({has:page.getByRole('button',{name:'구단 시즌 통계 자동 동기화 정보',exact:true})});
+  const badge=metrics.locator('.sync-status-badge');
+  await badge.getByText('공급자 불일치',{exact:true}).waitFor();
+  assert.equal(await badge.getAttribute('data-tone'),'orange');
+  assert.match(await badge.getAttribute('title'),/공식 기록과 앱은 일치/);
+  const errorCount=page.getByText('오류 작업',{exact:true}).locator('..').locator('strong > span[aria-hidden="true"]');
+  await errorCount.filter({hasText:/^0$/}).waitFor();
+  await page.screenshot({path:path.join(artifacts,`provider-warning-${environment}.png`)});
+  await page.evaluate(()=>{window.qa.providerProjectionMissing=true;});
+  await page.locator('.data-section-heading').getByRole('button',{name:'새로고침',exact:true}).click();
+  await badge.getByText('오류',{exact:true}).waitFor();
+  assert.equal(await badge.getAttribute('data-tone'),'red');
+  await errorCount.filter({hasText:/^1$/}).waitFor();
+  await page.screenshot({path:path.join(artifacts,`projection-error-${environment}.png`)});
+  assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
+ },{page:'data',tab:'sync',initial:{environment,monitoring:true,providerStats:environment==='development'?2:71}});
  await run(browser,'Automatic sync modal preserves the full list and browser history without search or paging',async page=>{
   await ready(page);const automatic=page.locator('.automatic-sync-table'),list=automatic.locator('..').locator('..');assert.equal(await page.getByRole('searchbox',{name:'작업 검색',exact:true}).count(),0);const filteredCount=await automatic.locator('tbody tr').count();assert.equal(filteredCount,13);assert.equal(await list.getByRole('button',{name:'다음',exact:true}).count(),0);const opener=automatic.getByRole('button').last();await opener.focus();await page.keyboard.press('Enter');let modal=page.getByRole('dialog');await modal.waitFor();const href=page.url();assert.equal(await automatic.isVisible(),true);await page.goBack();await modal.waitFor({state:'hidden'});assert.equal(await opener.evaluate(el=>el===document.activeElement),true);assert.equal(await page.getByRole('searchbox',{name:'작업 검색',exact:true}).count(),0);assert.equal(await automatic.locator('tbody tr').count(),filteredCount);await page.goForward();await modal.waitFor();await page.reload();await ready(page);modal=page.getByRole('dialog');await modal.waitFor();assert.equal(page.url(),href);await closeDialog(page);assert.equal(new URL(page.url()).searchParams.has('sync'),false);assert.equal(await page.evaluate(()=>window.qa.writes.length),0);
  },{page:'data',tab:'sync',initial:{monitoring:true,syncPagination:true}});

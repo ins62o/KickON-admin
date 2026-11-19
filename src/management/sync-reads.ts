@@ -24,6 +24,8 @@ export async function readSyncHealth(client:SupabaseClient):Promise<SyncHealth>{
  if(value.maintenance.some(issue=>!issue||!['kleague','kleague2'].includes(issue.league_id)||!Number.isSafeInteger(issue.season)||!['history','post_match'].includes(issue.kind)||!['BLOCKED','ERROR'].includes(issue.state)||(issue.reason_code!==null&&(typeof issue.reason_code!=='string'||!/^[_A-Z]+$/.test(issue.reason_code)))))throw invalid();
  cronRows(value.jobs);
  if(value.states.some(row=>!row||typeof row.sync_key!=='string'||!timestamp(row.last_attempted_at)||!timestamp(row.last_succeeded_at)||(row.last_error!==null&&typeof row.last_error!=='string')))throw invalid();
+ const disagreements=value.provider_disagreements;
+ if(disagreements!==undefined&&(!Array.isArray(disagreements)||disagreements.some(row=>!row||!['kleague','kleague2'].includes(row.league_id)||!Number.isSafeInteger(row.affected_count)||row.affected_count<1)||new Set(disagreements.map(row=>row.league_id)).size!==disagreements.length))throw invalid();
  const seen=new Set<string>();
  for(const league of value.live.leagues){
   if(!league||!['kleague','kleague2'].includes(league.league_id)||seen.has(league.league_id)||![true,false,null].includes(league.paused)||[league.lineup_targets,league.live_targets,league.postponed_targets].some(count=>!Number.isSafeInteger(count)||count<0)||[league.due_since,league.lineup_poll_at,league.live_poll_at].some(at=>!timestamp(at))||[league.lineup_http_status,league.live_http_status].some(code=>code!==null&&(!Number.isSafeInteger(code)||code<0||code>599)))throw invalid();
