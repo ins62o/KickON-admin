@@ -1,0 +1,25 @@
+-- Record of a forward change already applied to production (KickON) on 2026-11-21 around 23:00 KST
+-- through the SQL Editor. This file is a record, not an approval to run it (see README.md).
+--
+-- Why: get_admin_football_sync_health() took 6.1-7.8s against the 8s authenticated statement_timeout.
+-- About 4.0s was the classified CTE of the player-stat projection check: its left join to
+-- verified_official evaluated the "no finished fixture since verification" NOT EXISTS for every
+-- (result row, verified row) pair (about 819 x 70).
+-- Change: filter verified_official once into a materialized verified_current CTE with the same
+-- season, verified_at and NOT EXISTS conditions, then left join on the same key tuple. The join
+-- conditions are unchanged, so the classification is unchanged.
+--
+-- Verification on production (read-only): the old and new projection checks returned identical rows
+-- in one query, 4.03s versus 0.08s. After the patch, the integrity/maintenance/disagreement parts of
+-- the function output had the same md5 (86214b4f03683beb96d03312991948ed) and the call fell from
+-- 6.12s to 1.61s. On the screen it now takes 2.7-3.9s; the rest is cron.job_run_details scans
+-- (about 312K rows, no index on jobid/start_time, table owned by supabase_admin).
+--
+-- The patch edits the deployed definition in place and refuses to run unless that definition is the
+-- verified one. Definition before: md5 e985e4a56de4cede3bb898daa2f4ae22.
+-- Definition after: sha256 5362cac8d3c81ca8af976d54075e1eff19237c52d8b3adb0fea4587a77c5fe78.
+
+do $patch$ declare d text := pg_get_functiondef('public.get_admin_football_sync_health()'::regprocedure); begin if md5(d) <> 'e985e4a56de4cede3bb898daa2f4ae22' then raise exception 'UNEXPECTED_SYNC_HEALTH_DEFINITION %', md5(d); end if; d := replace(replace(d, E'    left join verified_official e on e.season=current_season\n      and (e.league_id,e.team_id,e.player_id,e.snapshot_hash,e.dob)=\n          (r.league_id,r.team_id,r.player_id,r.snapshot_hash,r.squad_dob)\n      and e.verified_at<=now()\n      and not exists (\n        select 1 from public.fixtures f where f.league_id=e.league_id and f.status=''FINISHED''\n          and (f.home_team_id=e.team_id or f.away_team_id=e.team_id)\n          and f.kickoff_at>=make_timestamptz(e.season,1,1,0,0,0,''Asia/Seoul'')\n          and coalesce(f.post_match_sync_due_at,f.kickoff_at+interval ''3 hours'')>e.verified_at\n      )\n  ', E'    left join verified_current e on (e.league_id,e.team_id,e.player_id,e.snapshot_hash,e.dob)=\n          (r.league_id,r.team_id,r.player_id,r.snapshot_hash,r.squad_dob)\n  '), E'), classified as (', E'), verified_current as materialized (\n    select e.* from verified_official e\n    where e.season=current_season and e.verified_at<=now()\n      and not exists (\n        select 1 from public.fixtures f where f.league_id=e.league_id and f.status=''FINISHED''\n          and (f.home_team_id=e.team_id or f.away_team_id=e.team_id)\n          and f.kickoff_at>=make_timestamptz(e.season,1,1,0,0,0,''Asia/Seoul'')\n          and coalesce(f.post_match_sync_due_at,f.kickoff_at+interval ''3 hours'')>e.verified_at\n      )\n  ), classified as ('); if encode(sha256(convert_to(d, 'UTF8')), 'hex') <> '5362cac8d3c81ca8af976d54075e1eff19237c52d8b3adb0fea4587a77c5fe78' then raise exception 'UNEXPECTED_PATCH_RESULT'; end if; execute d; end $patch$;
+
+-- Rollback (not part of the forward change): restores the exact previous definition.
+-- do $rollback$ declare d text := pg_get_functiondef('public.get_admin_football_sync_health()'::regprocedure); begin d := replace(replace(d, E'), verified_current as materialized (\n    select e.* from verified_official e\n    where e.season=current_season and e.verified_at<=now()\n      and not exists (\n        select 1 from public.fixtures f where f.league_id=e.league_id and f.status=''FINISHED''\n          and (f.home_team_id=e.team_id or f.away_team_id=e.team_id)\n          and f.kickoff_at>=make_timestamptz(e.season,1,1,0,0,0,''Asia/Seoul'')\n          and coalesce(f.post_match_sync_due_at,f.kickoff_at+interval ''3 hours'')>e.verified_at\n      )\n  ), classified as (', E'), classified as ('), E'    left join verified_current e on (e.league_id,e.team_id,e.player_id,e.snapshot_hash,e.dob)=\n          (r.league_id,r.team_id,r.player_id,r.snapshot_hash,r.squad_dob)\n  ', E'    left join verified_official e on e.season=current_season\n      and (e.league_id,e.team_id,e.player_id,e.snapshot_hash,e.dob)=\n          (r.league_id,r.team_id,r.player_id,r.snapshot_hash,r.squad_dob)\n      and e.verified_at<=now()\n      and not exists (\n        select 1 from public.fixtures f where f.league_id=e.league_id and f.status=''FINISHED''\n          and (f.home_team_id=e.team_id or f.away_team_id=e.team_id)\n          and f.kickoff_at>=make_timestamptz(e.season,1,1,0,0,0,''Asia/Seoul'')\n          and coalesce(f.post_match_sync_due_at,f.kickoff_at+interval ''3 hours'')>e.verified_at\n      )\n  '); if md5(d) <> 'e985e4a56de4cede3bb898daa2f4ae22' then raise exception 'ROLLBACK_RESULT_MISMATCH %', md5(d); end if; execute d; end $rollback$
