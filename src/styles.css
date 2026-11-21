@@ -245,13 +245,8 @@ main:focus, h2:focus { outline: none; }
 .faq-list details p { margin: 0; padding: 0 25px 22px 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
 .text-button { display: inline-flex; align-items: center; gap: 10px; padding: 8px 0; border: 0; background: transparent; font-size: 14px; }
 .inquiry-form { margin-top: 26px; }
-.inquiry-form label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; font-size: 12px; font-weight: 500; color: #3b3b3b; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-row > * { min-width: 0; }
-.inquiry-form input, .inquiry-form textarea, .inquiry-form select { width: 100%; min-width: 0; border: 1px solid #d8d8d8; border-radius: 8px; padding: 12px; font-size: 14px; line-height: 1.5; color: #111; background: #fff; font-weight: 400; letter-spacing: -.025em; }
-.inquiry-form input, .inquiry-form select { min-height: 47px; }
-.inquiry-form textarea { resize: vertical; }
-.inquiry-form input::placeholder, .inquiry-form textarea::placeholder { color: #767676; }
 .form-note { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0 0 18px; }
 .form-submit { min-height: 50px; padding: 14px 24px; font-size: 14px; }
 .copy-status { color: #276340; font-size: 12px; line-height: 1.5; margin: 12px 0 0; }
@@ -389,7 +384,7 @@ main:focus, h2:focus { outline: none; }
 .app-toast button:hover { background: #213149; color: #fff; }
 .app-toast button:focus-visible { outline-color: #c5d8f2; }
 :root[data-theme="dark"] .app-toast { background: #eff5fd; border-color: #d4e1f2; color: #102034; }
-:root[data-theme="dark"] .app-toast button { color: #657b98; }
+:root[data-theme="dark"] .app-toast button { color: #4a5f7a; }
 :root[data-theme="dark"] .app-toast button:hover { background: #dbe6f4; color: #132b47; }
 :root[data-theme="dark"] .app-toast button:focus-visible { outline-color: #284d7c; }
 @keyframes toast-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
