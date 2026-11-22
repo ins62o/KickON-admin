@@ -11,6 +11,8 @@ test('execution history requests one server-paginated family and keeps scheduler
  assert.equal(syncHistoryResult({...row,source:'state',status:'unknown'}).label,'결과 미확인');
  assert.equal(syncHistoryFamily('kickon-team-squad-retry'),'squad');assert.equal(syncHistoryFamily('team-squad:2026:kleague:seoul'),'squad');
  assert.equal(syncHistoryFamily('sportmonks-post-match-v2:2026:kleague'),'post-match');
+ assert.equal(syncHistoryFamily('kickon-cron-history-retention'),'cron-retention');assert.equal(syncHistoryFamily('kickon-initial-football-history-backfill'),'history');
+ assert.equal(syncHistoryFamily('kickon-official-player-stats'),'official-stats');assert.equal(syncHistoryFamily('official-player-stats:2026'),'official-stats');
  assert.equal(syncHistoryFamily('new-job'),'new-job');
  assert.deepEqual(await readSyncHistory(client({total:0,rows:[]}),'',1),{total:0,rows:[]});
 });
