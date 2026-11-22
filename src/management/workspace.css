@@ -255,6 +255,13 @@
 .team-membership-dialog .workspace-tab-content .seed-tabs__trigger { flex:1; min-width:0; min-height:44px; padding:10px 8px; font-size:14px; white-space:nowrap; }
 .team-membership-group { min-width:0; padding:16px; border:1px solid var(--wm-line); border-radius:16px; }
 .team-membership-group dl { margin:0; }
+.team-membership-stack { display:grid; }
+.team-membership-stack > * { grid-area:1 / 1; min-width:0; }
+.team-membership-sizer { visibility:hidden; pointer-events:none; }
+/* The visible list takes the K League 1 height from the sizer and scrolls without a visible bar. */
+.team-membership-scroll[data-sized] { contain:size; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; }
+.team-membership-scroll::-webkit-scrollbar { display:none; }
+.team-membership-scroll:focus-visible { outline:2px solid var(--admin-primary); outline-offset:4px; border-radius:8px; }
 .team-membership-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:12px; min-height:50px; padding-block:8px; }
 .team-membership-row + .team-membership-row { border-top:1px solid var(--wm-line); }
 .team-membership-row dt { display:flex; align-items:center; gap:10px; min-width:0; font-size:14px; font-weight:500; }
