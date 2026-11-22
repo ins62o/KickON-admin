@@ -83,12 +83,15 @@ export async function readProviderUsage(client:SupabaseClient,allowance:number|n
   }catch{return {provider:{...parseProviderUsage(null,allowance),...(unavailableReason?{unavailableReason}:{})},failed:true};}
 }
 
-export async function readDashboard(client: SupabaseClient | null, allowance: number | null = null,environment?:"development"|"production"): Promise<DashboardData> {
-  const result: DashboardData = { summary: parseSummary(null), metrics: parseMetrics(null), trend: parseTrend(null), sync: [], provider: parseProviderUsage(null, allowance), errors: { provider: true, summary: true, metrics: true, trend: true, sync: true } };
+export async function readDashboard(client: SupabaseClient | null, allowance: number | null = null,environment?:"development"|"production",options:{provider?:boolean}={}): Promise<DashboardData> {
+  // The live provider check can take seconds; callers that render it separately pass provider:false.
+  const includeProvider=options.provider!==false;
+  const result: DashboardData = { summary: parseSummary(null), metrics: parseMetrics(null), trend: parseTrend(null), sync: [], provider: parseProviderUsage(null, allowance), errors: { provider: includeProvider, summary: true, metrics: true, trend: true, sync: true } };
   if (!client) return result;
   // Keep each read independent so one unavailable endpoint does not erase the rest.
   await Promise.allSettled([
     (async () => {
+      if(!includeProvider)return;
       const usage=await readProviderUsage(client,allowance,environment);
       result.provider=usage.provider;
       result.errors.provider=usage.failed;
