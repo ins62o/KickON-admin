@@ -91,3 +91,20 @@ test('missing provider configuration is surfaced after recorded quota expires bu
   assert.equal(fresh.provider.used,10);
   assert.equal(fresh.provider.unavailableReason,undefined);
 });
+
+test('the dashboard can skip the slow provider check so its own cards render first',async()=>{
+  const {readDashboard}=await import('../src/dashboard/data.ts');
+  const calls:string[]=[];
+  const rows={select(){return this;},order(){return this;},limit(){return this;},then(resolve:(value:unknown)=>void){resolve({data:[],error:null});}};
+  const client={
+    auth:{getSession:async()=>{calls.push('provider-session');return {data:{session:null},error:null};}},
+    rpc:async(name:string)=>{calls.push(name);if(name==='get_admin_provider_usage')throw Error('provider must not be read');return {data:null,error:{message:'unavailable'}};},
+    from:()=>rows,
+  };
+  const result=await readDashboard(client as never,2000,'production',{provider:false});
+  assert.equal(calls.includes('provider-session'),false);
+  assert.equal(calls.includes('get_admin_provider_usage'),false);
+  assert.equal(result.errors.provider,false);
+  assert.equal(result.provider.rate,null);
+  assert.deepEqual(calls.sort(),['admin_get_active_user_trend','admin_get_dashboard_metrics','admin_get_dashboard_summary']);
+});

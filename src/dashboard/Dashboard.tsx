@@ -5,10 +5,10 @@ import { authClient, authConfig } from "../auth/client";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { AdminHeader } from "./AdminHeader";
 import { pages, pageFromUrl, pageUrl, operationTabFromUrl, type OperationTab, type Page } from "./navigation";
-import { DashboardBodySkeleton } from "./DashboardSkeleton";
+import { DashboardBodySkeleton, ProviderGaugeSkeleton } from "./DashboardSkeleton";
 import { ActivityChart, ProviderGauge } from "./DashboardCharts";
 import { Toast } from "../components/Toast";
-import { readDashboard, syncStatus, type DashboardData } from "./data";
+import { parseProviderUsage, readDashboard, readProviderUsage, syncStatus, type DashboardData, type ProviderUsage } from "./data";
 import "./dashboard.css";
 import {UsersWorkspace} from "../management/UsersWorkspace";
 import {OperationsWorkspace} from "../management/OperationsWorkspace";
@@ -59,6 +59,7 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
   const content=useRef<HTMLElement>(null);
   const [period,setPeriod]=useState(7);
   const [data, setData] = useState<DashboardData>();
+  const [provider, setProvider] = useState<{provider:ProviderUsage;failed:boolean}>();
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedSync,setSelectedSync]=useState<SyncJob|null>(null);
@@ -66,21 +67,26 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
   useEffect(() => {
     if(page!=="dashboard")return;
     let disposed = false;
-    void readDashboard(authClient,authConfig?.providerAllowance??null,authConfig?.environment).then(result => {
+    const allowance=authConfig?.providerAllowance??null;
+    // Render the dashboard as soon as its own reads finish; the live provider check fills its card later.
+    void readDashboard(authClient,allowance,authConfig?.environment,{provider:false}).then(result => {
       if (disposed) return;
       setData(result); setLoading(false);
+    });
+    void (authClient?readProviderUsage(authClient,allowance,authConfig?.environment):Promise.resolve({provider:parseProviderUsage(null,allowance),failed:true})).then(result => {
+      if (!disposed) setProvider(result);
     });
     return () => { disposed = true; };
   }, [revision,page]);
   useEffect(()=>{
     if(page!=="dashboard")return;
     const update=()=>{if(!document.hidden)setRevision(value=>value+1);};
-    const resetAt=Date.parse(data?.provider.resetAt??"");
+    const resetAt=Date.parse(provider?.provider.resetAt??"");
     const delay=resetAt>Date.now()?Math.min(60000,resetAt-Date.now()+100):60000;
     const timer=setTimeout(update,delay);
     document.addEventListener("visibilitychange",update);
     return()=>{clearTimeout(timer);document.removeEventListener("visibilitychange",update);};
-  },[page,data]);
+  },[page,data,provider]);
   useEffect(() => {
     document.title = `킥온 데이터 센터 | ${pages[page]}`;
     if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
@@ -89,7 +95,7 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
   }, [page]);
   const total = data?.summary.totalProfiles ?? null;
   const rows = data?.sync ?? [];
-  const hasError = data && Object.values(data.errors).some(Boolean);
+  const hasError = (data && Object.values(data.errors).some(Boolean)) || provider?.failed;
   const warning = error || (page === "dashboard" && !loading && hasError ? "일부 현황을 불러오지 못했어요" : "");
   return <div className="dashboard-screen">
     <a href="#dashboard-main" className="skip-link">본문으로 바로가기</a>
@@ -107,7 +113,7 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
           <Metric {...metricLink("operations","attendances")} label="직관 인증" value={data?.metrics.attendances ?? null} unit="건" icon={Image} loading={loading} />
           <Metric {...metricLink("operations","inquiries")} label="1:1 문의" value={data?.metrics.openInquiries ?? null} unit="건" icon={Headset} loading={loading} />
         </section>
-        <div className="dashboard-charts"><ActivityChart trend={data?.trend} failed={Boolean(data?.errors.trend)} period={period} onPeriodChange={setPeriod}/>{data?<ProviderGauge quota={data.provider} failed={data.errors.provider}/>:null}</div>
+        <div className="dashboard-charts"><ActivityChart trend={data?.trend} failed={Boolean(data?.errors.trend)} period={period} onPeriodChange={setPeriod}/>{provider?<ProviderGauge quota={provider.provider} failed={provider.failed}/>:<ProviderGaugeSkeleton label="스포츠 API 사용량 불러오는 중"/>}</div>
         <section id="sync" className="dashboard-panel sync-panel" aria-labelledby="sync-heading">
           <div className="panel-heading"><h2 id="sync-heading">최근 동기화</h2></div>
           <div className="sync-table-wrap"><table><thead><tr><th scope="col">작업</th><th scope="col">최근 완료</th><th scope="col">상태</th></tr></thead><tbody>{!loading && !data?.errors.sync ? rows.map(row => { const status = syncStatus(row); return <tr key={row.sync_key} className="sync-row" onClick={event=>{event.currentTarget.querySelector("button")?.focus({preventScroll:true});setSelectedSync({...row,season:null,league_id:null});}}><th scope="row"><button type="button" className="sync-row-trigger" aria-haspopup="dialog">{syncName(row.sync_key)}</button></th><td>{time(row.last_succeeded_at)}</td><td><span className={`sync-status sync-status-${status}`}><i aria-hidden="true" />{statusLabels[status]}</span></td></tr>; }) : null}</tbody></table></div>
