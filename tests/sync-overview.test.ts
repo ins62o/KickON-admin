@@ -8,10 +8,11 @@ const cron:CronJob={job_id:1,job_name:'kickon-live-football-sync',schedule:'* * 
 test('automatic jobs include football, notifications, settlement, monitoring and housekeeping without changing the input',()=>{
  const names=['kickon-live-football-sync','kickon-post-match-football-sync','kickon-initial-football-history-backfill','kickon-team-squad-refresh','kickon-team-squad-retry','kickon-team-metrics-reconciliation'];
  assert.equal(new Set(names.map(name=>syncTask(name).name)).size,6);
- const all=[...names,'kickon-admin-resource-monitoring','kickon-push-outbox-recovery','kickon-football-provider-usage-retention','kickon-attendance-reminder','kickon-match-prediction-settlement','future-job'];
+ const all=[...names,'kickon-admin-resource-monitoring','kickon-push-outbox-recovery','kickon-football-provider-usage-retention','kickon-cron-history-retention','kickon-attendance-reminder','kickon-match-prediction-settlement','future-job'];
  const rows=all.map((job_name,job_id)=>({...cron,job_name,job_id}));
- assert.equal(automaticSyncJobs(rows).length,12);assert.deepEqual(rows.map(row=>row.job_name),all);
- assert.equal(new Set(all.map(name=>syncTask(name).name)).size,12);
+ assert.equal(automaticSyncJobs(rows).length,13);assert.deepEqual(rows.map(row=>row.job_name),all);
+ assert.equal(new Set(all.map(name=>syncTask(name).name)).size,13);
+ assert.equal(syncTask('kickon-cron-history-retention').name,'예약 실행 기록 정리');
  assert.equal(syncTask('kickon-push-outbox-recovery-dev').name,'푸시 발송 복구');
  assert.ok(syncTask('kickon-attendance-reminder').rules?.some(([,text])=>text.includes('한 번만')));
  assert.ok(syncTask('kickon-match-prediction-settlement').rules?.some(([,text])=>text.includes('500P')));
