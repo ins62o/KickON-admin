@@ -32,6 +32,13 @@ const tasks:(SyncTask&{match:RegExp})[]=[
  {match:/football-provider-usage-retention/,name:'스포츠 API 사용 기록 정리',description:'보관 기간이 지난 스포츠 API 호출 기록을 정리해요'},
  // Must precede /history/, which would otherwise claim this housekeeping job.
  {match:/cron-history-retention/,name:'예약 실행 기록 정리',description:'14일이 지난 성공 실행 기록과 90일이 지난 나머지 실행 기록을 정리해요'},
+ {match:/official-player-stats/,name:'공식 기록 대조',description:'K리그 공식 기록으로 선수 출전·골 보정을 맞추고 다른 값은 확인 필요로 남겨요',rules:[
+  ['확인 시각','매일 05시에 구단별 공식 선수 기록을 확인해요'],
+  ['선수 확인','구단과 한글 이름으로 찾고, 같은 이름은 등번호로 구분해요. 구분되지 않으면 바꾸지 않아요'],
+  ['보정 처리','스포츠 API 값이 공식 기록과 같아지면 보정을 해제하고, 다르면 보정 값을 공식 기록으로 바꿔요'],
+  ['확인 필요','보정이 없는 선수의 값이 공식 기록과 다르면 바꾸지 않고 실행 내역에 남겨요'],
+  ['실패 처리','한 구단이라도 공식 기록을 읽지 못하면 아무것도 바꾸지 않아요'],
+ ]},
  {match:/live/,name:'실시간 경기',description:'경기 전 라인업과 진행 중인 경기의 상태·스코어를 확인해요',rules:[
   ['라인업 조회','경기 시작 2시간 전부터 시작 전까지 매분 확인하고, 확정된 라인업과 변경 내용을 반영해요'],
   ['실시간 조회 시작','경기 시작 15분 전부터 경기 상태와 스코어를 확인해요'],

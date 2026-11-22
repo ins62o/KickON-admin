@@ -4,7 +4,7 @@ import {cronResult,syncRunResult} from './sync-model.ts';
 export type SyncHistoryRow={id:string;source:'schedule'|'run'|'state';job_key:string;status:string;started_at:string;finished_at:string|null;last_succeeded_at:string|null;message:string|null;season:number|null;league_id:string|null;target_id:string|null;trigger_type:string|null;counts:{inserted:number|null;updated:number|null;skipped:number|null;failed:number|null}|null;quarantines:{name:string;reason:string}[]};
 export type SyncHistory={total:number;rows:SyncHistoryRow[]};
 export const historySources={schedule:'예약 실행',run:'데이터 처리',state:'최근 처리 상태'};
-const families:[RegExp,string][]=[[/push-outbox-recovery/,'push'],[/attendance-reminder/,'attendance'],[/match-prediction-settlement/,'prediction'],[/admin-resource-monitoring/,'resources'],[/football-provider-usage-retention/,'retention'],[/post-match/,'post-match'],[/history/,'history'],[/squad/,'squad'],[/team-metrics/,'metrics'],[/live/,'live'],[/lineup/,'lineup'],[/goal-backfill/,'goals']];
+const families:[RegExp,string][]=[[/push-outbox-recovery/,'push'],[/attendance-reminder/,'attendance'],[/match-prediction-settlement/,'prediction'],[/admin-resource-monitoring/,'resources'],[/football-provider-usage-retention/,'retention'],[/cron-history-retention/,'cron-retention'],[/official-player-stats/,'official-stats'],[/post-match/,'post-match'],[/history/,'history'],[/squad/,'squad'],[/team-metrics/,'metrics'],[/live/,'live'],[/lineup/,'lineup'],[/goal-backfill/,'goals']];
 export const syncHistoryFamily=(key:string)=>families.find(([pattern])=>pattern.test(key))?.[1]??key;
 export function syncHistoryFinishedAt(row:SyncHistoryRow){
  if(row.source!=='state')return row.finished_at;
