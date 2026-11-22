@@ -92,6 +92,33 @@ test('missing provider configuration is surfaced after recorded quota expires bu
   assert.equal(fresh.provider.unavailableReason,undefined);
 });
 
+test('recorded usage is read first and only a record older than a minute needs a live check',async()=>{
+  const {readRecordedProviderUsage,recordedUsageIsFresh}=await import('../src/dashboard/data.ts');
+  const now=Date.parse('2026-11-22T03:00:00Z');
+  let observedAt=new Date(now-20_000).toISOString();
+  const query={eq(){return this;},order(){return this;},async limit(){return {data:[{observed_at:observedAt,requested_entity:'Fixture',remaining:1990,resets_in_seconds:600}],error:null};}};
+  const client={rpc:()=>query};
+  const fresh=await readRecordedProviderUsage(client as never,2000,now);
+  assert.equal(fresh.provider.used,10);assert.equal(fresh.observedAt,observedAt);assert.equal(recordedUsageIsFresh(fresh.observedAt,now),true);
+  observedAt=new Date(now-90_000).toISOString();
+  const stale=await readRecordedProviderUsage(client as never,2000,now);
+  assert.equal(stale.provider.used,10);assert.equal(recordedUsageIsFresh(stale.observedAt,now),false);
+  observedAt=new Date(now-700_000).toISOString();
+  const expired=await readRecordedProviderUsage(client as never,2000,now);
+  assert.equal(expired.provider.remaining,null);assert.equal(expired.observedAt,null);assert.equal(recordedUsageIsFresh(expired.observedAt,now),false);
+  assert.equal(recordedUsageIsFresh(null,now),false);assert.equal(recordedUsageIsFresh(new Date(now+5_000).toISOString(),now),false);
+  const failed=await readRecordedProviderUsage({rpc:()=>{throw Error('offline');}} as never,2000,now);
+  assert.equal(failed.failed,true);assert.equal(failed.observedAt,null);
+});
+
+test('a failed live check reuses the record already read instead of querying it again',async()=>{
+  const {readProviderUsage,parseProviderUsage}=await import('../src/dashboard/data.ts');
+  const client={auth:{getSession:async()=>({data:{session:{access_token:'admin-session'}},error:null})},rpc:()=>{throw Error('the record was already read');}};
+  const provider=parseProviderUsage([{observed_at:new Date().toISOString(),requested_entity:'Fixture',remaining:1980,resets_in_seconds:600}],2000);
+  const result=await readProviderUsage(client as never,2000,'production',async()=>Response.json({error:'unavailable'},{status:503}),{provider,failed:false,observedAt:new Date().toISOString()});
+  assert.equal(result.provider.used,20);assert.equal(result.failed,false);
+});
+
 test('the dashboard can skip the slow provider check so its own cards render first',async()=>{
   const {readDashboard}=await import('../src/dashboard/data.ts');
   const calls:string[]=[];
