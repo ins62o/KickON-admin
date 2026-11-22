@@ -30,6 +30,8 @@ const tasks:(SyncTask&{match:RegExp})[]=[
  ]},
  {match:/admin-resource-monitoring/,name:'서버 자원 수집',description:'서버 자원과 DB·파일 저장 용량을 수집해 서버 모니터링에 반영해요'},
  {match:/football-provider-usage-retention/,name:'스포츠 API 사용 기록 정리',description:'보관 기간이 지난 스포츠 API 호출 기록을 정리해요'},
+ // Must precede /history/, which would otherwise claim this housekeeping job.
+ {match:/cron-history-retention/,name:'예약 실행 기록 정리',description:'14일이 지난 성공 실행 기록과 90일이 지난 나머지 실행 기록을 정리해요'},
  {match:/live/,name:'실시간 경기',description:'경기 전 라인업과 진행 중인 경기의 상태·스코어를 확인해요',rules:[
   ['라인업 조회','경기 시작 2시간 전부터 시작 전까지 매분 확인하고, 확정된 라인업과 변경 내용을 반영해요'],
   ['실시간 조회 시작','경기 시작 15분 전부터 경기 상태와 스코어를 확인해요'],
