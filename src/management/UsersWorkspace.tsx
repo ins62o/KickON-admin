@@ -28,14 +28,24 @@ function TeamMembershipCounts({catalogue,members}:{catalogue:Catalogue;members:M
   const items=[{value:"kleague",label:"K리그 1"},{value:"kleague2",label:"K리그 2"},...(unclassified.length||extras.length?[{value:"unknown",label:"미분류"}]:[])];
   const teams=rankTeamsByMembers(league==="unknown"?unclassified:catalogue.teams.filter(team=>teamLeague(catalogue.standings,team.id)===league),counts);
   const additional=league==="unknown"?extras:[];
-  const rows=[...teams.map(team=>({key:team.id,team,label:team.name,count:counts.get(team.id)??0})),...additional.map(row=>({...row,key:row.label,team:undefined}))];
-  const maximum=Math.max(1,...rows.map(row=>row.count));
+  const toRows=(list:typeof teams)=>list.map(team=>({key:team.id,team,label:team.name,count:counts.get(team.id)??0}));
+  const rows=[...toRows(teams),...additional.map(row=>({...row,key:row.label,team:undefined}))];
+  // K League 1 sets the list height for every tab; longer lists scroll inside it.
+  const baseRows=toRows(rankTeamsByMembers(catalogue.teams.filter(team=>teamLeague(catalogue.standings,team.id)==="kleague"),counts));
+  const list=(entries:typeof rows)=>{
+    const maximum=Math.max(1,...entries.map(row=>row.count));
+    return <dl>{entries.map(row=><div className="team-membership-row" key={row.key}>
+      <dt><TeamMark team={row.team}/><span>{row.label}</span></dt>
+      <dd><span className="team-membership-bar" aria-hidden="true"><span style={{width:`${row.count/maximum*100}%`}}/></span><span className="team-membership-value">{row.count.toLocaleString("ko-KR")}<small>명</small></span></dd>
+    </div>)}</dl>;
+  };
+  const label=leagueLabel(league==="unknown"?null:league);
   return <WorkspaceTabs label="가입 현황 리그" value={league} items={items} onChange={setLeague}>
-    {!rows.length?<Empty message="이 리그에 등록된 구단이 없어요"/>:<section className="team-membership-group" aria-label={leagueLabel(league==="unknown"?null:league)}>
-      <dl>{rows.map(row=><div className="team-membership-row" key={row.key}>
-        <dt><TeamMark team={row.team}/><span>{row.label}</span></dt>
-        <dd><span className="team-membership-bar" aria-hidden="true"><span style={{width:`${row.count/maximum*100}%`}}/></span><span className="team-membership-value">{row.count.toLocaleString("ko-KR")}<small>명</small></span></dd>
-      </div>)}</dl>
+    {!rows.length?<Empty message="이 리그에 등록된 구단이 없어요"/>:<section className="team-membership-group" aria-label={label}>
+      <div className="team-membership-stack">
+        {baseRows.length?<div className="team-membership-sizer" aria-hidden="true" inert>{list(baseRows)}</div>:null}
+        <div className="team-membership-scroll" data-sized={baseRows.length>0||undefined} tabIndex={0} role="region" aria-label={`${label} 구단 목록`}>{list(rows)}</div>
+      </div>
     </section>}
   </WorkspaceTabs>;
 }

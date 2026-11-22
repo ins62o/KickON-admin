@@ -308,19 +308,23 @@ async function auditDropdowns(page,scope){
   await opener.focus();await page.keyboard.press('Enter');const modal=page.getByRole('dialog',{name:'구단별 가입 현황',exact:true});await modal.waitFor();
   assert.deepEqual(await modal.getByRole('tab').allTextContents(),['K리그 1','K리그 2','미분류']);
   const groups=modal.locator('.team-membership-group');assert.equal(await groups.count(),1);assert.equal(await modal.getByRole('tab',{name:'K리그 1',exact:true}).getAttribute('aria-selected'),'true');
-  const counts=await modal.locator('.team-membership-row dd').allTextContents();assert.equal(counts.length,5);
-  assert.equal(await modal.locator('.team-membership-bar > span').count(),5);
-  const ratios=await modal.locator('.team-membership-bar').evaluateAll(bars=>bars.map(bar=>bar.firstElementChild.getBoundingClientRect().width/bar.getBoundingClientRect().width));
+  // The hidden K League 1 sizer repeats rows for height; assertions read the visible list only.
+  const list=modal.locator('.team-membership-scroll');
+  const counts=await list.locator('.team-membership-row dd').allTextContents();assert.equal(counts.length,5);
+  assert.equal(await list.locator('.team-membership-bar > span').count(),5);
+  const ratios=await list.locator('.team-membership-bar').evaluateAll(bars=>bars.map(bar=>bar.firstElementChild.getBoundingClientRect().width/bar.getBoundingClientRect().width));
   assert.ok(Math.abs(ratios[0]-1)<.01);assert.ok(Math.abs(ratios.at(-1)-2/3)<.01);
-  assert.equal(await modal.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('dd').textContent(),'3명');
-  assert.deepEqual(await groups.first().locator('dd').allTextContents(),['3명','3명','3명','2명','2명']);
-  assert.equal(await modal.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('img').getAttribute('src'),'/teams/team-0.webp');
+  assert.equal(await list.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('dd').textContent(),'3명');
+  assert.deepEqual(await list.locator('dd').allTextContents(),['3명','3명','3명','2명','2명']);
+  assert.equal(await list.locator('.team-membership-row').filter({hasText:'FC 서울'}).locator('img').getAttribute('src'),'/teams/team-0.webp');
   await modal.getByRole('tab',{name:'K리그 1',exact:true}).focus();await page.keyboard.press('ArrowRight');
   assert.equal(await modal.getByRole('tab',{name:'K리그 2',exact:true}).getAttribute('aria-selected'),'true');assert.equal(await groups.count(),1);
-  counts.push(...await modal.locator('.team-membership-row dd').allTextContents());assert.equal(await modal.getByText('FC 서울',{exact:true}).count(),0);await modal.getByText('수원 삼성',{exact:true}).waitFor();
-  assert.equal(await modal.locator('.team-membership-bar').evaluateAll(bars=>bars.every(bar=>Math.abs(bar.firstElementChild.getBoundingClientRect().width-bar.getBoundingClientRect().width)<1)),true,'Bars scale to the selected league');
+  counts.push(...await list.locator('.team-membership-row dd').allTextContents());assert.equal(await list.getByText('FC 서울',{exact:true}).count(),0);
+  const heights=await Promise.all([list,modal.locator('.team-membership-sizer')].map(item=>item.evaluate(element=>element.getBoundingClientRect().height)));assert.ok(Math.abs(heights[0]-heights[1])<1,'Every league list keeps the K League 1 height');
+ await modal.getByText('수원 삼성',{exact:true}).waitFor();
+  assert.equal(await list.locator('.team-membership-bar').evaluateAll(bars=>bars.every(bar=>Math.abs(bar.firstElementChild.getBoundingClientRect().width-bar.getBoundingClientRect().width)<1)),true,'Bars scale to the selected league');
   await page.keyboard.press('ArrowRight');assert.equal(await modal.getByRole('tab',{name:'미분류',exact:true}).getAttribute('aria-selected'),'true');
-  counts.push(...await modal.locator('.team-membership-row dd').allTextContents());assert.equal(counts.reduce((sum,count)=>sum+Number(count.replace(/[^0-9]/g,'')),0),23);
+  counts.push(...await list.locator('.team-membership-row dd').allTextContents());assert.equal(counts.reduce((sum,count)=>sum+Number(count.replace(/[^0-9]/g,'')),0),23);
   await page.keyboard.press('Home');assert.equal(await modal.getByRole('tab',{name:'K리그 1',exact:true}).getAttribute('aria-selected'),'true');
   for(const width of [1440,390,320]){
    await page.setViewportSize({width,height:900});
