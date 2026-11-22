@@ -24,10 +24,13 @@ export function parseMetrics(value: unknown): Metrics {
   return { posts: count(row.posts), attendances: count(row.attendances), openInquiries: count(row.openInquiries) };
 }
 
+function fixtureObservations(value: unknown, now: number) {
+  return (Array.isArray(value) ? value : []).map(object).filter(row => row.requested_entity === "Fixture" && timestamp(row.observed_at) && Date.parse(row.observed_at as string) <= now).sort((a,b) => Date.parse(b.observed_at as string)-Date.parse(a.observed_at as string));
+}
+
 export function parseProviderUsage(value: unknown, allowance: number | null, now = Date.now()): ProviderUsage {
   const limit = allowance !== null && count(allowance) !== null && allowance > 0 ? allowance : null;
-  const rows = (Array.isArray(value) ? value : []).map(object).filter(row => row.requested_entity === "Fixture" && timestamp(row.observed_at) && Date.parse(row.observed_at as string) <= now).sort((a,b) => Date.parse(b.observed_at as string)-Date.parse(a.observed_at as string));
-  const row=rows[0];
+  const row=fixtureObservations(value,now)[0];
   const resets=row ? count(row.resets_in_seconds) : null;
   const resetAt=row && resets !== null ? Date.parse(row.observed_at as string)+resets*1000 : null;
   const remaining=row && resetAt !== null && resetAt > now ? count(row.remaining) : null;
@@ -61,7 +64,27 @@ export function syncStatus(row: Pick<SyncRow, "last_succeeded_at" | "last_error"
   return result.tone==='orange'?'error':result.tone==='green'?'normal':'unknown';
 }
 
-export async function readProviderUsage(client:SupabaseClient,allowance:number|null,environment?:"development"|"production",fetcher:typeof fetch=fetch):Promise<{provider:ProviderUsage;failed:boolean}>{
+// A recorded figure this recent is as current as a live check, so the Sportmonks call can be skipped.
+export const RECORDED_USAGE_FRESH_MS=60_000;
+export type RecordedProviderUsage={provider:ProviderUsage;failed:boolean;observedAt:string|null};
+
+// Usage the sync jobs already recorded: a quick database read the card can show before any live check.
+export async function readRecordedProviderUsage(client:SupabaseClient,allowance:number|null,now=Date.now()):Promise<RecordedProviderUsage>{
+  try{
+    const {data,error}=await client.rpc("get_admin_provider_usage",{since_at:new Date(now-86400000).toISOString()}).eq("requested_entity","Fixture").order("observed_at",{ascending:false}).limit(1);
+    const rows=error?null:data;
+    const provider=parseProviderUsage(rows,allowance,now);
+    const observedAt=provider.remaining===null?null:timestamp(fixtureObservations(rows,now)[0]?.observed_at);
+    return {provider,failed:Boolean(error),observedAt};
+  }catch{return {provider:parseProviderUsage(null,allowance,now),failed:true,observedAt:null};}
+}
+
+export function recordedUsageIsFresh(observedAt:string|null,now=Date.now()){
+  const at=Date.parse(observedAt??"");
+  return Number.isFinite(at)&&at<=now&&now-at<RECORDED_USAGE_FRESH_MS;
+}
+
+export async function readProviderUsage(client:SupabaseClient,allowance:number|null,environment?:"development"|"production",fetcher:typeof fetch=fetch,recorded?:RecordedProviderUsage):Promise<{provider:ProviderUsage;failed:boolean}>{
   let unavailableReason:ProviderUsage["unavailableReason"];
   if(environment){
     try{
@@ -76,11 +99,8 @@ export async function readProviderUsage(client:SupabaseClient,allowance:number|n
       }
     }catch{/* A fresh recorded observation can still be used when live measurement is unavailable. */}
   }
-  try{
-    const {data,error}=await client.rpc("get_admin_provider_usage",{since_at:new Date(Date.now()-86400000).toISOString()}).eq("requested_entity","Fixture").order("observed_at",{ascending:false}).limit(1);
-    const provider=parseProviderUsage(error?null:data,allowance);
-    return {provider:provider.rate===null&&unavailableReason?{...provider,unavailableReason}:provider,failed:Boolean(error)};
-  }catch{return {provider:{...parseProviderUsage(null,allowance),...(unavailableReason?{unavailableReason}:{})},failed:true};}
+  const fallback=recorded??await readRecordedProviderUsage(client,allowance);
+  return {provider:fallback.provider.rate===null&&unavailableReason?{...fallback.provider,unavailableReason}:fallback.provider,failed:fallback.failed};
 }
 
 export async function readDashboard(client: SupabaseClient | null, allowance: number | null = null,environment?:"development"|"production",options:{provider?:boolean}={}): Promise<DashboardData> {

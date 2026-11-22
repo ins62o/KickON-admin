@@ -8,7 +8,7 @@ import { pages, pageFromUrl, pageUrl, operationTabFromUrl, type OperationTab, ty
 import { DashboardBodySkeleton, ProviderGaugeSkeleton } from "./DashboardSkeleton";
 import { ActivityChart, ProviderGauge } from "./DashboardCharts";
 import { Toast } from "../components/Toast";
-import { parseProviderUsage, readDashboard, readProviderUsage, syncStatus, type DashboardData, type ProviderUsage } from "./data";
+import { parseProviderUsage, readDashboard, readProviderUsage, readRecordedProviderUsage, recordedUsageIsFresh, syncStatus, type DashboardData, type ProviderUsage } from "./data";
 import "./dashboard.css";
 import {UsersWorkspace} from "../management/UsersWorkspace";
 import {OperationsWorkspace} from "../management/OperationsWorkspace";
@@ -73,9 +73,16 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
       if (disposed) return;
       setData(result); setLoading(false);
     });
-    void (authClient?readProviderUsage(authClient,allowance,authConfig?.environment):Promise.resolve({provider:parseProviderUsage(null,allowance),failed:true})).then(result => {
-      if (!disposed) setProvider(result);
-    });
+    void (async()=>{
+      if(!authClient){setProvider({provider:parseProviderUsage(null,allowance),failed:true});return;}
+      // Show the usage the sync jobs recorded right away; only ask Sportmonks when that record is over a minute old.
+      const recorded=await readRecordedProviderUsage(authClient,allowance);
+      if(disposed)return;
+      if(recorded.provider.remaining!==null)setProvider({provider:recorded.provider,failed:false});
+      if(recordedUsageIsFresh(recorded.observedAt))return;
+      const live=await readProviderUsage(authClient,allowance,authConfig?.environment,fetch,recorded);
+      if(!disposed)setProvider(live);
+    })();
     return () => { disposed = true; };
   }, [revision,page]);
   useEffect(()=>{
