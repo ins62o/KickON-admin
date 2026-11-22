@@ -49,6 +49,31 @@
   --admin-control-radius:12px;
   --admin-input-radius:12px;
   --admin-shadow:0 8px 32px #192f4c12;
+  /* Kickon data center design system tokens; values match the shipped screens. */
+  --logo-navy:#0d1622;
+  --logo-blue:#006acc;
+  --chart-yellow:#eab308;
+  --chart-red:#f04452;
+  --app-toast-bg:#333d4b;
+  --app-toast-ink:#ffffff;
+  --app-toast-action:#b4c4d9;
+  --app-toast-action-hover:#213149;
+  --dialog-backdrop:#0b142080;
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-7:28px;
+  --space-8:32px;
+  --space-10:40px;
+  --radius-xs:5px;
+  --radius-select:10px;
+  --radius-close:14px;
+  --radius-toast:16px;
+  --radius-dialog:28px;
+  --radius-pill:9999px;
 }
 :root[data-theme="dark"][data-seed-color-mode] {
   --seed-color-fg-brand:#90c2ff;
@@ -78,6 +103,11 @@
   --admin-focus:#90c2ff;
   --admin-chart-blue:#6ba9ff;
   --admin-shadow:0 12px 40px #00000040;
+  /* The toast flips to a light surface in the dark theme so it stands out. */
+  --app-toast-bg:#eff5fd;
+  --app-toast-ink:#102034;
+  --app-toast-action:#4a5f7a;
+  --app-toast-action-hover:#dbe6f4;
 }
 /* Keep native controls and the remaining admin surfaces on the same color roles. */
 :root[data-theme][data-seed-color-mode] {

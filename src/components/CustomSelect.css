@@ -1,5 +1,5 @@
 .seed-admin-select { min-width:112px; max-width:100%; }
-.seed-admin-select > button { width:100%; height:44px; min-height:44px; padding-inline:14px; border-radius:10px; background:var(--admin-subtle); box-shadow:none; }
+.seed-admin-select > button { width:100%; height:44px; min-height:44px; padding-inline:14px; border-radius:var(--radius-select); background:var(--admin-subtle); box-shadow:none; }
 .seed-admin-select > button:not([data-disabled]):hover { background:var(--admin-inset); }
 .seed-admin-select > button:is([data-open],[aria-expanded="true"]) { box-shadow:inset 0 0 0 1px var(--admin-focus); }
 .seed-admin-select .seed-select-trigger__value { font-size:14px; line-height:22px; font-weight:500; }

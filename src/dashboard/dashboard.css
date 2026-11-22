@@ -70,7 +70,7 @@
 .chart-legend > span { display:inline-flex; align-items:center; gap:6px; }
 .chart-legend i { width:7px; height:7px; border-radius:50%; }
 .legend-dau { background:var(--dashboard-blue); }
-.legend-mau { background:#eab308; }
+.legend-mau { background:var(--chart-yellow); }
 .line-chart { display:grid; grid-template-columns:34px minmax(0,1fr); gap:8px; height:200px; }
 .chart-scale { display:flex; flex-direction:column; justify-content:space-between; padding:3px 0 29px; color:var(--admin-quiet); font-size:12px; font-variant-numeric:tabular-nums; }
 .line-plot { position:relative; min-width:0; }
@@ -78,7 +78,7 @@
 .line-grid { stroke:var(--admin-line); stroke-width:1; stroke-dasharray:3 5; vector-effect:non-scaling-stroke; }
 .trend-line { fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
 .trend-dau { stroke:var(--dashboard-blue); }.point-dau { fill:var(--dashboard-blue); }
-.trend-mau { stroke:#eab308; }.point-mau { fill:#eab308; }
+.trend-mau { stroke:var(--chart-yellow); }.point-mau { fill:var(--chart-yellow); }
 .line-day { position:absolute; top:0; bottom:0; padding:0; border:0; border-radius:8px; background:transparent; }
 .line-day:hover,.line-day-selected { background:color-mix(in srgb,var(--admin-selected) 24%,transparent); }
 .line-day:disabled { opacity:1!important; cursor:default!important; }
@@ -96,8 +96,8 @@
 .quota-track,.quota-fill { fill:none; stroke-width:19; stroke-linecap:round; }
 .quota-track { stroke:var(--admin-subtle); }
 .quota-fill { stroke:var(--dashboard-blue); transition:stroke-dasharray 1000ms cubic-bezier(.2,.7,.2,1),stroke 180ms; }
-.provider-gauge[data-usage-level="warning"] .quota-fill { stroke:#eab308; }
-.provider-gauge[data-usage-level="critical"] .quota-fill { stroke:#f04452; }
+.provider-gauge[data-usage-level="warning"] .quota-fill { stroke:var(--chart-yellow); }
+.provider-gauge[data-usage-level="critical"] .quota-fill { stroke:var(--chart-red); }
 .provider-limit { margin:0 0 24px; color:var(--admin-quiet); text-align:center; font-size:12px; }
 .gauge-totals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:auto; }
 .gauge-totals > div { padding:12px; border-radius:12px; background:var(--admin-subtle); }
