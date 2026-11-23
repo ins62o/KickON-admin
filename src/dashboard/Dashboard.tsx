@@ -4,13 +4,13 @@ import type { AdminIdentity } from "../auth/policy";
 import { authClient, authConfig } from "../auth/client";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { AdminHeader } from "./AdminHeader";
-import { pages, pageFromUrl, pageUrl, operationTabFromUrl, type OperationTab, type Page } from "./navigation";
+import { pages, pageFromUrl, pageUrl, operationTabFromUrl, dataTabFromUrl, type OperationTab, type Page } from "./navigation";
 import { DashboardBodySkeleton, ProviderGaugeSkeleton } from "./DashboardSkeleton";
 import { ActivityChart, ProviderGauge } from "./DashboardCharts";
 import { Toast } from "../components/Toast";
 import { parseProviderUsage, readDashboard, readProviderUsage, readRecordedProviderUsage, recordedUsageIsFresh, syncStatus, type DashboardData, type ProviderUsage } from "./data";
 import "./dashboard.css";
-import {WorkspaceSkeleton} from "../management/WorkspaceSkeleton";
+import {WorkspacePageSkeleton} from "../management/WorkspaceSkeleton";
 import {syncTask} from "../management/sync-model";
 import type {SyncJob} from "../management/data";
 import "../management/workspace.css";
@@ -140,9 +140,9 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
         </section>
         </>}
         </div>
-        <div hidden={page!=="users"}>{usersVisited?<LoadBoundary><Suspense fallback={<WorkspaceSkeleton/>}><UsersWorkspace active={page==="users"}/></Suspense></LoadBoundary>:null}</div>
+        <div hidden={page!=="users"}>{usersVisited?<LoadBoundary><Suspense fallback={<WorkspacePageSkeleton stats={3}/>}><UsersWorkspace active={page==="users"}/></Suspense></LoadBoundary>:null}</div>
         {selectedSync?<LoadBoundary key={selectedSync.sync_key} inline><Suspense fallback={null}><SyncDetailDialog selection={{kind:"state",job:selectedSync}} onClose={()=>setSelectedSync(null)}/></Suspense></LoadBoundary>:null}
-        {page === "operations" || page === "data" ? <LoadBoundary key={page}><Suspense fallback={<WorkspaceSkeleton/>}>{page === "operations" ? <OperationsWorkspace admin={admin} tab={operationTab} onTabChange={tab=>navigate("operations",tab)}/> : <DataWorkspace admin={admin}/>}</Suspense></LoadBoundary> : null}
+        {page === "operations" || page === "data" ? <LoadBoundary key={page}><Suspense fallback={page === "operations" ? <WorkspacePageSkeleton stats={3} tabs={7}/> : (dataTabFromUrl(window.location.href) === "monitoring" ? <WorkspacePageSkeleton stats={0} tabs={5} tabsFirst shape="monitor"/> : <WorkspacePageSkeleton stats={4} tabs={5} tabsFirst/>)}>{page === "operations" ? <OperationsWorkspace admin={admin} tab={operationTab} onTabChange={tab=>navigate("operations",tab)}/> : <DataWorkspace admin={admin}/>}</Suspense></LoadBoundary> : null}
         </div>
       </main>
     </div>

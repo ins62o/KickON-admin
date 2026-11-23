@@ -32,7 +32,7 @@ export function AutomaticSyncDialog({jobName,job,loading,error,health,healthErro
   ['경기 중 조회','약 7초 간격'],
  ]:row?[['조회 주기',syncScheduleLabel(row.schedule)]]:[];
  return <Dialog title={syncTask(jobName).name} className="sync-automatic-dialog" pending={pending} onClose={onClose}>
-  {loading?<WorkspaceSkeleton/>:error?<Empty error={error} retry={onRetry}/>:row&&current?<>
+  {loading?<WorkspaceSkeleton shape="detail"/>:error?<Empty error={error} retry={onRetry}/>:row&&current?<>
    <div className="sync-health-header"><div className="sync-health-summary" role="status"><StatusBadge status={current}/><p>{current.detail}</p></div>
     {leagueStates.length?<div className="sync-league-statuses" role="group" aria-label="리그별 상태">{leagueStates.map(({id,status})=><span key={id} className="sync-league-status"><span>{leagueLabel(id)}</span><StatusBadge status={status}/></span>)}</div>:null}
    </div>

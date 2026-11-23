@@ -32,7 +32,7 @@ function ReleaseForm({platform,release,canEdit,refreshing,onSaved,onMessage}:{pl
 
 function ReleaseHistory(){
   const history=useResource(readAppReleaseHistory),[page,setPage]=useState(1);
-  if(history.loading)return <WorkspaceSkeleton/>;
+  if(history.loading)return <WorkspaceSkeleton rows={3} rowHeight={57}/>;
   if(history.error)return <Empty error={history.error} retry={history.reload}/>;
   if(!history.data?.length)return <Empty message="아직 변경 이력이 없어요"/>;
   return <><div className="workspace-table-wrap"><table className="workspace-table app-release-history" aria-label="앱 업데이트 변경 이력">
@@ -50,7 +50,7 @@ export function AppReleaseManager({admin}:{admin:AdminIdentity}){
   const canEdit=admin.role==='admin'||admin.role==='super_admin';
   const reload=()=>{releases.reload();setRevision(value=>value+1);};
   return <section className="workspace-panel app-release-panel"><div className="workspace-toolbar app-release-heading"><h2>앱 업데이트</h2><Refresh onClick={reload} disabled={releases.loading}/></div>
-    {releases.loading&&!releases.data?<WorkspaceSkeleton/>:releases.error?<Empty error={releases.error} retry={reload}/>:<>
+    {releases.loading&&!releases.data?<WorkspaceSkeleton shape="cards"/>:releases.error?<Empty error={releases.error} retry={reload}/>:<>
       {!canEdit?<p className="app-release-readonly">설정 변경은 관리자와 최고 관리자만 할 수 있어요</p>:null}
       <div className="app-release-grid">{platforms.map(platform=>{const release=releases.data?.find(row=>row.platform===platform.value);return <ReleaseForm key={`${platform.value}:${release?.updated_at}:${release?.version}:${release?.enabled}`} platform={platform} release={release} canEdit={canEdit} refreshing={releases.loading} onSaved={reload} onMessage={setMessage}/>;})}</div>
     </>}

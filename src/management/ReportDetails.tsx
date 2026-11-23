@@ -30,7 +30,7 @@ function ReportContent({report,teams,writable,pending,onSubmit}:{report:ReportDe
 export function ReportDetails({reportId,teams,...actions}:{reportId:string;teams:Team[]}&Actions){
   const load=useCallback(()=>readReport(reportId),[reportId]);
   const report=useResource(load);
-  if(report.loading)return <WorkspaceSkeleton/>;
+  if(report.loading)return <WorkspaceSkeleton shape="detail"/>;
   if(report.error||!report.data)return <Empty error={report.error||"신고 정보를 찾을 수 없어요"} retry={report.reload}/>;
   return <ReportContent key={report.data.id} report={report.data} teams={teams} {...actions}/>;
 }

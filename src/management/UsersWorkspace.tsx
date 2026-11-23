@@ -75,12 +75,12 @@ export function UsersWorkspace({active=true}:{active?:boolean}){
         <div className="team-select"><CustomSelect value={team} label="응원 구단" onChange={value=>{setTeam(value);setPage(1);}} options={teamOptions}/></div>
         <button type="button" className="admin-icon-button team-membership-button" aria-label="구단별 가입 현황" title="구단별 가입 현황" aria-haspopup="dialog" onClick={()=>setShowTeamMembership(true)}><ChartNoAxesColumnIncreasing size={20} strokeWidth={1.8} aria-hidden="true"/></button>
       </div>
-      {loading?<WorkspaceSkeleton/>:error?<Empty error={error} retry={()=>{catalogue.reload();members.reload();activity.reload();}}/>:<>
+      {loading?<WorkspaceSkeleton rowHeight={64} columns={3} numeric={2} media/>:error?<Empty error={error} retry={()=>{catalogue.reload();members.reload();activity.reload();}}/>:<>
       <div className="workspace-table-wrap"><table className="workspace-table"><thead><tr><th scope="col">사용자</th><SortHeader label="게시글" column="post_count" sort={sort} onSort={sortBy}/><SortHeader label="직관" column="attendance_count" sort={sort} onSort={sortBy}/></tr></thead><tbody>{ordered.slice((page-1)*15,page*15).map(user=><tr key={user.user_id} className="member-row" onClick={()=>setSelected(user)}><th scope="row"><button type="button" className="member-name" aria-haspopup="dialog"><TeamMark team={teams.find(t=>t.id===user.team_id)}/><b>{user.nickname||"이름 없음"}</b></button></th><td className="number-cell">{user.post_count===null?"—":`${user.post_count.toLocaleString("ko-KR")}건`}</td><td className="number-cell">{user.attendance_count===null?"—":`${user.attendance_count.toLocaleString("ko-KR")}건`}</td></tr>)}</tbody></table></div>
       {!filtered.length?<Empty message="조건에 맞는 사용자가 없어요"/>:null}<NumberedPager total={filtered.length} page={page} onChange={setPage}/></>}
     </section>
     {showTeamMembership?<Dialog title="구단별 가입 현황" className="team-membership-dialog" onClose={()=>setShowTeamMembership(false)}>
-      {statsLoading?<WorkspaceSkeleton/>:members.error||catalogue.error?<Empty error={members.error||catalogue.error} retry={()=>{catalogue.reload();members.reload();}}/>:members.data&&catalogue.data?<TeamMembershipCounts catalogue={catalogue.data} members={members.data}/>:null}
+      {statsLoading?<WorkspaceSkeleton shape="list" rows={7} rowHeight={50} media/>:members.error||catalogue.error?<Empty error={members.error||catalogue.error} retry={()=>{catalogue.reload();members.reload();}}/>:members.data&&catalogue.data?<TeamMembershipCounts catalogue={catalogue.data} members={members.data}/>:null}
     </Dialog>:null}
     {selected?<MemberDetailDialog key={selected.user_id} member={selected} team={teams.find(team=>team.id===selected.team_id)} league={teamLeague(standings,selected.team_id)} onClose={()=>setSelected(null)}/>:null}
   </div>;

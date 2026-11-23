@@ -14,7 +14,7 @@ export function ActivityWorkspace({kind}:{kind:ActivityKind}){
   const activity=useResource(load),community=kind==="community";
   return <section className="workspace-panel activity-workspace">
     <div className="workspace-toolbar"><h2>{community?"커뮤니티":"직관 인증"} <span className="inline-count">{activity.data?`${activity.data.total.toLocaleString("ko-KR")}건`:""}</span></h2><div className="workspace-tools"><SearchField value={query} onChange={value=>{setQuery(value);setPage(1);}} placeholder={community?"제목 · 내용 · 작성자 검색":"사용자 · 구단 · 경기장 검색"}/></div></div>
-    {activity.loading?<WorkspaceSkeleton/>:activity.error?<Empty error={activity.error} retry={activity.reload}/>:<>
+    {activity.loading?<WorkspaceSkeleton rowHeight={community?64:73}/>:activity.error?<Empty error={activity.error} retry={activity.reload}/>:<>
       <div className="workspace-table-wrap">
         <table className={`workspace-table activity-table ${community?"community-table":"attendance-table"}`}>
           <thead><tr>
