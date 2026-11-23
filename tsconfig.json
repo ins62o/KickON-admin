@@ -74,6 +74,7 @@
     "src/management/TeamMark.tsx",
     "src/management/TeamStandings.tsx",
     "src/management/UsersWorkspace.tsx",
+    "src/management/WorkspaceSkeleton.tsx",
     "src/management/WorkspaceUI.tsx",
     "src/management/activity-list.ts",
     "src/management/app-releases.ts",

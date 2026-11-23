@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { Component, Suspense, lazy, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Image, Headset, MessageSquareText, UsersRound, type LucideIcon } from "lucide-react";
 import type { AdminIdentity } from "../auth/policy";
 import { authClient, authConfig } from "../auth/client";
@@ -10,13 +10,25 @@ import { ActivityChart, ProviderGauge } from "./DashboardCharts";
 import { Toast } from "../components/Toast";
 import { parseProviderUsage, readDashboard, readProviderUsage, readRecordedProviderUsage, recordedUsageIsFresh, syncStatus, type DashboardData, type ProviderUsage } from "./data";
 import "./dashboard.css";
-import {UsersWorkspace} from "../management/UsersWorkspace";
-import {OperationsWorkspace} from "../management/OperationsWorkspace";
-import {DataWorkspace} from "../management/DataWorkspace";
-import {SyncDetailDialog} from "../management/SyncOverview";
+import {WorkspaceSkeleton} from "../management/WorkspaceSkeleton";
 import {syncTask} from "../management/sync-model";
 import type {SyncJob} from "../management/data";
 import "../management/workspace.css";
+
+// Each menu's code is fetched the first time it is opened, so signing in and the dashboard do not wait for every workspace.
+const UsersWorkspace=lazy(()=>import("../management/UsersWorkspace").then(module=>({default:module.UsersWorkspace})));
+const OperationsWorkspace=lazy(()=>import("../management/OperationsWorkspace").then(module=>({default:module.OperationsWorkspace})));
+const DataWorkspace=lazy(()=>import("../management/DataWorkspace").then(module=>({default:module.DataWorkspace})));
+const SyncDetailDialog=lazy(()=>import("../management/SyncOverview").then(module=>({default:module.SyncDetailDialog})));
+// Code that cannot be fetched or rendered leaves the header and other menus usable and offers a reload.
+class LoadBoundary extends Component<{children:ReactNode;inline?:boolean},{failed:boolean}>{
+  state={failed:false};
+  static getDerivedStateFromError(){return {failed:true};}
+  render(){
+    if(!this.state.failed)return this.props.children;
+    return <><Toast message="화면을 불러오지 못했어요 새로고침해 주세요"/>{this.props.inline?null:<div className="sync-empty" role="status"><button type="button" className="sync-row-trigger" onClick={()=>window.location.reload()}>새로고침</button></div>}</>;
+  }
+}
 
 const statusLabels = { normal: "완료", error: "오류", unknown: "미확인" };
 const syncName=(key:string)=>syncTask(key).name;
@@ -128,9 +140,9 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
         </section>
         </>}
         </div>
-        <div hidden={page!=="users"}>{usersVisited?<UsersWorkspace active={page==="users"}/>:null}</div>
-        {selectedSync?<SyncDetailDialog selection={{kind:"state",job:selectedSync}} onClose={()=>setSelectedSync(null)}/>:null}
-        {page === "operations" ? <OperationsWorkspace admin={admin} tab={operationTab} onTabChange={tab=>navigate("operations",tab)}/> : page === "data" ? <DataWorkspace admin={admin}/> : null}
+        <div hidden={page!=="users"}>{usersVisited?<LoadBoundary><Suspense fallback={<WorkspaceSkeleton/>}><UsersWorkspace active={page==="users"}/></Suspense></LoadBoundary>:null}</div>
+        {selectedSync?<LoadBoundary key={selectedSync.sync_key} inline><Suspense fallback={null}><SyncDetailDialog selection={{kind:"state",job:selectedSync}} onClose={()=>setSelectedSync(null)}/></Suspense></LoadBoundary>:null}
+        {page === "operations" || page === "data" ? <LoadBoundary key={page}><Suspense fallback={<WorkspaceSkeleton/>}>{page === "operations" ? <OperationsWorkspace admin={admin} tab={operationTab} onTabChange={tab=>navigate("operations",tab)}/> : <DataWorkspace admin={admin}/>}</Suspense></LoadBoundary> : null}
         </div>
       </main>
     </div>
