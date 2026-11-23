@@ -107,6 +107,7 @@
     "src/management/useSyncHealth.ts",
     "src/theme.ts",
     "src/vite-env.d.ts",
+    "seed-styles.ts",
     "vite.config.ts"
   ]
 }

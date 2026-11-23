@@ -1,15 +1,5 @@
-/* Toss-inspired desktop admin foundations; SEED supplies accessible interactions. */
-:root,:root[data-theme="light"][data-seed-color-mode] {
-  --seed-font-family:var(--font-sans);
-  --seed-color-fg-brand:#1b64da;
-  --seed-color-fg-brand-contrast:#1957c2;
-  --seed-color-bg-brand-solid:#1b64da;
-  --seed-color-bg-brand-solid-pressed:#1957c2;
-  --seed-color-bg-brand-weak:#e8f3ff;
-  --seed-color-bg-brand-weak-pressed:#c9e2ff;
-  --seed-color-fg-on-brand-solid:#ffffff;
-  --seed-color-stroke-brand-solid:#3182f6;
-  --seed-color-stroke-brand-weak:#90c2ff;
+/* KICKON admin foundations. SEED React supplies interactions only; kickon-ui.css draws its components. */
+:root,:root[data-theme="light"] {
   --admin-canvas:#f4f5f7;
   --admin-surface:#ffffff;
   --admin-subtle:#f2f4f6;
@@ -19,16 +9,18 @@
   --admin-ink:#191f28;
   --admin-muted:#4e5968;
   --admin-quiet:#6b7684;
-  --admin-primary:var(--seed-color-bg-brand-solid);
+  --admin-primary:#1b64da;
   --admin-primary-hover:#1957c2;
-  --admin-primary-pressed:var(--seed-color-bg-brand-solid-pressed);
+  --admin-primary-pressed:#1957c2;
   --admin-on-primary:#ffffff;
   --admin-on-primary-hover:#ffffff;
-  --admin-accent-ink:var(--seed-color-fg-brand);
+  --admin-accent-ink:#1b64da;
   --admin-hover:#f2f4f6;
-  --admin-selected:var(--seed-color-bg-brand-weak);
-  --admin-nav-selected:var(--seed-color-stroke-brand-solid);
-  --admin-nav-selected-ink:var(--seed-color-fg-brand);
+  --admin-selected:#e8f3ff;
+  --admin-nav-selected:#3182f6;
+  --admin-nav-selected-ink:#1b64da;
+  --admin-disabled-bg:#f2f4f6;
+  --admin-disabled-ink:#b0b8c1;
   --admin-success:#127548;
   --admin-success-bg:#e8f7ee;
   --admin-error:#c92c40;
@@ -37,7 +29,7 @@
   --admin-warning-bg:#fff5df;
   --admin-focus:#3182f6;
   --admin-chart-blue:#3182f6;
-  --admin-font-display:var(--seed-font-family);
+  --admin-font-display:var(--font-sans);
   --admin-font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
   --admin-body:15px;
   --admin-table:14px;
@@ -75,15 +67,13 @@
   --radius-dialog:28px;
   --radius-pill:9999px;
 }
-:root[data-theme="dark"][data-seed-color-mode] {
-  --seed-color-fg-brand:#90c2ff;
-  --seed-color-fg-brand-contrast:#c9e2ff;
-  --seed-color-bg-brand-solid:#1b64da;
-  --seed-color-bg-brand-solid-pressed:#1957c2;
-  --seed-color-bg-brand-weak:#162d4b;
-  --seed-color-bg-brand-weak-pressed:#1e3d64;
-  --seed-color-stroke-brand-solid:#4593fc;
-  --seed-color-stroke-brand-weak:#2272eb;
+:root[data-theme="dark"] {
+  --admin-accent-ink:#90c2ff;
+  --admin-selected:#162d4b;
+  --admin-nav-selected:#4593fc;
+  --admin-nav-selected-ink:#90c2ff;
+  --admin-disabled-bg:#22262d;
+  --admin-disabled-ink:#5b6573;
   --admin-canvas:#101216;
   --admin-surface:#1b1e24;
   --admin-subtle:#272c34;
@@ -108,19 +98,4 @@
   --app-toast-ink:#102034;
   --app-toast-action:#4a5f7a;
   --app-toast-action-hover:#dbe6f4;
-}
-/* Keep native controls and the remaining admin surfaces on the same color roles. */
-:root[data-theme][data-seed-color-mode] {
-  --seed-color-fg-neutral:var(--admin-ink);
-  --seed-color-fg-neutral-muted:var(--admin-muted);
-  --seed-color-fg-neutral-subtle:var(--admin-quiet);
-  --seed-color-fg-placeholder:var(--admin-quiet);
-  --seed-color-bg-layer-default:var(--admin-surface);
-  --seed-color-bg-layer-floating:var(--admin-surface);
-  --seed-color-bg-layer-basement:var(--admin-canvas);
-  --seed-color-bg-neutral-weak:var(--admin-subtle);
-  --seed-color-bg-neutral-weak-pressed:var(--admin-inset);
-  --seed-color-stroke-neutral-weak:var(--admin-border);
-  --seed-color-stroke-neutral-muted:var(--admin-border);
-  --seed-color-stroke-neutral-subtle:var(--admin-line);
 }

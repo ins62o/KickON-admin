@@ -24,7 +24,7 @@
 .marketing-form label { font-size:14px; font-weight:600; min-width:0; }
 .marketing-field-label { display:flex; align-items:center; justify-content:space-between; }
 .marketing-field-label small,.marketing-feature-heading small { font-size:11px; font-weight:400; color:var(--wm-muted); }
-.marketing-studio .marketing-form :is(input,textarea) { border-color:transparent; border-radius:var(--admin-input-radius); padding:var(--space-4) var(--space-4); font-size:15px; min-width:0; background:var(--wm-subtle); }
+.marketing-studio .marketing-form :is(input:where(:not([type="checkbox"])),textarea) { border-color:transparent; border-radius:var(--admin-input-radius); padding:var(--space-4) var(--space-4); font-size:15px; min-width:0; background:var(--wm-subtle); }
 .marketing-form textarea { resize:vertical; }
 .matchday-editor { display:grid; gap:var(--space-5); min-width:0; }
 .matchday-load { display:flex; align-items:end; gap:var(--space-3); }
@@ -33,7 +33,6 @@
 .matchday-fixtures { display:grid; gap:var(--space-2); max-height:420px; overflow:auto; overscroll-behavior:contain; }
 .marketing-form .matchday-fixture { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3); border:1px solid var(--wm-line); border-radius:var(--admin-control-radius); cursor:pointer; }
 .matchday-fixture:has(:checked) { background:var(--admin-selected); border-color:transparent; }
-.marketing-studio .matchday-fixture input { flex:0 0 18px; width:18px; height:18px; min-height:0; margin:0; padding:0; accent-color:var(--admin-accent-ink); }
 .matchday-fixture > span { display:grid; gap:var(--space-1); min-width:0; }
 .matchday-fixture-teams { display:flex; align-items:center; gap:var(--space-2); }
 .matchday-fixture-teams img { width:24px; height:24px; object-fit:contain; flex:0 0 24px; }
@@ -42,9 +41,9 @@
 .matchday-empty { padding:var(--space-6) var(--space-3); text-align:center; background:var(--wm-subtle); border-radius:var(--admin-radius); margin:0; }
 .matchday-storage-note { margin:0; }
 @media(max-width:420px){.matchday-load{align-items:stretch;flex-direction:column;}.matchday-fixture-teams{gap:var(--space-1);}.matchday-fixture b{font-size:13px;}}
-.marketing-studio .marketing-form :is(input,textarea):focus-visible { outline:2px solid var(--admin-focus); outline-offset:-2px; }
+.marketing-studio .marketing-form :is(input:where(:not([type="checkbox"])),textarea):focus-visible { outline:2px solid var(--admin-focus); outline-offset:-2px; }
 .marketing-studio .marketing-form .marketing-title-input { font-size:20px; line-height:1.45; font-weight:500; min-height:100px; }
-.marketing-studio .marketing-form :is(input,textarea)::placeholder { color:var(--admin-quiet); opacity:1; }
+.marketing-studio .marketing-form :is(input:where(:not([type="checkbox"])),textarea)::placeholder { color:var(--admin-quiet); opacity:1; }
 .marketing-feature-heading { display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:500; margin-bottom:-10px; }
 .marketing-features { display:grid; gap:var(--space-3); height:260px; min-height:0; align-content:start; overflow-y:auto; scrollbar-gutter:stable; overscroll-behavior:contain; }
 .marketing-feature { display:flex; align-items:flex-start; gap:var(--space-3); border:0; padding:var(--space-3); border-radius:var(--admin-radius); background:var(--wm-subtle); }
@@ -91,7 +90,7 @@
 .marketing-confirm-copy { color:var(--wm-muted); line-height:1.7; font-size:14px; overflow-wrap:anywhere; }
 .marketing-confirm-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:var(--space-3); margin-top:var(--space-6); }
 @media(max-width:1000px){.marketing-compose-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}.marketing-form{padding:var(--space-5);}.marketing-live-preview{padding:var(--space-5);}.marketing-categories button{padding:var(--space-4);gap:var(--space-2);}.marketing-categories button > span{font-size:14px;}.marketing-compose-actions .marketing-save-state{width:100%;}.marketing-draft-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media(max-width:760px){.marketing-studio{gap:var(--space-4);}.marketing-categories{gap:var(--space-2);}.marketing-categories button{flex-wrap:wrap;align-content:center;gap:var(--space-2);min-height:92px;padding:var(--space-4);}.marketing-categories button > span{flex-basis:100%;order:2;font-size:13px;}.marketing-categories button > small{margin-left:auto;}.marketing-categories button > svg{width:18px;height:18px;}.marketing-compose-header{padding:var(--space-5);}.marketing-compose-header h3{font-size:19px;}.marketing-compose-actions{width:100%;}.marketing-compose-actions .marketing-save-state{width:auto;flex:1;margin:0;}.marketing-studio :is(.seed-action-button){min-height:44px;}.marketing-compose-grid{grid-template-columns:1fr;}.marketing-live-preview{border-left:0;border-top:1px solid var(--wm-line);}.marketing-library-toolbar{padding:var(--space-5);}.marketing-draft-grid{padding:0 var(--space-5) var(--space-5);grid-template-columns:1fr;}.marketing-library .workspace-search{flex-basis:100%;min-height:44px;}.marketing-library .workspace-search input{width:100%;}.marketing-form .form-pair{grid-template-columns:1fr;}.marketing-studio .marketing-form :is(input,textarea){max-width:100%;}.marketing-icon-button{width:36px;height:36px;}.marketing-feature{gap:var(--space-2);padding:var(--space-3);}.marketing-preview-footer > .primary-button{font-size:12px;}.marketing-studio .select-trigger{min-height:44px!important;}}
+@media(max-width:760px){.marketing-studio{gap:var(--space-4);}.marketing-categories{gap:var(--space-2);}.marketing-categories button{flex-wrap:wrap;align-content:center;gap:var(--space-2);min-height:92px;padding:var(--space-4);}.marketing-categories button > span{flex-basis:100%;order:2;font-size:13px;}.marketing-categories button > small{margin-left:auto;}.marketing-categories button > svg{width:18px;height:18px;}.marketing-compose-header{padding:var(--space-5);}.marketing-compose-header h3{font-size:19px;}.marketing-compose-actions{width:100%;}.marketing-compose-actions .marketing-save-state{width:auto;flex:1;margin:0;}.marketing-studio :is(.seed-action-button){min-height:44px;}.marketing-compose-grid{grid-template-columns:1fr;}.marketing-live-preview{border-left:0;border-top:1px solid var(--wm-line);}.marketing-library-toolbar{padding:var(--space-5);}.marketing-draft-grid{padding:0 var(--space-5) var(--space-5);grid-template-columns:1fr;}.marketing-library .workspace-search{flex-basis:100%;min-height:44px;}.marketing-library .workspace-search input{width:100%;}.marketing-form .form-pair{grid-template-columns:1fr;}.marketing-studio .marketing-form :is(input:where(:not([type="checkbox"])),textarea){max-width:100%;}.marketing-icon-button{width:36px;height:36px;}.marketing-feature{gap:var(--space-2);padding:var(--space-3);}.marketing-preview-footer > .primary-button{font-size:12px;}.marketing-studio .select-trigger{min-height:44px!important;}}
 @media(prefers-reduced-motion:reduce){.marketing-categories button,.marketing-draft-card{transition:none;}}
 
 @media(max-width:760px){
@@ -112,7 +111,7 @@
   .marketing-compose-actions { display:flex; width:auto; flex-wrap:nowrap; }
   .marketing-studio .marketing-compose-actions > .seed-action-button:first-child { flex:none; width:44px; min-width:44px; padding:0; }
   .marketing-new-label { display:none; }
-  .marketing-studio .marketing-form :is(input,textarea) { font-size:16px; }
+  .marketing-studio .marketing-form :is(input:where(:not([type="checkbox"])),textarea) { font-size:16px; }
   .marketing-studio .marketing-form .marketing-title-input { font-size:20px; }
   .marketing-studio .marketing-feature :is(input,textarea) { font-size:16px; }
 }
