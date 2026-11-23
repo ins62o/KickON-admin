@@ -20,14 +20,10 @@ export async function readMemberRoster(client:SupabaseClient):Promise<Member[]>{
 }
 
 export async function readMemberActivity(client:SupabaseClient):Promise<Member[]>{
-  // The activity RPC sorts by recent activity, so it enriches stable IDs only; it never supplies roster totals.
+  // One call returns every registered member's activity. It enriches stable IDs only; it never supplies roster totals.
+  const result=await client.rpc("admin_get_user_activity");check(result.error);
+  if(!Array.isArray(result.data)||result.data.some(row=>!row||typeof row.user_id!=="string"))throw new Error("사용자 조회 응답을 확인할 수 없어요");
   const details=new Map<string,Member>();
-  for(let offset=0;offset<=100000;offset+=100){
-    const result=await client.rpc("admin_get_users",{p_query:null,p_limit:100,p_offset:offset});check(result.error);
-    if(!Array.isArray(result.data))throw new Error("사용자 조회 응답을 확인할 수 없어요");
-    for(const row of result.data as Member[])details.set(row.user_id,row);
-    if(result.data.length<100)break;
-    if(offset===100000)throw new Error("전체 사용자가 많아 조회 범위를 나눠야 해요");
-  }
+  for(const row of result.data as Member[])details.set(row.user_id,row);
   return [...details.values()];
 }
