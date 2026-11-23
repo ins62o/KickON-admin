@@ -27,8 +27,11 @@ aws s3 cp "s3://$S3_BUCKET/index.html" "$backup/index.html" --only-show-errors
 aws s3 cp "s3://$S3_BUCKET/build-info.json" "$backup/build-info.json" --only-show-errors
 aws s3 sync dist/assets/ "s3://$S3_BUCKET/assets/" \
   --cache-control 'public,max-age=31536000,immutable' --only-show-errors
+# Font slices carry a content hash in their names, so a name never points at different bytes.
+aws s3 sync dist/fonts/pretendard/subset/ "s3://$S3_BUCKET/fonts/pretendard/subset/" \
+  --cache-control 'public,max-age=31536000,immutable' --only-show-errors
 aws s3 sync dist/ "s3://$S3_BUCKET/" \
-  --exclude 'assets/*' --exclude 'index.html' --exclude 'build-info.json' \
+  --exclude 'assets/*' --exclude 'fonts/pretendard/subset/*' --exclude 'index.html' --exclude 'build-info.json' \
   --cache-control 'no-cache,max-age=0,must-revalidate' --only-show-errors
 aws s3 cp dist/build-info.json "s3://$S3_BUCKET/build-info.json" \
   --content-type 'application/json' --cache-control 'no-cache,max-age=0,must-revalidate' --only-show-errors
