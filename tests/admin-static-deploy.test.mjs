@@ -54,13 +54,14 @@ process.exit(94);
 function setup(t, extra = {}) {
   const root = mkdtempSync(join(tmpdir(), 'kickon-static-test-'));
   t.after(() => rmSync(root, {recursive: true, force: true}));
-  for (const dir of ['bin', 'dist/assets', 'scripts', 'bucket/assets', 'runner']) mkdirSync(join(root, dir), {recursive:true});
+  for (const dir of ['bin', 'dist/assets', 'dist/fonts/pretendard/subset', 'scripts', 'bucket/assets', 'runner']) mkdirSync(join(root, dir), {recursive:true});
   writeFileSync(join(root, 'bin/cli'), fakeCli, {mode:0o755});
   for (const command of ['aws', 'curl']) symlinkSync('cli', join(root, 'bin', command));
   copyFileSync(verifier, join(root, 'scripts/verify-deploy-artifact.mjs'));
   writeFileSync(join(root, 'dist/index.html'), '<script src="/assets/new.js"></script><link rel="stylesheet" href="/assets/new.css">');
   writeFileSync(join(root, 'dist/assets/new.js'), '/* smihjaucucffmsbktnmp.supabase.co */');
   writeFileSync(join(root, 'dist/assets/new.css'), 'body{color:black}');
+  writeFileSync(join(root, 'dist/fonts/pretendard/subset/pretendard-common.0123456789.woff2'), 'font');
   writeFileSync(join(root, 'dist/build-info.json'), JSON.stringify({commit:sha,run:'123'}));
   writeFileSync(join(root, 'bucket/index.html'), 'previous entry');
   writeFileSync(join(root, 'bucket/build-info.json'), '{"commit":"previous"}');
@@ -78,6 +79,11 @@ test('publishes assets before the entry, preserves the previous release, and ver
   assert.equal(fixture.read('assets/old.js'),'previous asset');
   assert.equal(JSON.parse(fixture.read('build-info.json')).commit,sha);
   assert.equal(fixture.calls().filter(call=>call.name==='curl').length,4);
+  assert.equal(fixture.read('fonts/pretendard/subset/pretendard-common.0123456789.woff2'),'font');
+  const syncs=fixture.calls().filter(call=>call.args[1]==='sync');
+  const fonts=syncs.find(call=>call.args[2]==='dist/fonts/pretendard/subset/'),rest=syncs.find(call=>call.args[2]==='dist/');
+  assert.equal(fonts.args[fonts.args.indexOf('--cache-control')+1],'public,max-age=31536000,immutable');
+  assert.ok(rest.args.includes('fonts/pretendard/subset/*'),'hashed fonts must not be re-uploaded with no-cache');
 });
 
 for (const failure of ['backup','assets']) test(`${failure} failure keeps the previous entry and stops publication`, t => {

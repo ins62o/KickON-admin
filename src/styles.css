@@ -100,14 +100,6 @@
   src:url("/fonts/source-serif-4/SourceSerif4-Latin-Italic-Variable.woff2") format("woff2");
 }
 
-@font-face {
-  font-family: "Pretendard Variable";
-  font-style: normal;
-  font-weight: 45 920;
-  font-display: swap;
-  src: url("/fonts/pretendard/PretendardVariable.woff2") format("woff2");
-}
-
 :root {
   --bg: #ffffff;
   --text: #0a0a0a;

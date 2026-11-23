@@ -130,7 +130,8 @@ function updateSheet(ctx:CanvasRenderingContext2D,draft:MarketingDraft,brand:HTM
 }
 export async function paintMarketingImage(canvas:HTMLCanvasElement,draft:MarketingDraft,pixelWidth=1080){
   await document.fonts.ready;
-  const sample="KICKON 업데이트 직관 인증 0123456789";
+  // Hangul is split across font files by unicode-range, so load the files for every character the draft will draw.
+  const sample="KICKON 업데이트 직관 인증 0123456789"+JSON.stringify(draft);
   await Promise.all([document.fonts.load(`700 84px ${font}`,sample),document.fonts.load(`500 34px ${font}`,sample),document.fonts.load(`400 28px ${font}`,sample),document.fonts.load(`700 84px ${headingFont}`,sample)]);
   const brand=await logo(draft.kind==="event"),ctx=canvas.getContext("2d");if(!ctx)throw new Error("이미지 미리보기를 그리지 못했어요");
   const height=draft.format==="story"?1920:1350,top=draft.format==="story"?208:52,bottom=height-top;
