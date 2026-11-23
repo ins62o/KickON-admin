@@ -40,7 +40,7 @@ export function PushDeliveryDialog({recipient,onClose}:{recipient:PushRecipient;
  const noTargetDiagnosis=data&&noTarget?pushNoTargetDiagnosis(data):null;
  return <Dialog title="푸시 발송 상세" onClose={onClose} className="push-delivery-dialog">
   <div className="push-delivery-user"><span className="push-recipient-user"><TeamMark team={recipient.team??undefined}/><b>{recipient.nickname||'닉네임 없음'}</b></span>{status?<Badge tone={status.tone}>{status.label}</Badge>:null}</div>
-  {resource.loading?<WorkspaceSkeleton/>:resource.error?<Empty error={resource.error} retry={resource.reload}/>:data&&status?<>
+  {resource.loading?<WorkspaceSkeleton shape="detail"/>:resource.error?<Empty error={resource.error} retry={resource.reload}/>:data&&status?<>
    {status.label!=='접수 성공'||reasons.length?<section className="push-delivery-reasons">
     <h3>{noTarget?'미발송 사유':status.label==='발송 제외'?'제외 사유':status.label==='발송 실패'?'실패 사유':'기록된 사유'}</h3>
     {noTargetDiagnosis?<div><p>{noTargetDiagnosis.summary}</p><p>{noTargetDiagnosis.unknown}</p>{diagnosis?<code>대상 확인 기록 · {pushDiagnosticCode(diagnosis.outcome)} · {time(diagnosis.captured_at)}</code>:<code>대상 확인 당시 진단 기록 없음</code>}<p className="push-next-check">확인할 항목 · {noTargetDiagnosis.nextCheck}</p></div>:null}

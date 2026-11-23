@@ -63,8 +63,43 @@
 
 .workspace-empty { min-height:200px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:var(--space-4); padding:var(--space-10) var(--space-6); color:var(--admin-quiet); font-size:14px; text-align:center; }
 .workspace-empty > svg { width:40px; height:40px; padding:var(--space-2); border-radius:var(--radius-toast); background:var(--wm-subtle); color:var(--wm-muted); }
-.workspace-skeleton { padding:0 var(--space-6) var(--space-6); }.workspace-skeleton .skeleton-row { height:42px; border-radius:8px; }
-@media(prefers-reduced-motion:reduce){.workspace-skeleton .skeleton-row{animation:none;}}
+/* Skeletons mirror the table, card and chart they stand in for. */
+.workspace-skeleton { min-width:0; }
+.workspace-skeleton .skeleton-line,.workspace-page-skeleton .skeleton-line { display:block; }
+.workspace-skeleton-table,.workspace-skeleton-list { padding:0 var(--space-5) var(--space-5); }
+.skeleton-table-head,.skeleton-table-row { display:grid; grid-template-columns:minmax(0,1.6fr) repeat(calc(var(--skeleton-columns) - 1),minmax(0,1fr)); align-items:center; gap:var(--space-3); padding-inline:var(--space-3); border-bottom:1px solid var(--wm-line); }
+.workspace-skeleton-list .skeleton-table-row { grid-template-columns:minmax(0,1fr); }
+.skeleton-table-head { height:44px; }
+.skeleton-table-row { height:var(--skeleton-row); }
+.skeleton-table-row:last-child { border-bottom:0; }
+.skeleton-cell { display:flex; align-items:center; gap:var(--space-3); min-width:0; }
+.skeleton-cell-numeric { justify-content:flex-end; }
+.skeleton-cell-head { width:48px; height:12px; }
+.skeleton-cell-primary { width:62%; height:14px; }
+.skeleton-cell-text { width:46%; height:14px; }
+.skeleton-media { flex:0 0 28px; width:28px; height:28px; border-radius:var(--radius-pill); }
+.skeleton-text-label { width:42%; height:16px; margin-bottom:var(--space-3); }
+.skeleton-text-value { width:36%; height:32px; }
+.skeleton-text-note { width:58%; height:12px; margin-top:var(--space-3); }
+.skeleton-text-title { width:120px; height:20px; }
+.skeleton-chart-block { height:220px; margin:0 var(--space-7) var(--space-6); background:var(--wm-subtle); }
+.workspace-skeleton-monitor { display:grid; gap:var(--space-5); }
+.skeleton-chart-panel { display:grid; gap:var(--space-5); padding-top:var(--space-5); }
+.skeleton-chart-panel > .skeleton-text-title { margin-left:var(--space-7); }
+.skeleton-chart-panel > .skeleton-chart-block { margin-top:0; }
+.workspace-skeleton-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-6); padding:0 var(--space-7) var(--space-7); }
+.skeleton-card { display:grid; gap:var(--space-3); padding:var(--space-6); border:1px solid var(--wm-line); border-radius:var(--admin-radius); }
+.skeleton-card .skeleton-text-note { margin-top:0; }
+.skeleton-field { height:48px; border-radius:var(--admin-input-radius); }
+.workspace-skeleton-detail { display:grid; }
+.skeleton-detail-row { display:grid; grid-template-columns:110px minmax(0,1fr); gap:var(--space-3); padding:var(--space-4) 0; border-bottom:1px solid var(--wm-line); }
+.skeleton-detail-label { width:64px; height:14px; }
+.skeleton-detail-value { width:70%; height:14px; }
+.skeleton-tabs { display:flex; gap:var(--space-2); min-height:52px; align-items:center; overflow:hidden; }
+.skeleton-tab { flex:0 0 88px; height:44px; border-radius:var(--radius-pill); }
+@media(max-width:767px){.workspace-skeleton-cards{grid-template-columns:minmax(0,1fr);padding:0 var(--space-5) var(--space-5);gap:var(--space-4);}.skeleton-chart-block{margin-inline:var(--space-5);}.skeleton-chart-panel > .skeleton-text-title{margin-left:var(--space-5);}}
+@media(max-width:600px){.workspace-skeleton-table .skeleton-table-head,.workspace-skeleton-table .skeleton-table-row{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);}.workspace-skeleton-table .skeleton-cell:nth-child(n+3){display:none;}}
+@media(prefers-reduced-motion:reduce){.workspace-skeleton .skeleton-line,.workspace-page-skeleton .skeleton-line{animation:none;}}
 .workspace-dialog { width:min(620px,calc(100vw - 32px)); max-height:calc(100dvh - 48px); overflow:auto; padding:var(--space-8); margin:auto; background:var(--wm-surface); color:var(--wm-ink); border:0; border-radius:var(--radius-dialog); box-shadow:var(--admin-shadow); }
 .workspace-dialog::backdrop { background:#0b142080; }
 .workspace-dialog > header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); margin-bottom:var(--space-7); }

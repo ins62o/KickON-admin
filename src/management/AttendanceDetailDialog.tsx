@@ -20,7 +20,7 @@ export function AttendanceDetailDialog({attendanceId,onClose}:{attendanceId:stri
   const distance=number(data?.distance),radius=number(fixture?.attendance_radius_meters,0);
   const score=fixture?.home_score!==null&&fixture?.home_score!==undefined&&fixture?.away_score!==null&&fixture?.away_score!==undefined?`${fixture.home_score} : ${fixture.away_score}`:"—";
   return <Dialog title="직관 인증 상세정보" className="attendance-detail-dialog" dismissOnBackdrop onClose={onClose}>
-    {detail.loading?<WorkspaceSkeleton/>:detail.error?<Empty error={detail.error} retry={detail.reload}/>:data?<>
+    {detail.loading?<WorkspaceSkeleton shape="detail"/>:detail.error?<Empty error={detail.error} retry={detail.reload}/>:data?<>
       <InfoSection title="인증 정보" items={[
         ["사용자",<span className="activity-author"><TeamMark team={data.team??undefined}/><span>{data.userName}</span></span>],
         ["사용자 ID",data.userId],["응원 구단",data.team?.name??"미선택"],

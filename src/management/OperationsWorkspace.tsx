@@ -77,7 +77,9 @@ export function OperationsWorkspace({admin,tab,onTabChange}:{admin:AdminIdentity
       inbox.reload();counts.reload();
     }catch(error){setMessage(error instanceof Error?error.message:"변경하지 못했어요");}finally{setPending(false);}
   };
-  return <div className="management-workspace"><div className="workspace-stats three"><Stat label="게시 중인 공지" value={counts.data?.[0]??null} unit="건" onClick={()=>changeTab("notices")}/><Stat label="답변 대기 문의" value={counts.data?.[1]??null} unit="건" onClick={()=>changeTab("inquiries")}/><Stat label="확인할 신고" value={counts.data?.[2]??null} unit="건" onClick={()=>changeTab("reports")}/></div>
+  // Counts show a skeleton until the first answer; a failed read stays "—".
+  const countsLoading=counts.loading&&!counts.data;
+  return <div className="management-workspace"><div className="workspace-stats three"><Stat loading={countsLoading} label="게시 중인 공지" value={counts.data?.[0]??null} unit="건" onClick={()=>changeTab("notices")}/><Stat loading={countsLoading} label="답변 대기 문의" value={counts.data?.[1]??null} unit="건" onClick={()=>changeTab("inquiries")}/><Stat loading={countsLoading} label="확인할 신고" value={counts.data?.[2]??null} unit="건" onClick={()=>changeTab("reports")}/></div>
     <WorkspaceTabs mobileSelect value={tab} onChange={changeTab} items={[{value:"community",label:"커뮤니티"},{value:"attendances",label:"직관 인증"},{value:"marketing",label:"마케팅 관리"},{value:"notices",label:"공지사항"},{value:"inquiries",label:"1:1 문의"},{value:"reports",label:"신고 접수"},{value:"app-updates",label:"앱 업데이트"}]}>
     {tab==="community"||tab==="attendances"?<ActivityWorkspace key={tab} kind={tab}/>:tab==="marketing"?<MarketingStudio/>:tab==='app-updates'?<AppReleaseManager admin={admin}/>:<section className={`workspace-panel${kind==="notices"?" notices-workspace":""}`}>
       <div className="workspace-toolbar">
@@ -91,7 +93,7 @@ export function OperationsWorkspace({admin,tab,onTabChange}:{admin:AdminIdentity
           {kind==="notices"&&writable?<ActionButton variant="brandSolid" size="small" type="button" onClick={()=>setCompose(true)}>공지 작성</ActionButton>:null}
         </div>:null}
       </div>
-    {inbox.loading?<WorkspaceSkeleton/>:inbox.error?<Empty error={inbox.error} retry={inbox.reload}/>:<>
+    {inbox.loading?<WorkspaceSkeleton rowHeight={kind==="notices"?64:48}/>:inbox.error?<Empty error={inbox.error} retry={inbox.reload}/>:<>
       <div className="workspace-table-wrap">
         <table className={`workspace-table inbox-table${kind==="notices"?" notice-table":""}`}>
           <thead><tr>
