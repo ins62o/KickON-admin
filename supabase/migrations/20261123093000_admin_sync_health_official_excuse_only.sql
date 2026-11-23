@@ -1,0 +1,27 @@
+-- Record of a forward change already applied to production (KickON) on 2026-11-23 around 09:30 KST
+-- through the SQL Editor. This file is a record, not an approval to run it (see README.md).
+--
+-- Why: the 2026-11-22 change (20261122140000) made get_admin_football_sync_health() compare app values
+-- with official_player_stats in both directions. Players without an override whose app value equals
+-- Sportmonks but differs from the official record (17 after the first 05:00 reconciliation run) were
+-- reported as PLAYER_STATS_PROJECTION_MISMATCH, although they are only meant to be "review" items in
+-- the reconciliation run.
+-- Change: official records only excuse a difference (app equals official). They never flag a player on
+-- their own. The hard-coded verified list keeps its old meaning, except that an official match wins
+-- over an older list entry. An app/Sportmonks difference with no matching official or verified value is
+-- still an error.
+--
+-- Verification on production: a pg_temp copy was compared with the deployed function in one statement.
+-- All output except the projection check was identical; errors went from kleague 5 / kleague2 12 to
+-- none, provider disagreements stayed 14 / 62. Overnight, the first real reconciliation (05:00 KST)
+-- matched 915 players: 24 overrides released, 23 updated, 68 kept, 20 review, 3 ambiguous; active stat
+-- overrides went from 117 to 93. The admin sync screen shows 0 error jobs.
+--
+-- Definition before: md5 0960e653c3559ae2e952ea23b913680c.
+-- Definition after: md5 2098fd11a290100e178faf73ab41ca43,
+-- sha256 d908e57c82400d80296f24cad757aeaf7843a2cd911b9f30f172f3027bf004f2.
+
+do $patch$ declare d text := pg_get_functiondef('public.get_admin_football_sync_health()'::regprocedure); begin if md5(d) <> '0960e653c3559ae2e952ea23b913680c' then raise exception 'UNEXPECTED_SYNC_HEALTH_DEFINITION %', md5(d); end if; d := replace(replace(replace(d, E'      when e.player_id is not null and\n        ((r.squad_appearances,r.squad_goals) is distinct from (e.appearances,e.goals)\n          or (r.ranking_appearances,r.ranking_goals) is distinct from (e.appearances,e.goals))\n        then ''projection_error''\n      when not (r.squad_differs or r.ranking_differs) then null\n      when e.player_id is not null then ''provider_disagreement''\n', E'      when e.verified_mismatch and not coalesce(e.official_match, false) then ''projection_error''\n      when not (r.squad_differs or r.ranking_differs) then null\n      when e.any_match then ''provider_disagreement''\n'), E'      select v.player_id, v.appearances, v.goals from (\n', E'      select bool_or(v.priority = 2 and ((r.squad_appearances,r.squad_goals) is distinct from (v.appearances,v.goals)\n          or (r.ranking_appearances,r.ranking_goals) is distinct from (v.appearances,v.goals))) as verified_mismatch,\n        bool_or(v.priority = 1 and (r.squad_appearances,r.squad_goals) is not distinct from (v.appearances,v.goals)\n          and (r.ranking_appearances,r.ranking_goals) is not distinct from (v.appearances,v.goals)) as official_match,\n        bool_or((r.squad_appearances,r.squad_goals) is not distinct from (v.appearances,v.goals)\n          and (r.ranking_appearances,r.ranking_goals) is not distinct from (v.appearances,v.goals)) as any_match from (\n'), E'      ) v order by v.priority limit 1\n    ) e on true\n', E'      ) v\n    ) e on true\n'); if encode(sha256(convert_to(d, 'UTF8')), 'hex') <> 'd908e57c82400d80296f24cad757aeaf7843a2cd911b9f30f172f3027bf004f2' then raise exception 'UNEXPECTED_PATCH_RESULT'; end if; execute d; end $patch$;
+
+-- Rollback (not part of the forward change): restores the exact previous definition.
+-- do $rollback$ declare d text := pg_get_functiondef('public.get_admin_football_sync_health()'::regprocedure); begin d := replace(replace(replace(d, E'      when e.verified_mismatch and not coalesce(e.official_match, false) then ''projection_error''\n      when not (r.squad_differs or r.ranking_differs) then null\n      when e.any_match then ''provider_disagreement''\n', E'      when e.player_id is not null and\n        ((r.squad_appearances,r.squad_goals) is distinct from (e.appearances,e.goals)\n          or (r.ranking_appearances,r.ranking_goals) is distinct from (e.appearances,e.goals))\n        then ''projection_error''\n      when not (r.squad_differs or r.ranking_differs) then null\n      when e.player_id is not null then ''provider_disagreement''\n'), E'      select bool_or(v.priority = 2 and ((r.squad_appearances,r.squad_goals) is distinct from (v.appearances,v.goals)\n          or (r.ranking_appearances,r.ranking_goals) is distinct from (v.appearances,v.goals))) as verified_mismatch,\n        bool_or(v.priority = 1 and (r.squad_appearances,r.squad_goals) is not distinct from (v.appearances,v.goals)\n          and (r.ranking_appearances,r.ranking_goals) is not distinct from (v.appearances,v.goals)) as official_match,\n        bool_or((r.squad_appearances,r.squad_goals) is not distinct from (v.appearances,v.goals)\n          and (r.ranking_appearances,r.ranking_goals) is not distinct from (v.appearances,v.goals)) as any_match from (\n', E'      select v.player_id, v.appearances, v.goals from (\n'), E'      ) v\n    ) e on true\n', E'      ) v order by v.priority limit 1\n    ) e on true\n'); if md5(d) <> '0960e653c3559ae2e952ea23b913680c' then raise exception 'ROLLBACK_RESULT_MISMATCH %', md5(d); end if; execute d; end $rollback$
