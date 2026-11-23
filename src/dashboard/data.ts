@@ -1,6 +1,6 @@
 import {adminApiUrl} from '../auth/api.ts';
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {syncStateResult} from "../management/sync-model.ts";
+import {syncStateResult,syncTask} from "../management/sync-model.ts";
 
 export type Summary = { totalProfiles: number | null; failedSyncCount: number | null };
 export type Metrics = { posts: number | null; attendances: number | null; openInquiries: number | null };
@@ -62,6 +62,20 @@ export function activityRate(active: number | null, total: number | null): numbe
 export function syncStatus(row: Pick<SyncRow, "last_succeeded_at" | "last_error"> & Partial<Pick<SyncRow,"last_attempted_at">>): "error" | "normal" | "unknown" {
   const result=syncStateResult(row);
   return result.tone==='orange'?'error':result.tone==='green'?'normal':'unknown';
+}
+
+// One row per task: scopes of the same task (each club's squad, say) share a name, so listing them apart repeats it.
+export type SyncGroup={task:string;row:SyncRow;count:number;status:ReturnType<typeof syncStatus>;lastSucceededAt:string|null};
+export function groupSyncRows(rows:SyncRow[],limit=6):SyncGroup[]{
+  const groups=new Map<string,SyncRow[]>();
+  for(const row of rows){const task=syncTask(row.sync_key).name;groups.set(task,[...(groups.get(task)??[]),row]);}
+  return [...groups].slice(0,limit).map(([task,list])=>{
+    const statuses=list.map(row=>syncStatus(row));
+    const status=statuses.includes("error")?"error":statuses.includes("unknown")?"unknown":"normal";
+    const row=list[Math.max(0,statuses.indexOf(status))];
+    const succeeded=list.map(item=>item.last_succeeded_at).filter((value):value is string=>Boolean(value)).sort((a,b)=>Date.parse(b)-Date.parse(a));
+    return {task,row,count:list.length,status,lastSucceededAt:succeeded[0]??null};
+  });
 }
 
 // A recorded figure this recent is as current as a live check, so the Sportmonks call can be skipped.
@@ -135,7 +149,7 @@ export async function readDashboard(client: SupabaseClient | null, allowance: nu
       result.errors.trend = !result.trend.today;
     })(),
     (async () => {
-      const { data, error } = await client.from("football_sync_state").select("sync_key,last_attempted_at,last_succeeded_at,last_error").order("last_attempted_at", { ascending: false, nullsFirst: false }).limit(8);
+      const { data, error } = await client.from("football_sync_state").select("sync_key,last_attempted_at,last_succeeded_at,last_error").order("last_attempted_at", { ascending: false, nullsFirst: false }).limit(60);
       if (error || !Array.isArray(data)) return;
       result.sync = data.filter(row => typeof row.sync_key === "string").map(row => ({ sync_key: row.sync_key, last_attempted_at: timestamp(row.last_attempted_at), last_succeeded_at: timestamp(row.last_succeeded_at), last_error: typeof row.last_error === "string" ? row.last_error : null }));
       result.errors.sync = false;

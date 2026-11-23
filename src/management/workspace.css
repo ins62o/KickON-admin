@@ -263,7 +263,6 @@
 @media(max-width:760px){.team-select{width:100%;}.team-select .select-options{width:100%;max-width:100%;}}
 
 .users-workspace { --user-list-muted:var(--admin-muted); }
-.users-workspace > .workspace-stats > .workspace-stat { text-align:center; }
 .users-workspace .workspace-table { table-layout:fixed; min-width:0; }
 .users-workspace .workspace-table thead th:first-child { width:52%; }
 .users-workspace .workspace-table thead th:nth-child(2),
@@ -885,3 +884,16 @@
 .push-attempt .workspace-details > div { grid-template-columns:130px minmax(0,1fr); }
 .push-failure-breakdown { color:var(--wm-ink); }
 @media(max-width:420px){.push-attempt .workspace-details > div{grid-template-columns:100px minmax(0,1fr);}}
+
+/* Scroll shadows: a table wider than its panel shows which side has more columns, since scrollbars stay hidden. */
+.workspace-table-wrap,.club-roster-scroll { --scroll-cover:var(--wm-surface); --scroll-shade:color-mix(in srgb,var(--admin-ink) 24%,transparent); background:linear-gradient(to right,var(--scroll-cover) 30%,transparent) left / 32px 100% no-repeat local,linear-gradient(to left,var(--scroll-cover) 30%,transparent) right / 32px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,var(--scroll-shade),transparent) left / 16px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,var(--scroll-shade),transparent) right / 16px 100% no-repeat scroll; }
+
+/* Data management sections use the same pill tabs as operations. */
+.data-navigation .workspace-filter-tabs { gap:var(--space-2); padding:var(--space-1) 0; background:transparent; border-radius:0; }
+.data-navigation .workspace-filter-tabs > .seed-action-button { min-height:44px; padding:var(--space-3) var(--space-5); border:1px solid var(--wm-line); border-radius:var(--radius-pill); background:var(--wm-surface); color:var(--wm-muted); font-size:14px; line-height:22px; font-weight:600; }
+.data-navigation .workspace-filter-tabs > .seed-action-button:not([aria-pressed="true"]):hover { background:var(--admin-hover); color:var(--wm-ink); }
+.data-navigation .workspace-filter-tabs > .seed-action-button[aria-pressed="true"] { border-color:var(--admin-primary); background:var(--admin-primary); color:var(--admin-on-primary); }
+
+/* Controls sitting on the page background need the surface color to stand out from it. */
+.workspace-toolbar.standalone .seed-admin-select > button,.workspace-toolbar.standalone .seed-action-button--variant_neutralWeak { background:var(--wm-surface); }
+.workspace-toolbar.standalone .seed-admin-select > button:not([data-disabled]):hover,.workspace-toolbar.standalone .seed-action-button--variant_neutralWeak:not(:disabled,[data-disabled]):hover { background:var(--admin-inset); }
