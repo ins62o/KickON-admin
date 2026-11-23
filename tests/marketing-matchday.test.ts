@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {matchdayMatches,matchdayGroups} from '../src/management/marketing-matchday.ts';
-import {newDraft,parseDrafts,validateDraft,saveDraft} from '../src/management/marketing-drafts.ts';
+import {isMatchdayDraft,newDraft,parseDrafts,validateDraft,saveDraft} from '../src/management/marketing-drafts.ts';
 import type {Fixture,Stadium} from '../src/management/data.ts';
 import type {Team} from '../src/management/model.ts';
 const teams=[{id:'jeonnam',name:'전남 드래곤즈',short_name:'전남'},{id:'daegu',name:'대구 FC',short_name:'대구'}] as Team[];
@@ -28,4 +28,12 @@ test('matchday drafts retain selected fixture snapshots and reject missing or mi
  assert.throws(()=>validateDraft({...draft,matchday:{...draft.matchday,matches:[...draft.matchday.matches,...draft.matchday.matches]}}),/중복/);
  assert.equal(parseDrafts(JSON.stringify([{...saved[0],matchday:{matches:[{id:'bad'}],footer:''}}])).length,0);
  const legacy={...draft,id:'legacy',matchday:undefined,title:'기존 공지',body:'기존 본문'};const [parsed]=parseDrafts(JSON.stringify([legacy]));assert.equal(parsed.matchday,undefined);assert.equal(parsed.body,'기존 본문');assert.doesNotThrow(()=>validateDraft(parsed));
+});
+test('only matchday drafts are drawn while other stored kinds stay readable',()=>{
+ assert.equal(isMatchdayDraft(newDraft('notice','2026-10-24')),true);
+ for(const draft of [newDraft('update','2026-10-24'),newDraft('event','2026-10-24'),{...newDraft('notice','2026-10-24'),matchday:undefined}])assert.equal(isMatchdayDraft(draft),false);
+ const stored=[{...newDraft('update','2026-10-24'),id:'u',title:'업데이트'},{...newDraft('notice','2026-10-24'),id:'m',title:'MATCH DAY'}];
+ const drafts=parseDrafts(JSON.stringify(stored));
+ assert.deepEqual(drafts.map(draft=>draft.id),['u','m']);
+ assert.deepEqual(drafts.filter(isMatchdayDraft).map(draft=>draft.id),['m']);
 });
