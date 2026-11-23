@@ -13,7 +13,7 @@ test("the light theme is the default while saved light and dark choices are resp
       Object.defineProperty(globalThis,"localStorage",{configurable:true,value:{getItem:()=>{if(unavailable)throw new Error("Storage unavailable");return saved;}}});
       initializeTheme();
       assert.equal(dataset.theme,expected);
-      assert.equal(dataset.seedColorMode,expected==="dark"?"dark-only":"light-only");
+      assert.equal(dataset.seedColorMode,undefined);
       assert.equal(themeColor,expected==="dark"?"#111111":"#ffffff");
     }
   }finally{

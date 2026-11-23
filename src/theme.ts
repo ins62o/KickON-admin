@@ -3,7 +3,6 @@ const themeKey = "kickon-admin-theme";
 
 export function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
-  document.documentElement.dataset.seedColorMode = theme === "dark" ? "dark-only" : "light-only";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#111111" : "#ffffff");
 }
 
