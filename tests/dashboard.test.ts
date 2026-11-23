@@ -133,23 +133,41 @@ test('the dashboard can skip the slow provider check so its own cards render fir
   assert.equal(calls.includes('get_admin_provider_usage'),false);
   assert.equal(result.errors.provider,false);
   assert.equal(result.provider.rate,null);
+  assert.equal(result.syncComplete,false);
   assert.deepEqual(calls.sort(),['admin_get_active_user_trend','admin_get_dashboard_metrics','admin_get_dashboard_summary']);
 });
 
 test("recent sync lists each task once with its scope count, newest success and worst status",()=>{
   const row=(sync_key:string,last_succeeded_at:string|null,last_error:string|null=null,last_attempted_at:string|null=last_succeeded_at)=>({sync_key,last_attempted_at,last_succeeded_at,last_error});
-  const groups=groupSyncRows([
+  const rows=[
     row("live:kleague","2026-11-23T11:56:00Z"),
     row("team-metrics:kleague","2026-11-22T19:40:00Z"),
     row("team-metrics:kleague2","2026-11-22T19:41:00Z"),
     row("squad:kleague:seoul","2026-11-22T19:10:00Z"),
     row("squad:kleague:ulsan","2026-11-21T19:10:00Z","provider timeout","2026-11-22T19:10:00Z"),
     row("squad:kleague2:suwon",null,null,"2026-11-22T19:09:00Z"),
-  ]);
+  ];
+  const groups=groupSyncRows(rows,true);
   assert.deepEqual(groups.map(({task,count,status,lastSucceededAt,row})=>[task,count,status,lastSucceededAt,row.sync_key]),[
     ["실시간 경기",1,"normal","2026-11-23T11:56:00Z","live:kleague"],
     ["구단 시즌 통계",2,"normal","2026-11-22T19:41:00Z","team-metrics:kleague"],
     ["구단 선수단",3,"error","2026-11-22T19:10:00Z","squad:kleague:ulsan"],
   ]);
-  assert.equal(groupSyncRows(Array.from({length:9},(_,index)=>row(`custom-${index}`,null)),6).length,6);
+  assert.equal(groupSyncRows(Array.from({length:9},(_,index)=>row(`custom-${index}`,null)),true,6).length,6);
+  assert.deepEqual(groupSyncRows(rows,false).map(group=>group.count),[null,null,null],"a partial read never shows an undercounted scope total");
+});
+
+test("the dashboard counts scopes only when it read every sync state row",async()=>{
+  const {readDashboard}=await import('../src/dashboard/data.ts');
+  const read=async(count:number|null)=>{
+    const options:unknown[]=[];
+    const rows={select(_columns:string,option:unknown){options.push(option);return this;},order(){return this;},limit(){return this;},then(resolve:(value:unknown)=>void){resolve({data:[{sync_key:'squad:kleague:seoul',last_attempted_at:null,last_succeeded_at:null,last_error:null}],error:null,count});}};
+    const client={rpc:async()=>({data:null,error:{message:'unavailable'}}),from:()=>rows};
+    const result=await readDashboard(client as never,2000,'production',{provider:false});
+    assert.deepEqual(options,[{count:'exact'}]);
+    return result.syncComplete;
+  };
+  assert.equal(await read(1),true);
+  assert.equal(await read(2),false);
+  assert.equal(await read(null),false);
 });
