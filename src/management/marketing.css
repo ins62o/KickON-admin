@@ -21,8 +21,10 @@
 .marketing-form textarea { resize:vertical; }
 .matchday-editor { display:grid; gap:var(--space-5); min-width:0; }
 .matchday-load { display:flex; align-items:end; gap:var(--space-3); }
-.matchday-load > label { flex:1; display:grid; gap:var(--space-2); }
-.matchday-load > button { flex-shrink:0; min-height:48px; }
+.matchday-date { flex:1; display:grid; gap:var(--space-2); min-width:0; }
+.matchday-date-label { font-size:14px; font-weight:600; }
+/* The date field and its load button share one 48px height. */
+.marketing-studio .matchday-load > .seed-action-button { flex-shrink:0; height:48px; min-height:48px; padding-inline:var(--space-4); }
 .matchday-fixtures { display:grid; gap:var(--space-2); max-height:420px; overflow:auto; overscroll-behavior:contain; }
 .marketing-form .matchday-fixture { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3); border:1px solid var(--wm-line); border-radius:var(--admin-control-radius); cursor:pointer; }
 .matchday-fixture:has(:checked) { background:var(--admin-selected); border-color:transparent; }

@@ -8,6 +8,8 @@
 @source "./auth/use-admin-auth.ts";
 @source "./components/AnimatedNumber.tsx";
 @source "./components/CustomSelect.tsx";
+@source "./components/DatePicker.tsx";
+@source "./components/date-picker.ts";
 @source "./components/EnvironmentSelect.tsx";
 @source "./components/LoginPage.tsx";
 @source "./components/ThemeToggle.tsx";
