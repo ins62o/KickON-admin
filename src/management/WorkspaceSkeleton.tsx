@@ -28,7 +28,8 @@ function body(shape:SkeletonShape,rows:number,columns:number,media:boolean,numer
 
 // Shown while a workspace's code downloads: the same frame as the screen that replaces it.
 export function WorkspacePageSkeleton({stats,tabs=0,tabsFirst=false,shape="table"}:{stats:number;tabs?:number;tabsFirst?:boolean;shape?:SkeletonShape}){
-  const tabRow=tabs?<div className="skeleton-tabs">{range(tabs).map(i=>line("skeleton-tab",i))}</div>:null;
+  // Narrow screens swap the tab row for a select, so the skeleton does the same.
+  const tabRow=tabs?<><div className="skeleton-tabs">{range(tabs).map(i=>line("skeleton-tab",i))}</div>{line("skeleton-tabs-select")}</>:null;
   return <div className="management-workspace workspace-page-skeleton" aria-busy="true" aria-label="불러오는 중">
     {tabsFirst?tabRow:null}
     {stats?<div className={`workspace-stats${stats===3?" three":""}`}>{range(stats).map(i=><div key={i} className="workspace-stat">{line("skeleton-text-label")}{line("skeleton-text-value")}</div>)}</div>:null}
