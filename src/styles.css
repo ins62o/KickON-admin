@@ -52,6 +52,7 @@
 @source "./management/TeamMark.tsx";
 @source "./management/TeamStandings.tsx";
 @source "./management/UsersWorkspace.tsx";
+@source "./management/WorkspaceSkeleton.tsx";
 @source "./management/WorkspaceUI.tsx";
 @source "./management/activity-list.ts";
 @source "./management/app-releases.ts";

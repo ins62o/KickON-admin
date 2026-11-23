@@ -2,7 +2,8 @@ import {useEffect,useId,useRef,useState,type ReactNode} from "react";
 import {Search,X,RefreshCw,Inbox,TriangleAlert,ChevronLeft,ChevronRight} from "lucide-react";
 import {AnimatedNumber} from "../components/AnimatedNumber";
 import {Toast} from "../components/Toast";
-import {ActionButton,Badge as SeedBadge,Icon,Skeleton,Tabs,TextField,usePagination} from "@seed-design/react";
+import {ActionButton,Badge as SeedBadge,Icon,Tabs,TextField,usePagination} from "@seed-design/react";
+export {WorkspaceSkeleton} from "./WorkspaceSkeleton";
 import {CustomSelect} from '../components/CustomSelect';
 export function WorkspaceTabs({value,items,onChange,children,label="관리 항목",mobileSelect=false}:{value:string;items:{value:string;label:string;count?:number|null}[];onChange:(value:string)=>void;children?:ReactNode;label?:string;mobileSelect?:boolean}){
   const select=mobileSelect?<div className="workspace-tabs-mobile"><CustomSelect label={label} value={value} options={items} onChange={onChange}/></div>:null;
@@ -21,7 +22,6 @@ export function Empty({error="",message="등록된 내용이 없어요",retry}:{
   const StateIcon=error?TriangleAlert:Inbox;
   return <div className="workspace-empty" role="status"><StateIcon size={22} strokeWidth={1.6} aria-hidden="true"/><span>{error||message}</span>{error&&retry?<ActionButton type="button" variant="ghost" size="small" onClick={retry}>다시 불러오기</ActionButton>:null}</div>;
 }
-export function WorkspaceSkeleton(){return <div className="workspace-skeleton" aria-busy="true" aria-label="불러오는 중">{[0,1,2,3,4].map(i=><Skeleton key={i} className="skeleton-row" height="42px" radius="8"/>)}</div>;}
 export function Pager({page,total,onChange,pageSize=15,disabled=false,showTotal=true}:{page:number;total:number;onChange:(page:number)=>void;pageSize?:number;disabled?:boolean;showTotal?:boolean}){
   const pages=Math.max(1,Math.ceil(total/pageSize));
   return <div className="workspace-pager">{showTotal?<span>{total.toLocaleString("ko-KR")}건</span>:null}<div><ActionButton type="button" variant="neutralWeak" size="small" disabled={disabled||page<=1} onClick={()=>onChange(page-1)}>이전</ActionButton><span>{page} / {pages}</span><ActionButton type="button" variant="neutralWeak" size="small" disabled={disabled||page>=pages} onClick={()=>onChange(page+1)}>다음</ActionButton></div></div>;
