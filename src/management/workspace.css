@@ -21,8 +21,8 @@
 .workspace-toolbar.standalone { padding:0; }
 .workspace-tools { display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; }
 .workspace-actions { display:flex; align-items:center; justify-content:flex-end; gap:var(--space-3); flex-wrap:wrap; margin-left:auto; }
-.workspace-toolbar > .workspace-tools { margin-left:auto; }
-.workspace-toolbar > .workspace-tools + .workspace-actions { margin-left:0; }
+.workspace-toolbar > .workspace-tools { margin-left:auto; flex-shrink:0; max-width:100%; }
+.workspace-toolbar > .workspace-tools ~ .workspace-actions { margin-left:0; }
 .workspace-tabs { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
 .workspace-tabs button { display:flex; align-items:center; gap:7px; min-height:44px; padding:10px 17px; border:0; border-radius:var(--admin-control-radius); background:transparent; font-size:var(--admin-control); font-weight:600; color:var(--wm-muted); transition:background 180ms,color 180ms; }
 .workspace-tabs button:hover { color:var(--wm-ink); background:var(--wm-subtle); }
@@ -177,7 +177,7 @@
 .player-detail-dialog .dialog-actions { gap:var(--space-3); }
 .club-detail-heading .team-mark { width:64px; height:64px; flex-basis:64px; }
 .club-detail-heading > div,.club-player-profile > div { min-width:0; }
-.club-detail-heading h3,.club-player-profile h3 { margin:0 0 var(--space-3); font-size:24px; line-height:1.5; overflow-wrap:anywhere; }
+.club-detail-heading h3,.club-player-profile h3 { margin:0 0 var(--space-3); font-size:24px; line-height:1.5; font-weight:700; overflow-wrap:anywhere; }
 .club-roster-toolbar,.club-detail-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin:24px 0; }
 .club-roster-toolbar > span { font-size:14px; color:var(--wm-muted); }
 .club-roster-scroll { overflow:auto; border:1px solid var(--wm-line); border-radius:var(--admin-radius); }
@@ -354,7 +354,7 @@
 .member-league { padding:var(--space-1) var(--space-2); border-radius:var(--radius-pill); background:var(--wm-blue-soft); color:var(--wm-blue); font-size:12px; font-weight:600; }
 .member-status-content { display:flex; flex-direction:column; gap:var(--space-4); min-width:0; }
 .member-stat-grid.workspace-stats.compact { gap:var(--space-3); }
-.member-stat-grid.workspace-stats.compact .workspace-stat { padding:var(--space-4); border:1px solid var(--wm-line); border-top:3px solid var(--admin-nav-selected); border-radius:var(--admin-control-radius); background:var(--wm-subtle); }
+.member-stat-grid.workspace-stats.compact .workspace-stat { padding:var(--space-4); border-radius:var(--admin-control-radius); background:var(--wm-subtle); }
 .member-stat-grid .workspace-stat > span { margin-bottom:var(--space-3); font-size:13px; }
 .member-stat-grid.workspace-stats.compact .workspace-stat strong { font-size:28px; overflow-wrap:anywhere; }
 .member-stat-grid .workspace-stat small { font-size:11px; }
@@ -365,9 +365,8 @@
 .member-details dd { margin:0; color:var(--wm-ink); font-size:14px; line-height:1.55; overflow-wrap:anywhere; }
 .member-user-id dd { font-family:var(--admin-font-mono); font-size:12px; }
 .member-history { margin-top:var(--space-5); overflow:hidden; border:1px solid var(--wm-line); border-radius:var(--admin-radius); }
-.member-history > .workspace-filter-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--space-1); padding:var(--space-2) var(--space-2) 0; border-bottom:1px solid var(--wm-line); border-radius:0; background:var(--wm-subtle); }
-.member-history > .workspace-filter-tabs > .seed-action-button { min-width:0; min-height:44px; padding:var(--space-2) var(--space-3); border-radius:0; background:transparent; font-size:14px; }
-.member-history > .workspace-filter-tabs > .seed-action-button[aria-pressed="true"] { background:transparent; color:var(--wm-ink); box-shadow:inset 0 -2px 0 var(--admin-nav-selected); }
+.member-history > .workspace-filter-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:var(--space-3) var(--space-3) 0; }
+.member-history > .workspace-filter-tabs > .seed-action-button { min-width:0; }
 .member-history-list { display:grid; }
 .member-history-item { padding:var(--space-4) 0; border-bottom:1px solid var(--wm-line); min-width:0; }
 .member-history-item summary { cursor:pointer; }
@@ -509,9 +508,7 @@
 .push-phase-filters { display:flex; align-items:center; gap:var(--space-3); padding:0 var(--space-7) var(--space-5); }
 .push-recipient-count { margin-inline-start:auto; color:var(--wm-muted); font-size:var(--admin-caption); white-space:nowrap; }
 .push-recipient-panel .workspace-pager { justify-content:flex-end; }
-.push-phase-filters .workspace-filter-tabs { min-width:0; width:fit-content; padding:0; gap:var(--space-2); background:transparent; }
-.push-phase-filters .workspace-filter-tabs > button { border:1px solid var(--wm-line); border-radius:var(--radius-pill); background:var(--wm-subtle); }
-.push-phase-filters .workspace-filter-tabs > button[aria-pressed="true"] { border-color:var(--wm-blue); background:var(--wm-blue-soft); color:var(--wm-blue); box-shadow:none; }
+.push-phase-filters .workspace-filter-tabs { min-width:0; width:fit-content; }
 .push-recipient-table { min-width:920px; }
 .push-recipient-table .sync-row { -webkit-user-select:none; user-select:none; }
 .push-recipient-user { display:flex; align-items:center; gap:var(--space-3); max-width:220px; }
@@ -664,7 +661,7 @@
 .workspace-filter-tabs { display:flex; flex-wrap:wrap; gap:var(--space-1); padding:var(--space-1); background:var(--wm-subtle); border-radius:var(--admin-control-radius); }
 .workspace-tabs-mobile,.table-mobile-note,.mobile-table-cell,.workspace-mobile-fields { display:none; }
 .workspace-tabs-responsive { min-width:0; max-width:100%; }
-.workspace-filter-tabs > button[aria-pressed="true"] { background:var(--wm-surface); color:var(--wm-ink); }
+.workspace-filter-tabs > button[aria-pressed="true"] { background:var(--wm-surface); color:var(--wm-ink); box-shadow:0 1px 3px color-mix(in srgb,var(--admin-ink) 12%,transparent); }
 .workspace-seed-search { width:240px; max-width:100%; }
 .workspace-seed-search.seed-text-input__root { min-height:44px; border-radius:var(--admin-input-radius); background:var(--wm-subtle); box-shadow:none; }
 .workspace-seed-search .seed-text-input__value { font-size:14px; }
@@ -895,5 +892,5 @@
 .data-navigation .workspace-filter-tabs > .seed-action-button[aria-pressed="true"] { border-color:var(--admin-primary); background:var(--admin-primary); color:var(--admin-on-primary); }
 
 /* Controls sitting on the page background need the surface color to stand out from it. */
-.workspace-toolbar.standalone .seed-admin-select > button,.workspace-toolbar.standalone .seed-action-button--variant_neutralWeak { background:var(--wm-surface); }
-.workspace-toolbar.standalone .seed-admin-select > button:not([data-disabled]):hover,.workspace-toolbar.standalone .seed-action-button--variant_neutralWeak:not(:disabled,[data-disabled]):hover { background:var(--admin-inset); }
+:is(.data-navigation,.data-section-heading,.system-heading) :is(.seed-admin-select > button,.seed-action-button--variant_neutralWeak) { background:var(--wm-surface); }
+:is(.data-navigation,.data-section-heading,.system-heading) :is(.seed-admin-select > button:not([data-disabled]),.seed-action-button--variant_neutralWeak:not(:disabled,[data-disabled])):hover { background:var(--admin-inset); }

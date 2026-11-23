@@ -17,7 +17,9 @@ test("SEED stylesheets resolve to an empty module before they can reach any bund
 
 test("only KICKON stylesheets style the admin and its components load before the screen styles",()=>{
   const main=readFileSync("src/main.tsx","utf8");
-  assert.ok(main.indexOf('"./kickon-ui.css"')>=0&&main.indexOf('"./kickon-ui.css"')<main.indexOf('"./styles.css"'));
+  const foundations=main.indexOf('"./kickon-ui.css"');
+  assert.ok(foundations>=0&&foundations<main.indexOf('"./styles.css"'));
+  assert.ok(foundations<main.indexOf('import App'),"screen stylesheets imported through App must come after the component foundations");
   const sources=readdirSync("src",{recursive:true,encoding:"utf8"}).filter(file=>/\.(tsx?|css)$/.test(file));
   for(const file of sources)assert.doesNotMatch(readFileSync(`src/${file}`,"utf8"),/@seed-design\/css|--seed-color-|data-seed-color-mode/,file);
   const config=readFileSync("vite.config.ts","utf8");
