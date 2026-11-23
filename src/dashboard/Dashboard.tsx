@@ -8,10 +8,9 @@ import { pages, pageFromUrl, pageUrl, operationTabFromUrl, dataTabFromUrl, type 
 import { DashboardBodySkeleton, ProviderGaugeSkeleton } from "./DashboardSkeleton";
 import { ActivityChart, ProviderGauge } from "./DashboardCharts";
 import { Toast } from "../components/Toast";
-import { parseProviderUsage, readDashboard, readProviderUsage, readRecordedProviderUsage, recordedUsageIsFresh, syncStatus, type DashboardData, type ProviderUsage } from "./data";
+import { parseProviderUsage, readDashboard, readProviderUsage, readRecordedProviderUsage, recordedUsageIsFresh, groupSyncRows, type DashboardData, type ProviderUsage } from "./data";
 import "./dashboard.css";
 import {WorkspacePageSkeleton} from "../management/WorkspaceSkeleton";
-import {syncTask} from "../management/sync-model";
 import type {SyncJob} from "../management/data";
 import "../management/workspace.css";
 
@@ -31,7 +30,6 @@ class LoadBoundary extends Component<{children:ReactNode;inline?:boolean},{faile
 }
 
 const statusLabels = { normal: "완료", error: "오류", unknown: "미확인" };
-const syncName=(key:string)=>syncTask(key).name;
 function time(value: string | null) {
   if (!value) return "—";
   const parts = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(value));
@@ -135,7 +133,7 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
         <div className="dashboard-charts"><ActivityChart trend={data?.trend} failed={Boolean(data?.errors.trend)} period={period} onPeriodChange={setPeriod}/>{provider?<ProviderGauge quota={provider.provider} failed={provider.failed}/>:<ProviderGaugeSkeleton label="스포츠 API 사용량 불러오는 중"/>}</div>
         <section id="sync" className="dashboard-panel sync-panel" aria-labelledby="sync-heading">
           <div className="panel-heading"><h2 id="sync-heading">최근 동기화</h2></div>
-          <div className="sync-table-wrap"><table><thead><tr><th scope="col">작업</th><th scope="col">최근 완료</th><th scope="col">상태</th></tr></thead><tbody>{!loading && !data?.errors.sync ? rows.map(row => { const status = syncStatus(row); return <tr key={row.sync_key} className="sync-row" onClick={event=>{event.currentTarget.querySelector("button")?.focus({preventScroll:true});setSelectedSync({...row,season:null,league_id:null});}}><th scope="row"><button type="button" className="sync-row-trigger" aria-haspopup="dialog">{syncName(row.sync_key)}</button></th><td>{time(row.last_succeeded_at)}</td><td><span className={`sync-status sync-status-${status}`}><i aria-hidden="true" />{statusLabels[status]}</span></td></tr>; }) : null}</tbody></table></div>
+          <div className="sync-table-wrap"><table><thead><tr><th scope="col">작업</th><th scope="col">최근 완료</th><th scope="col">상태</th></tr></thead><tbody>{!loading && !data?.errors.sync ? groupSyncRows(rows).map(({task,row,count,status,lastSucceededAt}) => <tr key={task} className="sync-row" onClick={event=>{event.currentTarget.querySelector("button")?.focus({preventScroll:true});setSelectedSync({...row,season:null,league_id:null});}}><th scope="row"><button type="button" className="sync-row-trigger" aria-haspopup="dialog">{task}{count>1?<span className="sync-row-count">{count}개 대상</span>:null}</button></th><td>{time(lastSucceededAt)}</td><td><span className={`sync-status sync-status-${status}`}><i aria-hidden="true" />{statusLabels[status]}</span></td></tr>) : null}</tbody></table></div>
           {loading || data?.errors.sync || !rows.length ? <div className="sync-empty" role="status">{loading ? "동기화 기록 불러오는 중" : data?.errors.sync ? "동기화 기록을 불러오지 못했어요" : "아직 동기화 기록이 없어요"}</div> : null}
         </section>
         </>}

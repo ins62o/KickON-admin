@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSummary, parseMetrics, parseTrend, visibleDays, activityRate, syncStatus } from "../src/dashboard/data.ts";
+import { parseSummary, parseMetrics, parseTrend, visibleDays, activityRate, syncStatus, groupSyncRows } from "../src/dashboard/data.ts";
 
 test("missing and invalid counts stay unknown while real zero is preserved", () => {
   assert.deepEqual(parseSummary({totalProfiles:0,syncAvailable:true,failedSyncCount:0}), {totalProfiles:0,failedSyncCount:0});
@@ -134,4 +134,22 @@ test('the dashboard can skip the slow provider check so its own cards render fir
   assert.equal(result.errors.provider,false);
   assert.equal(result.provider.rate,null);
   assert.deepEqual(calls.sort(),['admin_get_active_user_trend','admin_get_dashboard_metrics','admin_get_dashboard_summary']);
+});
+
+test("recent sync lists each task once with its scope count, newest success and worst status",()=>{
+  const row=(sync_key:string,last_succeeded_at:string|null,last_error:string|null=null,last_attempted_at:string|null=last_succeeded_at)=>({sync_key,last_attempted_at,last_succeeded_at,last_error});
+  const groups=groupSyncRows([
+    row("live:kleague","2026-11-23T11:56:00Z"),
+    row("team-metrics:kleague","2026-11-22T19:40:00Z"),
+    row("team-metrics:kleague2","2026-11-22T19:41:00Z"),
+    row("squad:kleague:seoul","2026-11-22T19:10:00Z"),
+    row("squad:kleague:ulsan","2026-11-21T19:10:00Z","provider timeout","2026-11-22T19:10:00Z"),
+    row("squad:kleague2:suwon",null,null,"2026-11-22T19:09:00Z"),
+  ]);
+  assert.deepEqual(groups.map(({task,count,status,lastSucceededAt,row})=>[task,count,status,lastSucceededAt,row.sync_key]),[
+    ["실시간 경기",1,"normal","2026-11-23T11:56:00Z","live:kleague"],
+    ["구단 시즌 통계",2,"normal","2026-11-22T19:41:00Z","team-metrics:kleague"],
+    ["구단 선수단",3,"error","2026-11-22T19:10:00Z","squad:kleague:ulsan"],
+  ]);
+  assert.equal(groupSyncRows(Array.from({length:9},(_,index)=>row(`custom-${index}`,null)),6).length,6);
 });

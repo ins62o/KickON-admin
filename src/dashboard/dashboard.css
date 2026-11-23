@@ -106,12 +106,13 @@
 .provider-notice { padding-top:var(--space-4); color:var(--admin-muted); font-size:13px; text-align:center; }
 .sync-panel { padding:var(--space-5) 0 var(--space-1); }
 .sync-panel .panel-heading { margin:0 var(--space-5) var(--space-3); }
-.sync-table-wrap { overflow-x:auto; padding-inline:var(--space-5); }
+.sync-table-wrap { overflow-x:auto; padding-inline:var(--space-5); background:linear-gradient(to right,var(--admin-surface) 30%,transparent) left / 32px 100% no-repeat local,linear-gradient(to left,var(--admin-surface) 30%,transparent) right / 32px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,color-mix(in srgb,var(--admin-ink) 24%,transparent),transparent) left / 16px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,color-mix(in srgb,var(--admin-ink) 24%,transparent),transparent) right / 16px 100% no-repeat scroll; }
 .sync-panel table { width:100%; min-width:570px; border-collapse:collapse; text-align:left; font-size:14px; }
 .sync-panel thead { color:var(--admin-quiet); }
 .sync-panel th,.sync-panel td { height:48px; padding:var(--space-3); font-weight:400; white-space:nowrap; border-bottom:1px solid var(--admin-line); }
 .sync-panel thead th { height:44px; padding-block:var(--space-3); font-size:13px; font-weight:500; }
 .sync-panel tbody th { font-weight:600; }
+.sync-row-count { margin-left:var(--space-2); color:var(--admin-quiet); font-size:13px; font-weight:400; }
 .sync-panel tbody tr:last-child > * { border-bottom:0; }
 .sync-panel td { color:var(--admin-muted); font-variant-numeric:tabular-nums; }
 .sync-panel tbody tr:hover { background:var(--admin-hover); }
