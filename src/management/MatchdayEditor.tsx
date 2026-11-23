@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {ActionButton} from '@seed-design/react';
 import {RefreshCw} from 'lucide-react';
+import {DatePicker} from '../components/DatePicker';
 import {readMarketingMatches} from './data';
 import type {MarketingDraft} from './marketing-drafts';
 import type {MarketingMatch} from './marketing-matchday';
@@ -21,7 +22,7 @@ export function MatchdayEditor({draft,onChange,onMessage}:{draft:MarketingDraft;
   }catch(error){onMessage(error instanceof Error?error.message:'경기를 불러오지 못했어요');}finally{setLoading(false);}
  };
  return <div className="matchday-editor">
-  <div className="matchday-load"><label>경기 날짜<input type="date" value={draft.date} disabled={loading} onChange={event=>onChange({date:event.target.value,matchday:{...matchday,matches:[]}})}/></label><ActionButton variant="neutralWeak" size="small" type="button" disabled={loading||!draft.date} onClick={()=>void load()}><RefreshCw size={15} aria-hidden="true"/>{loading?'불러오는 중':'경기 불러오기'}</ActionButton></div>
+  <div className="matchday-load"><div className="matchday-date"><span className="matchday-date-label" aria-hidden="true">경기 날짜</span><DatePicker label="경기 날짜" value={draft.date} disabled={loading} onChange={date=>onChange({date,matchday:{...matchday,matches:[]}})}/></div><ActionButton variant="neutralWeak" size="small" type="button" disabled={loading||!draft.date} onClick={()=>void load()}><RefreshCw size={15} aria-hidden="true"/>{loading?'불러오는 중':'경기 불러오기'}</ActionButton></div>
   <div className="marketing-field-label"><span>포함할 경기</span><small>{matchday.matches.length}경기 선택</small></div>
   {matches.length?<div className="matchday-fixtures" aria-label="포함할 경기" aria-busy={loading}>{matches.map(match=>{
    const checked=matchday.matches.some(row=>row.id===match.id);

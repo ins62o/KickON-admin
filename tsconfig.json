@@ -30,6 +30,8 @@
     "src/auth/use-admin-auth.ts",
     "src/components/AnimatedNumber.tsx",
     "src/components/CustomSelect.tsx",
+    "src/components/DatePicker.tsx",
+    "src/components/date-picker.ts",
     "src/components/EnvironmentSelect.tsx",
     "src/components/LoginPage.tsx",
     "src/components/ThemeToggle.tsx",
