@@ -95,7 +95,7 @@ export function Dashboard({ admin, pending, error, signOut }: { admin: AdminIden
     return()=>{clearTimeout(timer);document.removeEventListener("visibilitychange",update);};
   },[page,data,provider]);
   useEffect(() => {
-    document.title = `킥온 데이터 센터 | ${pages[page]}`;
+    document.title = `KICKON | ${pages[page]}`;
     if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
     const animation=content.current?.animate([{opacity:.3,transform:"translateY(7px)"},{opacity:1,transform:"translateY(0)"}],{duration:240,easing:"cubic-bezier(.2,.7,.2,1)"});
     return()=>animation?.cancel();

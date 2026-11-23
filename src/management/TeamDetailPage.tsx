@@ -21,7 +21,7 @@ export function TeamDetailPage({team:initialTeam,league:initialLeague,standing,w
  const [team,setTeam]=useState(initialTeam),[tab,setTab]=useState('players'),[player,setPlayer]=useState<TeamPlayer|null>(null),[editing,setEditing]=useState(false),[pending,setPending]=useState(false),[message,setMessage]=useState(''),[query,setQuery]=useState(''),[position,setPosition]=useState('all'),[reviewOnly,setReviewOnly]=useState(false);
  useEffect(()=>{titleRef.current?.focus({preventScroll:true});window.scrollTo(0,0);},[]);
  const pageTitle=team.name;
- useEffect(()=>{const previous=document.title;document.title=`킥온 데이터 센터 | ${pageTitle}`;return()=>{document.title=previous;};},[pageTitle]);
+ useEffect(()=>{const previous=document.title;document.title=`KICKON | ${pageTitle}`;return()=>{document.title=previous;};},[pageTitle]);
  const load=useCallback(()=>readTeamPlayers(team.id,league),[team.id,league]),roster=useResource(load);
  const allowed=writable&&(league==='kleague'||league==='kleague2');
  const missingNames=(roster.data??[]).filter(needsKoreanName);
