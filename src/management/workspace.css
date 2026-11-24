@@ -207,9 +207,7 @@
 .club-edit-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-5); }
 .birth-date-field,.fixture-kickoff-field { position:relative; }
 .workspace-form :is(.birth-date-field,.fixture-kickoff-field) > input { padding-right:56px; }
-.birth-date-calendar { position:absolute; top:0; right:4px; bottom:0; display:grid; place-items:center; width:44px; color:var(--wm-ink); }
-.workspace-form .birth-date-calendar > input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
-.birth-date-calendar:has(:focus-visible) { outline:2px solid var(--admin-focus); outline-offset:-4px; border-radius:var(--admin-control-radius); }
+.birth-date-calendar { position:absolute; top:0; right:4px; bottom:0; display:grid; place-items:center; width:44px; }
 .team-detail-page .dialog-actions { gap:var(--space-3); }
 @media(max-width:760px){.club-info-grid{grid-template-columns:1fr;}.club-roster-toolbar .workspace-tools{flex-wrap:wrap;}.club-roster-toolbar .workspace-tools .workspace-seed-search{width:100%;flex:1 0 100%;}}
 @media(max-width:520px){.team-detail-page{padding:var(--space-5);}.club-current-rank strong{font-size:28px;}.club-name-notice{padding:var(--space-4);}.club-name-notice > button{width:100%;}.club-edit-grid{grid-template-columns:1fr;}.club-info-grid > div{grid-template-columns:1fr;gap:var(--space-2);}.club-detail-heading h3,.club-player-profile h3{font-size:20px;}.club-player-profile{align-items:flex-start;}}
