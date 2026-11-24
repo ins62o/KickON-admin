@@ -26,6 +26,9 @@
 /* The date field and its load button share one 48px height. */
 .marketing-studio .matchday-load > .seed-action-button { flex-shrink:0; height:48px; min-height:48px; padding-inline:var(--space-4); }
 .matchday-fixtures { display:grid; gap:var(--space-2); max-height:420px; overflow:auto; overscroll-behavior:contain; }
+.matchday-fixtures[data-more-below] { mask-image:linear-gradient(to bottom,#000 calc(100% - 56px),transparent); }
+.matchday-fixtures[data-more-above] { mask-image:linear-gradient(to bottom,transparent,#000 56px); }
+.matchday-fixtures[data-more-above][data-more-below] { mask-image:linear-gradient(to bottom,transparent,#000 56px,#000 calc(100% - 56px),transparent); }
 .marketing-form .matchday-fixture { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3); border:1px solid var(--wm-line); border-radius:var(--admin-control-radius); cursor:pointer; }
 .matchday-fixture:has(:checked) { background:var(--admin-selected); border-color:transparent; }
 .matchday-fixture > span { display:grid; gap:var(--space-1); min-width:0; }

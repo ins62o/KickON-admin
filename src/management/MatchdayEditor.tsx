@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {ActionButton} from '@seed-design/react';
 import {RefreshCw} from 'lucide-react';
 import {DatePicker} from '../components/DatePicker';
@@ -10,6 +10,15 @@ import {dateLabel,leagueLabel} from './model';
 export function MatchdayEditor({draft,onChange,onMessage}:{draft:MarketingDraft;onChange:(changes:Partial<MarketingDraft>)=>void;onMessage:(message:string)=>void}){
  const [loaded,setLoaded]=useState<{date:string;matches:MarketingMatch[]}>(()=>({date:draft.date,matches:draft.matchday!.matches})),[loading,setLoading]=useState(false);
  const matchday=draft.matchday!;
+ const [list,setList]=useState<HTMLDivElement|null>(null),[more,setMore]=useState({above:false,below:false});
+ // The list scrolls with hidden scrollbars, so its edges fade wherever more fixtures are waiting.
+ useEffect(()=>{
+  if(!list)return;
+  const update=()=>{const above=list.scrollTop>1,below=list.scrollTop+list.clientHeight<list.scrollHeight-1;setMore(current=>current.above===above&&current.below===below?current:{above,below});};
+  const observer=new ResizeObserver(update);observer.observe(list);for(const item of list.children)observer.observe(item);
+  list.addEventListener('scroll',update,{passive:true});
+  return()=>{observer.disconnect();list.removeEventListener('scroll',update);};
+ },[list,loaded]);
  const matches=loaded.date===draft.date?loaded.matches:matchday.matches;
  const load=async()=>{
   if(loading)return;
@@ -24,7 +33,7 @@ export function MatchdayEditor({draft,onChange,onMessage}:{draft:MarketingDraft;
  return <div className="matchday-editor">
   <div className="matchday-load"><div className="matchday-date"><span className="matchday-date-label" aria-hidden="true">경기 날짜</span><DatePicker label="경기 날짜" value={draft.date} disabled={loading} onChange={date=>onChange({date,matchday:{...matchday,matches:[]}})}/></div><ActionButton variant="neutralWeak" size="small" type="button" disabled={loading||!draft.date} onClick={()=>void load()}><RefreshCw size={15} aria-hidden="true"/>{loading?'불러오는 중':'경기 불러오기'}</ActionButton></div>
   <div className="marketing-field-label"><span>포함할 경기</span><small>{matchday.matches.length}경기 선택</small></div>
-  {matches.length?<div className="matchday-fixtures" aria-label="포함할 경기" aria-busy={loading}>{matches.map(match=>{
+  {matches.length?<div ref={setList} className="matchday-fixtures" aria-label="포함할 경기" aria-busy={loading} data-more-above={more.above||undefined} data-more-below={more.below||undefined}>{matches.map(match=>{
    const checked=matchday.matches.some(row=>row.id===match.id);
    return <label className="matchday-fixture" key={match.id}><input type="checkbox" checked={checked} disabled={loading||!checked&&matchday.matches.length>=16} onChange={()=>onChange({matchday:{...matchday,matches:checked?matchday.matches.filter(row=>row.id!==match.id):[...matchday.matches,match]}})}/><span><span className="matchday-fixture-teams"><img src={`/teams/official/${encodeURIComponent(match.homeTeamId)}.png`} alt=""/><b>{match.homeName} vs {match.awayName}</b><img src={`/teams/official/${encodeURIComponent(match.awayTeamId)}.png`} alt=""/></span><small>{leagueLabel(match.leagueId)} · {match.round===null?'라운드 미분류':`${match.round}R`} · {dateLabel(match.kickoffAt,true).split(' ').at(-1)}</small><small>{match.stadium}</small></span></label>;
   })}</div>:<p className="matchday-empty">날짜를 고르고 경기를 불러와 주세요</p>}
