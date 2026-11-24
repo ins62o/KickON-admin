@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {displayDate,isDateValue,monthGrid,seoulToday,shiftDays,shiftMonths,spokenDate,weekdayIndex} from "../src/components/date-picker.ts";
+import {displayDate,isDateValue,monthGrid,seoulToday,shiftDays,shiftMonths,spokenDate,weekdayIndex,withYearMonth,yearPage} from "../src/components/date-picker.ts";
 
 test("calendar grid is six Sunday-first weeks around the month",()=>{
   const weeks=monthGrid(2026,11);
@@ -23,8 +23,16 @@ test("keyboard moves cross months and years and keep the day where it exists",()
 test("only real dates are shown and read aloud",()=>{
   assert.equal(isDateValue("2026-11-23"),true);
   for(const value of ["","2026-02-30","2026-1-05","20261123"])assert.equal(isDateValue(value),false,value);
-  assert.equal(displayDate("2026-11-23"),"2026. 11. 23.");
+  assert.equal(displayDate("2026-11-23"),"2026. 11. 23");
   assert.equal(displayDate("2026-02-30"),"");
   assert.equal(spokenDate("2026-11-28"),"2026년 11월 28일 토요일");
   assert.equal(seoulToday(new Date("2026-11-23T15:30:00Z")),"2026-11-24");
+});
+
+test("year and month pages jump without losing a real day",()=>{
+  assert.equal(withYearMonth("2026-01-31",1998,2),"1998-02-28");
+  assert.equal(withYearMonth("2026-11-24",2000,1),"2000-01-24");
+  assert.equal(yearPage(2026),2016);
+  assert.equal(yearPage(2016),2016);
+  assert.equal(yearPage(1998),1992);
 });
